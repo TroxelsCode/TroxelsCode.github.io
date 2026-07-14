@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Topology Prototype Harness</title>
+  <style>
+    /* Harness-only page chrome. THROWAWAY - not part of the component. */
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      padding: 24px 20px 60px;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #f9f9f7;
+      color: #0b0b0b;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0d0d0d; color: #ffffff; }
+    }
+    .banner {
+      border: 2px dashed #c98500;
+      border-radius: 8px;
+      padding: 10px 16px;
+      margin: 0 auto 28px;
+      max-width: 1150px;
+      font-size: 14px;
+    }
+    .banner strong { letter-spacing: 0.06em; }
+    section {
+      max-width: 1150px;
+      margin: 0 auto 36px;
+    }
+    h2 {
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      opacity: 0.65;
+      margin: 0;
+    }
+    .tier-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 0 4px 10px;
+    }
+    .gremlin-toggle {
+      font: inherit;
+      font-size: 13px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      border: 1px solid #a9a79f;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+    }
+    .gremlin-toggle.on {
+      border-color: #d03b3b;
+      color: #d03b3b;
+      font-weight: 600;
+    }
+    .mount {
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    }
+  </style>
+</head>
+<body>
+  <div class="banner">
+    <strong>PROTOTYPE HARNESS - THROWAWAY SCAFFOLDING.</strong>
+    This page previews the topology component and is not part of the
+    deliverable. Click any node to toggle it offline; click again to restore.
+  </div>
+
+  <section>
+    <div class="tier-head">
+      <h2>Small tier - no redundancy by design</h2>
+      <button class="gremlin-toggle" data-tier="small"></button>
+    </div>
+    <div class="mount" id="mount-small"></div>
+  </section>
+
+  <section>
+    <div class="tier-head">
+      <h2>Medium tier - WAN pair, firewall pair, switch mesh</h2>
+      <button class="gremlin-toggle" data-tier="medium"></button>
+    </div>
+    <div class="mount" id="mount-medium"></div>
+  </section>
+
+  <section>
+    <div class="tier-head">
+      <h2>Large tier - two sites, shared core mesh, dual site bridges</h2>
+      <button class="gremlin-toggle" data-tier="large"></button>
+    </div>
+    <div class="mount" id="mount-large"></div>
+  </section>
+
+  <script type="module">
+    import { TopologyViz } from '../topology/render/topology-render.js';
+    import { tiers } from '../topology/tiers/tiers.js';
+
+    const instances = {};
+    for (const tier of ['small', 'medium', 'large']) {
+      instances[tier] = TopologyViz.mount(
+        document.getElementById('mount-' + tier),
+        tiers[tier],
+        { gremlin: { enabled: true } }
+      );
+    }
+
+    for (const button of document.querySelectorAll('.gremlin-toggle')) {
+      const instance = instances[button.dataset.tier];
+      const paint = () => {
+        const on = instance.gremlinRunning();
+        button.textContent = 'Gremlin: ' + (on ? 'ON' : 'off');
+        button.classList.toggle('on', on);
+      };
+      button.addEventListener('click', () => {
+        if (instance.gremlinRunning()) instance.stopGremlin();
+        else instance.startGremlin();
+        paint();
+      });
+      paint();
+    }
+  </script>
+</body>
+</html>

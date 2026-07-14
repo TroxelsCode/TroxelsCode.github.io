@@ -1,0 +1,287 @@
+/*
+ * topology.css
+ *
+ * All visual tokens for the topology component live here as CSS custom
+ * properties on the component root, with light and dark defaults. A
+ * host page rethemes by overriding the --topo-* properties; no engine
+ * or renderer code contains color values. Every selector is scoped
+ * under .topo-viz so nothing leaks into a host page.
+ */
+
+.topo-viz {
+  /* surfaces and ink */
+  --topo-bg: #fcfcfb;
+  --topo-text: #0b0b0b;
+  --topo-muted: #898781;
+  --topo-line: #c3c2b7;
+  --topo-node-fill: #f3f2ee;
+  --topo-node-border: #a9a79f;
+
+  /* state families */
+  --topo-online: #52514e;
+  --topo-offline: #d03b3b;
+  --topo-offline-fill: #f9e4e4;
+  --topo-active: #1baf7a;
+  --topo-gremlin: #4a3aa7;
+
+  /* status rollup */
+  --topo-status-ok: #0ca30c;
+  --topo-status-warn: #fab219;
+  --topo-status-danger: #d03b3b;
+
+  position: relative;
+  background: var(--topo-bg);
+  color: var(--topo-text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  border-radius: 10px;
+  padding: 10px 12px 6px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .topo-viz {
+    --topo-bg: #1a1a19;
+    --topo-text: #ffffff;
+    --topo-muted: #898781;
+    --topo-line: #45443f;
+    --topo-node-fill: #232321;
+    --topo-node-border: #5c5a54;
+
+    --topo-online: #c3c2b7;
+    --topo-offline: #e66767;
+    --topo-offline-fill: #3a2222;
+    --topo-active: #21c489;
+    --topo-gremlin: #9085e9;
+
+    --topo-status-ok: #0ca30c;
+    --topo-status-warn: #fab219;
+    --topo-status-danger: #e66767;
+  }
+}
+
+.topo-viz svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---- status bar ---- */
+
+.topo-viz .topo-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: center;
+  font-size: 13px;
+  margin: 0 2px 8px;
+  min-height: 18px;
+}
+
+.topo-viz .topo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--topo-text);
+}
+
+.topo-viz .topo-chip .topo-chip-site {
+  color: var(--topo-muted);
+}
+
+.topo-viz .topo-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.topo-viz .topo-chip.status-ok .topo-dot { background: var(--topo-status-ok); }
+.topo-viz .topo-chip.status-warn .topo-dot { background: var(--topo-status-warn); }
+.topo-viz .topo-chip.status-danger .topo-dot { background: var(--topo-status-danger); }
+
+/* ---- edges ---- */
+
+.topo-viz .topo-edge {
+  fill: none;
+  stroke: var(--topo-line);
+  stroke-width: 1.6;
+  transition: stroke 120ms linear, opacity 120ms linear;
+}
+
+.topo-viz .topo-edge.is-active {
+  stroke: var(--topo-active);
+  stroke-width: 2.6;
+}
+
+.topo-viz .topo-edge.is-dead {
+  opacity: 0.35;
+}
+
+.topo-viz .topo-edge.kind-sync {
+  stroke-dasharray: 6 7;
+  stroke-width: 1.4;
+  opacity: 0.8;
+}
+
+/* Cosmetic heartbeat crawl on live sync links. Purely visual flavor:
+   it never gates or delays failover, which is instant. */
+.topo-viz .topo-edge.kind-sync.sync-live {
+  animation: topo-sync-march 2.6s linear infinite;
+}
+
+@keyframes topo-sync-march {
+  to { stroke-dashoffset: -26; }
+}
+
+.topo-viz .topo-edge.kind-bridge {
+  stroke-dasharray: 2 6;
+  stroke-linecap: round;
+  stroke-width: 2;
+}
+
+.topo-viz .topo-edge.kind-bridge.is-active {
+  stroke-dasharray: none;
+  stroke: var(--topo-active);
+}
+
+.topo-viz .topo-edge-label {
+  fill: var(--topo-muted);
+  font-size: 11px;
+}
+
+/* ---- nodes ---- */
+
+.topo-viz .topo-node {
+  cursor: pointer;
+}
+
+.topo-viz .topo-node rect {
+  fill: var(--topo-node-fill);
+  stroke: var(--topo-node-border);
+  stroke-width: 1.4;
+  transition: fill 120ms linear, stroke 120ms linear;
+}
+
+.topo-viz .topo-node text {
+  fill: var(--topo-text);
+  text-anchor: middle;
+  user-select: none;
+}
+
+.topo-viz .topo-node .topo-sub {
+  fill: var(--topo-muted);
+}
+
+.topo-viz .topo-node:hover rect {
+  stroke: var(--topo-online);
+  stroke-width: 2;
+}
+
+/* endpoint of at least one active edge */
+.topo-viz .topo-node.is-active rect {
+  stroke: var(--topo-active);
+  stroke-width: 2;
+}
+
+/* healthy but currently unreachable (upstream failure): dimmed */
+.topo-viz .topo-node.is-unreachable {
+  opacity: 0.4;
+}
+
+/* toggled offline by the user: red family */
+.topo-viz .topo-node.is-down rect {
+  fill: var(--topo-offline-fill);
+  stroke: var(--topo-offline);
+}
+
+.topo-viz .topo-node.is-down text {
+  fill: var(--topo-offline);
+}
+
+.topo-viz .topo-node.is-down .topo-sub {
+  fill: var(--topo-offline);
+  opacity: 0.75;
+}
+
+/* ---- site row labels ---- */
+
+.topo-viz .topo-site-label {
+  fill: var(--topo-muted);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ---- packets ---- */
+
+.topo-viz .topo-packet {
+  fill: var(--topo-active);
+  pointer-events: none;
+}
+
+/* ---- gremlin / fixer badges ---- */
+
+.topo-viz .topo-badge {
+  pointer-events: none;
+}
+
+.topo-viz .topo-badge > * {
+  animation: topo-badge-pop 240ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.topo-viz .topo-badge-gremlin circle,
+.topo-viz .topo-badge-gremlin .topo-badge-ear {
+  fill: var(--topo-gremlin);
+}
+
+.topo-viz .topo-badge-gremlin .topo-badge-eye,
+.topo-viz .topo-badge-gremlin .topo-badge-fang {
+  fill: var(--topo-bg);
+}
+
+.topo-viz .topo-badge-gremlin .topo-badge-mouth {
+  fill: none;
+  stroke: var(--topo-bg);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.topo-viz .topo-badge-fix circle {
+  fill: var(--topo-active);
+}
+
+.topo-viz .topo-badge-fix .topo-badge-check {
+  fill: none;
+  stroke: var(--topo-bg);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* fixer badge lingers briefly, then fades (element removed by JS) */
+.topo-viz .topo-badge-fix {
+  animation: topo-badge-fade 400ms ease-in 1s both;
+}
+
+@keyframes topo-badge-pop {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+@keyframes topo-badge-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topo-viz .topo-edge.kind-sync.sync-live {
+    animation: none;
+  }
+  .topo-viz .topo-packets {
+    display: none;
+  }
+  .topo-viz .topo-badge > * {
+    animation: none;
+  }
+}

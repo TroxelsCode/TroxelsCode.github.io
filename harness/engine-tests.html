@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engine tests</title>
+  <style>
+    /* THROWAWAY test scaffolding - not part of the deliverable. */
+    :root { color-scheme: light dark; }
+    body {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 14px;
+      padding: 20px;
+    }
+    li { margin: 3px 0; }
+    .pass { color: #0ca30c; }
+    .fail { color: #d03b3b; font-weight: bold; }
+    #summary { font-size: 18px; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div id="summary">running...</div>
+  <ol id="results"></ol>
+
+  <script type="module">
+    import { computeState, edgeKey } from '../topology/engine/topology-engine.js';
+    import { tiers } from '../topology/tiers/tiers.js';
+
+    const st = (tier, downIds) => computeState(tiers[tier], new Set(downIds || []));
+    const sink = (state, id) => state.sinks.find((s) => s.id === id).reachable;
+    const site = (state, id) => state.sites.find((s) => s.id === id);
+    const active = (state, a, b) => state.activeEdgeIds.has(edgeKey(a, b));
+    const node = (state, id) => state.nodes.get(id);
+
+    const tests = [];
+    const t = (name, fn) => tests.push({ name, fn });
+
+    // ---- small tier: zero redundancy by design ----
+
+    t('small: baseline is green, both sinks reachable', () => {
+      const s = st('small');
+      return s.global === 'ok' && sink(s, 'srv') && sink(s, 'ws');
+    });
+
+    t('small: one leaf down is amber, both leaves down is red', () => {
+      return st('small', ['srv']).global === 'warn' &&
+             st('small', ['srv', 'ws']).global === 'danger';
+    });
+
+    t('small: switch down takes everything downstream (red)', () => {
+      const s = st('small', ['sw']);
+      return s.global === 'danger' && !sink(s, 'srv') && !sink(s, 'ws') &&
+             !node(s, 'srv').reachable;
+    });
+
+    t('small: ISP down cascades serially to red', () => {
+      const s = st('small', ['isp']);
+      return s.global === 'danger' && !node(s, 'fw').reachable &&
+             !node(s, 'sw').reachable;
+    });
+
+    t('small: dead chain carries no active edges', () => {
+      return st('small', ['sw']).activeEdgeIds.size === 0;
+    });
+
+    // ---- medium tier: pair vs mesh semantics ----
+
+    t('medium: baseline green, WAN-A active, WAN-B standby', () => {
+      const s = st('medium');
+      return s.global === 'ok' &&
+             node(s, 'wan-a').role === 'active' &&
+             node(s, 'wan-b').role === 'standby';
+    });
+
+    t('medium: standby side does NOT light (the pair-vs-Dijkstra bug)', () => {
+      const s = st('medium');
+      return active(s, 'wan-a', 'fw-a') &&
+             !active(s, 'wan-b', 'fw-b') &&
+             !active(s, 'fw-b', 'sw1') &&
+             !active(s, 'fw-b', 'sw2');
+    });
+
+    t('medium: mesh side lights active-active (both switch links)', () => {
+      const s = st('medium');
+      return active(s, 'fw-a', 'sw1') && active(s, 'fw-a', 'sw2') &&
+             active(s, 'sw1', 'sw2');
+    });
+
+    t('medium: WAN-A down fails over instantly, still green', () => {
+      const s = st('medium', ['wan-a']);
+      return s.global === 'ok' &&
+             node(s, 'wan-b').role === 'active' &&
+             active(s, 'wan-b', 'fw-a') &&
+             !active(s, 'wan-a', 'fw-a');
+    });
+
+    t('medium: FW-A down promotes FW-B, its links light, still green', () => {
+      const s = st('medium', ['fw-a']);
+      return s.global === 'ok' &&
+             node(s, 'fw-b').role === 'active' &&
+             active(s, 'fw-b', 'sw1') && !active(s, 'fw-a', 'sw1');
+    });
+
+    t('medium: SW-1 down = WS-1 lost (amber) but servers fail to SRV-1-B', () => {
+      const s = st('medium', ['sw1']);
+      return s.global === 'warn' &&
+             !sink(s, 'ws1') && sink(s, 'ws2') && sink(s, 'servers') &&
+             node(s, 'srv-b').role === 'active' &&
+             active(s, 'sw2', 'srv-b');
+    });
+
+    t('medium: server pair member down alone stays green', () => {
+      const s = st('medium', ['srv-a']);
+      return s.global === 'ok' && sink(s, 'servers') &&
+             node(s, 'srv-b').role === 'active';
+    });
+
+    t('medium: both WANs down is red with no active edges', () => {
+      const s = st('medium', ['wan-a', 'wan-b']);
+      return s.global === 'danger' && s.activeEdgeIds.size === 0;
+    });
+
+    t('medium: all three sink classes down is red', () => {
+      return st('medium', ['srv-a', 'srv-b', 'ws1', 'ws2']).global === 'danger';
+    });
+
+    t('medium: pair up only if its upstream chain is intact', () => {
+      // FW-B healthy but both WANs dead: FW-B must not count as up.
+      const s = st('medium', ['wan-a', 'wan-b']);
+      return node(s, 'fw-b').role === null && !node(s, 'fw-b').reachable;
+    });
+
+    // ---- large tier: shared mesh + site bridge ----
+
+    t('large: baseline both sites green, global green, both bridges idle', () => {
+      const s = st('large');
+      return s.global === 'ok' &&
+             site(s, 's1').status === 'ok' && site(s, 's2').status === 'ok' &&
+             !active(s, 's1-fwa2', 's2-fwa1') && !active(s, 's1-fwb2', 's2-fwb1');
+    });
+
+    t('large: entire stack A down is absorbed by shared mesh, no bridge', () => {
+      const s = st('large', ['s1-fwa1', 's1-fwa2']);
+      return site(s, 's1').status === 'ok' && !site(s, 's1').viaBridge &&
+             !active(s, 's1-fwa2', 's2-fwa1') && s.global === 'ok';
+    });
+
+    t('large: one switch down loses only its WS group (amber)', () => {
+      const s = st('large', ['s1-sw2']);
+      return site(s, 's1').status === 'warn' &&
+             sink(s, 's1-servers') && !sink(s, 's1-ws2') &&
+             sink(s, 's1-ws1') && sink(s, 's1-ws3') &&
+             !site(s, 's1').viaBridge;
+    });
+
+    t('large: all 4 site ISPs down activates BOTH bridges (active-active), amber', () => {
+      const s = st('large', ['s1-isp1', 's1-isp2', 's1-isp3', 's1-isp4']);
+      return site(s, 's1').viaBridge === true &&
+             site(s, 's1').status === 'warn' &&
+             active(s, 's1-fwa2', 's2-fwa1') &&
+             active(s, 's1-fwb2', 's2-fwb1') &&
+             sink(s, 's1-servers') && sink(s, 's1-ws1') &&
+             site(s, 's2').status === 'ok' && s.global === 'warn';
+    });
+
+    t('large: ISPs + stack A dead: stack B bridge alone carries the site', () => {
+      const s = st('large', ['s1-isp1', 's1-isp2', 's1-isp3', 's1-isp4',
+                             's1-fwa1', 's1-fwa2']);
+      return site(s, 's1').viaBridge === true &&
+             site(s, 's1').status === 'warn' &&
+             !active(s, 's1-fwa2', 's2-fwa1') &&
+             active(s, 's1-fwb2', 's2-fwb1') &&
+             sink(s, 's1-servers') && sink(s, 's1-ws2') &&
+             s.global === 'warn';
+    });
+
+    t('large: ISPs + both stacks dead: no bridge can land, site red', () => {
+      const s = st('large', ['s1-isp1', 's1-isp2', 's1-isp3', 's1-isp4',
+                             's1-fwa1', 's1-fwa2', 's1-fwb1', 's1-fwb2']);
+      return site(s, 's1').status === 'danger' &&
+             site(s, 's1').viaBridge === false &&
+             !active(s, 's1-fwa2', 's2-fwa1') &&
+             !active(s, 's1-fwb2', 's2-fwb1') &&
+             s.global === 'warn'; // one red + one green still reads amber
+    });
+
+    t('large: both sites dark = no circular rescue, global red', () => {
+      const s = st('large', ['s1-isp1', 's1-isp2', 's1-isp3', 's1-isp4',
+                             's2-isp1', 's2-isp2', 's2-isp3', 's2-isp4']);
+      return site(s, 's1').status === 'danger' &&
+             site(s, 's2').status === 'danger' &&
+             !site(s, 's1').viaBridge && !site(s, 's2').viaBridge &&
+             s.global === 'danger';
+    });
+
+    t('large: bridged site dims its stranded ISPs', () => {
+      const s = st('large', ['s1-isp1', 's1-isp2', 's1-isp3', 's1-isp4']);
+      return node(s, 's1-fwa1').reachable && !node(s, 's1-isp1').reachable;
+    });
+
+    t('engine purity: computeState mutates neither config nor downSet', () => {
+      const down = new Set(['sw']);
+      const before = JSON.stringify(tiers.small);
+      st('small', down);
+      computeState(tiers.small, down);
+      return JSON.stringify(tiers.small) === before &&
+             down.size === 1 && down.has('sw');
+    });
+
+    // ---- run ----
+
+    const list = document.getElementById('results');
+    let passed = 0;
+    for (const test of tests) {
+      let ok = false;
+      let err = null;
+      try {
+        ok = test.fn() === true;
+      } catch (e) {
+        err = e;
+      }
+      if (ok) passed += 1;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = (ok ? 'PASS ' : 'FAIL ') + test.name + (err ? ' [' + err.message + ']' : '');
+      list.appendChild(li);
+    }
+    const summary = passed + '/' + tests.length + (passed === tests.length ? ' PASS' : ' SOME FAILED');
+    document.getElementById('summary').textContent = summary;
+    document.title = 'TESTS: ' + summary;
+  </script>
+</body>
+</html>

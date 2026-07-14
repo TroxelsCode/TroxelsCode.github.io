@@ -6,45 +6,60 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages.
 
-- Repo: `TroxelsCode/TroxelsCode.github.io` (public, user site — served at the domain root)
+- Repo: `TroxelsCode/TroxelsCode.github.io` (public, user site, served at the domain root)
 - Live URL: https://troxelscode.github.io/
 - A custom domain can be attached later via a `CNAME` file + DNS without restructuring the repo.
 
+## Style rules (user directives)
+
+- **No em dashes and no non-ASCII characters anywhere**, in code, comments, or docs. ASCII only: use "->" not arrows, "x" not multiplication signs, plain hyphens for punctuation.
+
 ## Environment
 
-- **No Node.js or npm installed on this machine.** The site is deliberately plain HTML/CSS/JS with no build step, so this is not currently a blocker. If a future feature requires a build tool or package manager, flag it to the user before assuming it's available — check with `node -v` / `npm -v` first.
-- **Python 3.14.6 is installed** at `%LOCALAPPDATA%\Programs\Python\Python314`, but as of 2026-07-12 a bare `python` command doesn't resolve in Claude Code's shell tools — a Windows Store "App execution alias" stub shadows it, and PATH hadn't refreshed since install. The user restarted the session to pick up PATH; if `python --version` still fails, fall back to the full path above rather than assuming Python is unavailable.
+- **No Node.js or npm installed on this machine.** The site is deliberately plain HTML/CSS/JS with no build step. If a future feature requires a build tool or package manager, flag it to the user first; check with `node -v` / `npm -v` before assuming.
+- **Python 3.14.6 is installed** at `%LOCALAPPDATA%\Programs\Python\Python314`, but as of 2026-07-12 a bare `python` command still does not resolve in Claude Code's shell tools (a Windows Store "App execution alias" stub shadows it). Use the full path.
+- **Headless Edge works for verification**: `"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"` with `--headless=new --disable-gpu --virtual-time-budget=5000` plus `--screenshot=<path> --window-size=WxH` (visual check via Read on the PNG) or `--dump-dom` (run JS, grep output). Use `Start-Process -Wait -RedirectStandardOutput` in PowerShell; plain `>` redirection of msedge output produced an empty file.
 - `gh` CLI is installed and authenticated as `TroxelsCode`.
 - Git identity for this repo is set locally (not globally) to the GitHub noreply address (`203574397+TroxelsCode@users.noreply.github.com`) so the user's real email stays out of public commit history.
 
 ## Commands
 
-There is currently no build, lint, or test tooling — the site is static HTML/CSS/JS served as-is.
-
-- **Local preview**: `python -m http.server` from the repo root, then open the printed URL. Falls back to opening [index.html](index.html) directly in a browser if Python isn't resolving.
-- **Deploy**: push to `main` — GitHub Pages auto-builds from the branch root (legacy Pages build, no Actions workflow configured).
-
-If build/lint/test tooling is added later, update this section with the actual commands rather than leaving it stale.
+- **Local preview** (required for the topology pages; ES modules do not load over `file://`):
+  `& "$env:LOCALAPPDATA\Programs\Python\Python314\python.exe" -m http.server 8123` from the repo root, then open `http://localhost:8123/harness/`.
+- **Engine tests**: open `http://localhost:8123/harness/engine-tests.html` in a browser (or headless Edge `--dump-dom` and grep for `TESTS:`). The page title reports `TESTS: N/N PASS`.
+- **Deploy**: push to `main`; GitHub Pages auto-builds from the branch root (legacy Pages build, no Actions workflow).
 
 ## Architecture
 
-- `index.html` — single entry point.
-- `css/style.css` — stylesheet, linked from `index.html`.
-- `js/main.js` — script entry point, linked from `index.html`.
-- No framework, bundler, or package manager is in use. Keep additions dependency-free unless the user asks for a framework.
+Root `index.html` / `css/` / `js/` are still the placeholder site. The real work this phase is the topology visualization prototype, spec'd in [network-topology-prototype-spec.md](network-topology-prototype-spec.md) (read it before touching the component):
 
-The site is currently a minimal scaffold ("under construction" placeholder). The real design spec (a resume-style site with a custom hero banner) has not been provided yet — expect the architecture above to change significantly once that spec lands.
+- `topology/engine/topology-engine.js` - pure state computation (pairwise failover, mesh reachability, site bridge fallback, status rollup). **Zero DOM code; keep it that way.** Redundancy is dispatched per class (`single`/`pair`/`mesh` + site-level bridge); do NOT unify into one generic shortest-path pass - that produces the documented both-pair-members-light bug.
+- `topology/render/topology-render.js` - SVG renderer + click interaction. Consumes engine output; contains no failover logic. Mount API: `TopologyViz.mount(containerEl, tierConfig, options)` returns `{ root, update, reset, destroy, startGremlin, stopGremlin, gremlinRunning }`. Injects its own stylesheet link (resolved via `import.meta.url`) once per document. "Gremlin mode" (`options.gremlin = { enabled, breakMin, breakMax, fixMin, fixMax }`) is ambient auto-play: random node breaks with per-strike randomized repair timers, SVG badge popouts (purple imp with pointy ears and an evil grin while down - deliberately NOT a red devil, user is sensitive to religious readings - and a teal check on repair). Pacing merges defaults < tier config `gremlin` block < mount options; tier configs scale pacing with network size (small slowest, large busiest, fix/break ratio ~0.6). Gremlin only toggles the same downSet a click uses; the engine stays pure and failover stays instant. The mount hides the component root until its injected stylesheet loads (prevents a black-fill first paint / mid-transition screenshots).
+- `topology/render/topology.css` - every visual token is a `--topo-*` custom property on `.topo-viz` with light defaults + `prefers-color-scheme: dark` overrides. Hosts retheme by overriding the properties; no colors in JS.
+- `topology/tiers/tiers.js` - small/medium/large tier data (nodes, edges, layout coords in viewBox units, and a `structure` block naming fabric roles per site so the engine dispatches by declared role). The large tier is generated by `buildLargeTier()` since both sites are identical.
+- `harness/index.html` - THROWAWAY preview page, renders all three tiers at once (also proves multi-instance isolation); gremlin mode on by default with a toggle button per tier.
+- `harness/engine-tests.html` - THROWAWAY browser-run engine assertions (24 scenario tests).
+
+Large-tier bridges: TWO stack-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches stack redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
+
+Component conventions: edge ids are `a + '--' + b` (see `edgeKey`); edge `bow` is a lateral quadratic-curve offset (positive bows right of the a->b direction) used to route around node boxes; packet animations are a deterministic representative subset per (site, section) and never affect state accuracy.
+
+Default palette values came from the bundled dataviz skill's validated reference palette (status colors #0ca30c / #fab219 / #d03b3b, active teal #1baf7a light / #21c489 dark).
 
 ## Maintaining this file
 
-Treat this file as living documentation, not a one-time snapshot. Whenever you learn something during a session that would help a future session — a new architectural decision, a constraint discovered the hard way, a tool or command that turned out to be necessary, a preference the user stated — add it here before the session ends. Prefer editing the relevant section above over appending a changelog entry.
+Treat this file as living documentation, not a one-time snapshot. Whenever you learn something during a session that would help a future session (a new architectural decision, a constraint discovered the hard way, a tool or command that turned out to be necessary, a preference the user stated), add it here before the session ends. Prefer editing the relevant section above over appending a changelog entry.
 
 ## Open items / TODOs
 
 Running list of things noticed or deferred, not yet acted on. Add to this list as items come up; remove them once resolved.
 
-- Hero banner + full site design spec: not yet provided by the user.
-- README.md exists but is generic placeholder content — revisit once the site has real content.
-- Confirm `python` resolves on the bare command after the session restart; update the Environment section if the alias/PATH issue persists.
+- Prototype phase in review: first revision round done (server renames, dual bridges, gremlin mode). Still open to workshop: large-tier density (2 FWs/stack, 3 switches per site) and the dimmed treatment for unreachable nodes.
+- Gremlin future ideas noted, not built: the fixer could also repair visitor-caused breakage (fun for the hero); tune badge art/pacing during hero integration.
+- Spec-literal behavior worth confirming with the user: in bridge mode (and generally in the shared mesh), stack-B firewalls light up as transit because a surviving path exists through them (active-active "every edge on any surviving path"). Matches the spec text; may or may not match intent.
+- Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation) noted in spec as out of scope this phase.
+- Site content, hero integration, resume copy: later phase.
+- README.md is generic placeholder content; revisit once the site has real content.
+- Bare `python` still not resolving as of 2026-07-12 even after session restart; full path required (see Environment).
 - No custom domain configured yet (site currently only live at troxelscode.github.io).
-- No CI/Actions workflow — Pages currently uses the legacy branch-based build.
+- No CI/Actions workflow; Pages uses the legacy branch-based build.
