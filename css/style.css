@@ -1,5 +1,40 @@
+/*
+ * style.css - site-wide styles.
+ *
+ * Tokens mirror topology/render/topology.css's pattern: light defaults on
+ * :root, overridden in prefers-color-scheme: dark. The site respects system
+ * preference rather than forcing a theme, so it never needs to override any
+ * --topo-* custom property - the hero component already themes itself the
+ * same way. (The component injects its stylesheet at mount time, after any
+ * host <link>, so a host override would need extra specificity to win. Not
+ * needed here - don't add one without a reason.)
+ */
+
 :root {
   color-scheme: light dark;
+
+  --site-bg: #fcfcfb;
+  --site-surface: #f3f2ee;
+  --site-text: #0b0b0b;
+  --site-muted: #76756f;
+  --site-border: #c3c2b7;
+  --site-accent: #1aa674;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+
+  --content-width: 960px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --site-bg: #1a1a19;
+    --site-surface: #232321;
+    --site-text: #ffffff;
+    --site-muted: #898781;
+    --site-border: #45443f;
+    --site-accent: #21c489;
+  }
 }
 
 * {
@@ -8,5 +43,264 @@
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--site-bg);
+  color: var(--site-text);
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+h1, h2, p, ul, ol {
+  margin: 0;
+}
+
+a {
+  color: var(--site-accent);
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--site-accent);
+  color: var(--site-bg);
+  padding: 10px 16px;
+  border-radius: 0 0 6px 0;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* ---- header / nav ---- */
+
+.site-header {
+  border-bottom: 1px solid var(--site-border);
+}
+
+.site-nav {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.wordmark {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--site-text);
+}
+
+.nav-links {
+  display: flex;
+  list-style: none;
+  gap: 20px;
+  padding: 0;
+}
+
+.nav-links a {
+  color: var(--site-text);
+  text-decoration: none;
+}
+
+.nav-links a:hover {
+  color: var(--site-accent);
+}
+
+/* ---- layout ---- */
+
+main {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+section {
+  padding: 48px 0;
+  border-bottom: 1px solid var(--site-border);
+}
+
+section:last-of-type {
+  border-bottom: none;
+}
+
+.section-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--site-muted);
+  margin-bottom: 20px;
+}
+
+/* ---- hero ---- */
+
+.hero-intro h1 {
+  font-size: clamp(2rem, 5vw, 2.75rem);
+}
+
+.hero-title {
+  font-family: var(--font-mono);
+  color: var(--site-accent);
+  margin-top: 8px;
+}
+
+.hero-tagline {
+  color: var(--site-muted);
+  margin-top: 12px;
+  max-width: 60ch;
+}
+
+/* Reserved slot for the topology hero component (Phase 2). Sized to the
+   large tier's viewBox aspect ratio (1000x745) plus ~26px for the
+   component's status bar, which renders above the SVG in normal flow -
+   do not remove this reservation, it's what lets the tier-swap/scroll-pin
+   work land without a layout rework. */
+.hero-mount {
+  margin-top: 32px;
+  /* the large tier's SVG is viewBox 1000x745 (topology/tiers/tiers.js);
+     the 771 here is 745 + a ~26px allowance for the component's status
+     bar, which renders above the SVG in normal document flow. aspect-ratio
+     (not a percentage min-height) is what makes this width-driven without
+     needing an explicit container height. */
+  aspect-ratio: 1000 / 771;
+  max-height: 640px;
+  border: 1px dashed var(--site-border);
+  border-radius: 10px;
+  background: var(--site-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.hero-mount-caption {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--site-muted);
+  text-align: center;
+}
+
+/* ---- stats ---- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 24px;
+}
+
+.stat-tile {
+  padding: 20px;
+  border: 1px solid var(--site-border);
+  border-radius: 10px;
+  background: var(--site-surface);
+}
+
+.stat-figure {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--site-accent);
+}
+
+.stat-label {
+  margin-top: 6px;
+  font-size: 0.95rem;
+}
+
+.stat-qualifier {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--site-muted);
+}
+
+/* ---- timeline ---- */
+
+.timeline-track {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.timeline-stop {
+  padding-left: 20px;
+  border-left: 2px solid var(--site-accent);
+}
+
+.timeline-role {
+  font-weight: 600;
+}
+
+.timeline-period {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--site-muted);
+  margin-top: 4px;
+}
+
+@media (min-width: 640px) {
+  .timeline-track {
+    flex-direction: row;
+    gap: 32px;
+  }
+
+  .timeline-stop {
+    flex: 1;
+    border-left: none;
+    border-top: 2px solid var(--site-accent);
+    padding-left: 0;
+    padding-top: 16px;
+  }
+}
+
+/* ---- footer ---- */
+
+.site-footer {
+  max-width: var(--content-width);
+  margin: 0 auto;
+  padding: 24px 20px 48px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--site-muted);
+  font-size: 0.85rem;
+}
+
+.footer-links {
+  list-style: none;
+  display: flex;
+  gap: 20px;
+  padding: 0;
+}
+
+.footer-links a {
+  color: var(--site-muted);
+}
+
+.footer-links a:hover {
+  color: var(--site-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

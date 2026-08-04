@@ -12,7 +12,9 @@
   /* surfaces and ink */
   --topo-bg: #fcfcfb;
   --topo-text: #0b0b0b;
-  --topo-muted: #898781;
+  /* darkened from the dataviz-skill default (#898781, 3.50:1) to clear WCAG
+     text contrast (4.5:1) against --topo-bg; used for sub-labels/edge labels */
+  --topo-muted: #76756f;
   --topo-line: #c3c2b7;
   --topo-node-fill: #f3f2ee;
   --topo-node-border: #a9a79f;
@@ -21,12 +23,16 @@
   --topo-online: #52514e;
   --topo-offline: #d03b3b;
   --topo-offline-fill: #f9e4e4;
-  --topo-active: #1baf7a;
+  /* darkened from the dataviz-skill default (#1baf7a, 2.74:1) to clear WCAG
+     non-text contrast (3:1) against --topo-bg; drives active edges/nodes/packets/fix badge */
+  --topo-active: #1aa674;
   --topo-gremlin: #4a3aa7;
 
   /* status rollup */
   --topo-status-ok: #0ca30c;
-  --topo-status-warn: #fab219;
+  /* darkened from the dataviz-skill default (#fab219, 1.79:1) to clear WCAG
+     non-text contrast (3:1) against --topo-bg */
+  --topo-status-warn: #c48704;
   --topo-status-danger: #d03b3b;
 
   position: relative;
