@@ -56,10 +56,12 @@ Default palette values came from the bundled dataviz skill's validated reference
 
 ## Homepage build
 
-`homepage-design-handoff.md` (repo root) was the original directional brainstorm doc from a
-separate Cowork session (2026-08-04). As of 2026-08-04 its content has been fully migrated
-into this file (some decisions implemented as-is, two overridden - see the file itself for
-which) and it now just points here. Safe to delete; kept only as a paper trail until then.
+A `homepage-design-handoff.md` doc from a separate Cowork brainstorming session
+(2026-08-04) originally seeded this section; its content was fully migrated in and the file
+was deleted the same day (most decisions carried forward as-is, two explicitly overridden
+during implementation: the forced teal-on-near-black palette, replaced by respecting system
+`prefers-color-scheme`; and a dedicated Contact page section, replaced by footer links). This
+file is the sole source of truth going forward.
 
 **Phase 1 COMPLETE (2026-08-04): static homepage skeleton, no interactive hero yet.**
 `index.html` / `css/style.css` / `js/main.js` are no longer the placeholder. Built: nav
