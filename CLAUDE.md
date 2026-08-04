@@ -70,8 +70,9 @@ banner with a placeholder tagline (`hero-tagline` in `index.html`, marked with a
 still needs real copy), a reserved hero slot (`#hero-mount` / `.hero-mount` in
 `css/style.css`), stats strip (real figures, both endpoint numbers shown with the ~2,000
 figure primary and the 10,000 figure as a subordinate qualifier), promotion timeline, and
-footer. `/resume/index.html` is a stub carrying the same nav/footer chrome, not the real
-resume (see "Resume page + cross-repo pipeline" below).
+footer. `/resume/index.html` carries the same nav/footer chrome and, as of 2026-08-04, real
+resume content synced in from the separate resume repo (see "Resume page + cross-repo
+pipeline" below for the mechanics).
 
 **Nav/contact decisions made during the build**, superseding the handoff doc: no dedicated
 Contact section and no Contact nav link - the user decided a full section was more than this
@@ -85,6 +86,12 @@ links and `mailto:` stay same-tab. Apply this convention to any new external lin
 email is rendered by `js/main.js` (`renderEmailLink`) from a char-code array at runtime
 rather than sitting in the static HTML, to raise the bar above trivial regex scraping - not
 a real security boundary, just reduces casual harvesting.
+
+**Wordmark/heading font mismatch is intentional, user-confirmed (2026-08-04).** The nav
+wordmark (`sean troxel`, lowercase, `.wordmark`, mono) deliberately differs from the sans,
+normal-case `<h1>Sean Troxel</h1>` in the hero - a "brand mark vs. heading" distinction, not
+a design collision. User was asked directly and chose to keep it as-is over unifying the two.
+Don't "fix" this without checking first.
 
 **Theme decision (2026-08-04): respect system `prefers-color-scheme`, do NOT force a
 permanent dark/teal theme.** This overrides the handoff doc's "teal-on-near-black site
@@ -146,10 +153,29 @@ just the semantic content (headings, sections, lists) that goes inside this repo
 the resume inherits the same light/dark theming automatically, rather than bringing its own
 styling.
 
+**DONE (2026-08-04): first real content synced in and styled.** The resume repo's generator
+produced a fragment matching the contract closely (correctly omitted `<html>`/`<head>`/
+`<nav>`/`<footer>`/inline styles, correct heading hierarchy, ASCII-only, reused
+`.section-eyebrow`). Its class names are now the **actual, load-bearing contract** - CSS in
+`css/style.css` ("---- resume page ----" block) targets them by name, so don't rename on
+either side without updating both:
+`resume-summary-section` / `resume-summary`, `resume-skills-section` / `resume-skills`
+(a `<dl>`) / `resume-skill-category` (`<dt>`) / `resume-skill-items` (`<dd>`),
+`resume-experience-section`, `resume-job` (one per employer, an `<article>`) /
+`resume-company` / `resume-titles` (a `<ul>` of promotions within that employer) /
+`resume-title-entry` / `resume-role` / `resume-dates` / `resume-job-intro` / `resume-bullets`.
+Two full-document outputs the generator also produced (`resume.html`, a standalone/print
+version, and `resume.css`) were deliberately NOT brought into this repo - they duplicate
+content in a format this site doesn't use, and contained em/en dashes and an accented
+character, violating this repo's ASCII-only rule. They're fine to keep in the resume repo
+itself; just don't drop them in here again.
+
 **Sync mechanic:** `resume/index.html` in this repo is its own template - the region between
-the `<!-- RESUME_CONTENT:START -->` / `<!-- RESUME_CONTENT:END -->` markers inside `<main>` is
-the only part a sync touches; nav, footer, and `<head>` are untouched. `scripts/sync_resume.py`
-does the splice:
+the `<!-- RESUME_CONTENT:START -->` / `<!-- RESUME_CONTENT:END -->` markers, wrapped in a
+`<div class="resume-page">` (added so `css/style.css` can scope resume-only rules like `<h1>`
+sizing without touching the fragment contract itself), is the only part a sync touches; nav,
+footer, and `<head>` stay untouched. `scripts/sync_resume.py` does the splice - it only
+rewrites between the markers, so the `.resume-page` wrapper survives every sync automatically:
 
 ```sh
 python scripts/sync_resume.py <path-to-fragment.html>
@@ -243,7 +269,7 @@ Treat this file as living documentation, not a one-time snapshot. Whenever you l
 Running list of things noticed or deferred, not yet acted on. Add to this list as items come up; remove them once resolved.
 
 - Prototype phase COMPLETE and committed (66f61a2, 2026-07-13): user approved after two revision rounds (server renames, dual bridges, gremlin mode with purple imp badges and per-tier pacing).
-- Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. See "Homepage build" above for what shipped and what's still open (resume pipeline bridging, tagline copy, resume-page identity). Phase 2 (hero integration + scrollytelling) is spec'd and next - see "TODO: Hero integration + scrollytelling" above; large-tier density, dimmed-node treatment, and gremlin fixer ideas live there, not here.
+- Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. Resume cross-repo pipeline COMPLETE and committed (7b9ffad, 2026-08-04): sync tooling built, first real resume content synced in and styled - see "Resume page + cross-repo pipeline" above. Phase 2 (hero integration + scrollytelling) is spec'd and next - see "TODO: Hero integration + scrollytelling" above; large-tier density, dimmed-node treatment, tagline copy, and gremlin fixer ideas live there, not here.
 - Spec-literal behavior worth confirming with the user: in bridge mode (and generally in the shared mesh), stack-B firewalls light up as transit because a surviving path exists through them (active-active "every edge on any surviving path"). Matches the spec text; may or may not match intent.
 - Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation) noted in spec as out of scope this phase.
 - The prototype harness is publicly served at troxeltech.com/harness/. Decision (2026-08-04): keep it around until the hero integration/network-outage implementation is finalized on the main site; revisit its fate (leave public, robots.txt-exclude, or remove) once that's done.

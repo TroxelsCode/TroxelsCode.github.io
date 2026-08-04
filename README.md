@@ -5,9 +5,9 @@ Personal professional/resume-style website, hosted on GitHub Pages at
 [troxelscode.github.io](https://troxelscode.github.io/)).
 
 The homepage is a real static site: nav, intro banner, a reserved hero
-slot, a stats strip, and a promotion timeline. The `/resume/` route is
-currently a stub - the real resume content and its generator live in a
-separate private repo and are manually synced in (see `CLAUDE.md`).
+slot, a stats strip, and a promotion timeline. The `/resume/` route has
+real content, synced in from a separate private repo that owns the
+resume's content and generator (see `CLAUDE.md` for the sync mechanic).
 
 The hero slot is not wired up yet. It's reserved for an interactive
 network topology / failover visualization being built in the open under
@@ -42,8 +42,8 @@ push. No separate deploy step.
 
 ```text
 index.html                          Site entry point (homepage)
-resume/index.html                   Resume route (stub - real content synced in via
-                                     scripts/sync_resume.py; shares site nav/footer chrome)
+resume/index.html                   Resume route - content synced in from a separate repo via
+                                     scripts/sync_resume.py; shares site nav/footer chrome
 scripts/sync_resume.py              Splices a generated resume fragment into resume/index.html
 css/, js/                           Site stylesheet and script
 network-topology-prototype-spec.md  Build spec for the visualization
