@@ -56,9 +56,10 @@ Default palette values came from the bundled dataviz skill's validated reference
 
 ## Homepage build
 
-`homepage-design-handoff.md` (repo root) is a directional brainstorm doc from a separate
-Cowork session (2026-08-04) - useful for visual/interaction rationale, but this CLAUDE.md
-section is the source of truth for tracking. Where they disagree, this file wins.
+`homepage-design-handoff.md` (repo root) was the original directional brainstorm doc from a
+separate Cowork session (2026-08-04). As of 2026-08-04 its content has been fully migrated
+into this file (some decisions implemented as-is, two overridden - see the file itself for
+which) and it now just points here. Safe to delete; kept only as a paper trail until then.
 
 **Phase 1 COMPLETE (2026-08-04): static homepage skeleton, no interactive hero yet.**
 `index.html` / `css/style.css` / `js/main.js` are no longer the placeholder. Built: nav
@@ -151,7 +152,7 @@ without a layout rework.
 
 **Goal:** promote the existing `topology/` component (currently only mounted in the throwaway
 `harness/`) into the production hero, with small tier visible on load and medium/large tiers
-revealed via scroll, matching `homepage-design-handoff.md`'s "pinned scrollytelling" spec.
+revealed via scroll ("pinned scrollytelling" - mechanism spec'd below).
 
 **Mechanism - sticky-pin, NOT scroll-jacking:** wrap the hero in a taller container sized to a
 fixed pixel scroll distance (not a `vh` multiple, so pacing doesn't swing between a tall
@@ -201,14 +202,11 @@ the real risk is content density and pacing, not the technique.
   the hero looks like.
 - Exact hero tagline/copy.
 - Exact breakpoint(s) for the mobile-simplified large tier.
-- Final accent hex values - sample from `topology/render/topology.css`, don't reuse the
-  approximate values in `homepage-design-handoff.md`.
 - Gremlin future idea (not yet built): the fixer could also repair visitor-caused breakage,
   which could be fun for the hero specifically - consider during this pass.
 
-Reference `homepage-design-handoff.md` for full visual/interaction rationale and the mount API
-docs in the Architecture section above (`TopologyViz.mount`) for the component's existing
-interface.
+See the mount API docs in the Architecture section above (`TopologyViz.mount`) for the
+component's existing interface.
 
 ## Maintaining this file
 

@@ -44,8 +44,8 @@ push. No separate deploy step.
 index.html                          Site entry point (homepage)
 resume/index.html                   Resume route (stub - real content synced in manually)
 css/, js/                           Site stylesheet and script
-homepage-design-handoff.md          Homepage brainstorm/direction doc (see CLAUDE.md for the
-                                     up-to-date tracking source of truth)
+homepage-design-handoff.md          SUPERSEDED - original brainstorm doc, content now fully
+                                     migrated into CLAUDE.md; kept only pending deletion
 network-topology-prototype-spec.md  Build spec for the visualization
 topology/engine/                    Pure failover/reachability engine (no DOM)
 topology/render/                    SVG renderer + component stylesheet
