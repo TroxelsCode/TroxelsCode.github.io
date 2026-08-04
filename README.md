@@ -4,10 +4,14 @@ Personal professional/resume-style website, hosted on GitHub Pages at
 [troxeltech.com](https://troxeltech.com/) (also reachable at
 [troxelscode.github.io](https://troxelscode.github.io/)).
 
-The site itself is still a placeholder. Current work is an interactive
-network topology / failover visualization intended for the site's hero
-banner, being built in the open under `topology/`. A live preview
-(prototype harness) is at
+The homepage is a real static site: nav, intro banner, a reserved hero
+slot, a stats strip, and a promotion timeline. The `/resume/` route is
+currently a stub - the real resume content and its generator live in a
+separate private repo and are manually synced in (see `CLAUDE.md`).
+
+The hero slot is not wired up yet. It's reserved for an interactive
+network topology / failover visualization being built in the open under
+`topology/`. A live preview (prototype harness) is at
 [troxeltech.com/harness](https://troxeltech.com/harness/).
 
 ## Tech stack
@@ -37,11 +41,15 @@ push. No separate deploy step.
 ## Project structure
 
 ```text
-index.html                          Site entry point (placeholder)
-css/, js/                           Site stylesheet and script (placeholder)
+index.html                          Site entry point (homepage)
+resume/index.html                   Resume route (stub - real content synced in manually)
+css/, js/                           Site stylesheet and script
+homepage-design-handoff.md          Homepage brainstorm/direction doc (see CLAUDE.md for the
+                                     up-to-date tracking source of truth)
 network-topology-prototype-spec.md  Build spec for the visualization
 topology/engine/                    Pure failover/reachability engine (no DOM)
 topology/render/                    SVG renderer + component stylesheet
 topology/tiers/                     Small/medium/large network configs
 harness/                            Throwaway preview + test pages
+.gitattributes                      Pins LF line endings, avoids autocrlf warnings on Windows
 ```
