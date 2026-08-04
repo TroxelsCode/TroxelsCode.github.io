@@ -7,8 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages.
 
 - Repo: `TroxelsCode/TroxelsCode.github.io` (public, user site, served at the domain root)
-- Live URL: https://troxelscode.github.io/
-- A custom domain can be attached later via a `CNAME` file + DNS without restructuring the repo.
+- Live URL: <https://troxeltech.com/> (custom domain, live since 2026-08-04; <https://troxelscode.github.io/> still resolves and redirects)
 
 ## Style rules (user directives)
 
@@ -22,6 +21,7 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 - **Headless Edge works for verification**: `"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"` with `--headless=new --disable-gpu --virtual-time-budget=5000` plus `--screenshot=<path> --window-size=WxH` (visual check via Read on the PNG) or `--dump-dom` (run JS, grep output). Use `Start-Process -Wait -RedirectStandardOutput` in PowerShell; plain `>` redirection of msedge output produced an empty file.
 - `gh` CLI is installed and authenticated as `TroxelsCode`.
 - Git identity for this repo is set locally (not globally) to the GitHub noreply address (`203574397+TroxelsCode@users.noreply.github.com`) so the user's real email stays out of public commit history.
+- **Custom domain setup gotcha (2026-08-04):** pushing a `CNAME` file to the repo root does NOT by itself register the custom domain with GitHub Pages, contrary to the usual assumption that Pages auto-detects it on push - the Pages API still showed `cname: null` after the push and merge. Had to explicitly `PUT` `repos/<owner>/<repo>/pages` with `-F cname=<domain>` via `gh api`. After that, `https_certificate.state` goes `new` -> (wait, no fixed timing - took under 10 min this time) -> `approved`; only once `approved` will `-F https_enforced=true` succeed (it 404s with "The certificate does not exist yet" before that). Check status anytime with `gh api repos/<owner>/<repo>/pages`.
 
 ## Commands
 
@@ -61,6 +61,5 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - Gremlin future ideas noted, not built: the fixer could also repair visitor-caused breakage (fun for the hero); tune badge art/pacing during hero integration.
 - Spec-literal behavior worth confirming with the user: in bridge mode (and generally in the shared mesh), stack-B firewalls light up as transit because a surviving path exists through them (active-active "every edge on any surviving path"). Matches the spec text; may or may not match intent.
 - Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation) noted in spec as out of scope this phase.
-- The prototype harness is publicly served at troxelscode.github.io/harness/ (fine for now, flagged to the user); decide its fate when the real site lands.
-- No custom domain configured yet (site currently only live at troxelscode.github.io).
+- The prototype harness is publicly served at troxeltech.com/harness/ (fine for now, flagged to the user); decide its fate when the real site lands.
 - No CI/Actions workflow; Pages uses the legacy branch-based build.

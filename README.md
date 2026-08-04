@@ -1,13 +1,14 @@
 # Sean Troxel - Professional Website
 
 Personal professional/resume-style website, hosted on GitHub Pages at
-[troxelscode.github.io](https://troxelscode.github.io/).
+[troxeltech.com](https://troxeltech.com/) (also reachable at
+[troxelscode.github.io](https://troxelscode.github.io/)).
 
 The site itself is still a placeholder. Current work is an interactive
 network topology / failover visualization intended for the site's hero
 banner, being built in the open under `topology/`. A live preview
 (prototype harness) is at
-[troxelscode.github.io/harness](https://troxelscode.github.io/harness/).
+[troxeltech.com/harness](https://troxeltech.com/harness/).
 
 ## Tech stack
 
@@ -19,7 +20,7 @@ frameworks, or package manager.
 Serve the repo root with any static server (ES modules do not load over
 file://), then open the printed URL:
 
-```
+```sh
 python -m http.server
 ```
 
@@ -35,7 +36,7 @@ push. No separate deploy step.
 
 ## Project structure
 
-```
+```text
 index.html                          Site entry point (placeholder)
 css/, js/                           Site stylesheet and script (placeholder)
 network-topology-prototype-spec.md  Build spec for the visualization
