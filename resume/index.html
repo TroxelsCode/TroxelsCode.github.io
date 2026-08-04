@@ -21,13 +21,80 @@
   </header>
 
   <main id="main">
-    <section class="resume-stub">
-      <h1>Resume</h1>
-      <!-- Stub page: the real resume content/HTML is generated in a
-           separate private repo and manually synced in here. Not built
-           yet - see CLAUDE.md, "Resume page + cross-repo pipeline". -->
-      <p class="hero-tagline">The full resume page is coming soon.</p>
-    </section>
+    <div class="resume-page">
+    <!-- RESUME_CONTENT:START -->
+<h1>Sean Troxel</h1>
+
+<section class="resume-summary-section">
+  <h2 class="section-eyebrow">Professional Summary</h2>
+  <p class="resume-summary">Hands-on technology executive with a track record of progressive growth from IT support to Chief Technology Officer, owning infrastructure, security, and technology strategy end-to-end for a managed services organization serving 100+ business clients. Built deep expertise through hands-on ownership across a broad technical stack - from enterprise virtualization and cloud infrastructure to emerging AI systems, currently architecting an internal AI/MCP platform and leading enterprise AI deployments for clients.</p>
+</section>
+
+<section class="resume-skills-section">
+  <h2 class="section-eyebrow">Core Technical Expertise</h2>
+  <dl class="resume-skills">
+    
+    <dt class="resume-skill-category">Infrastructure &amp; Virtualization</dt>
+    <dd class="resume-skill-items">VMware (vSphere, Horizon VDI, Instant Clone, App Volumes), Hyper-V, Dell EMC/HPE compute clusters, HPE Nimble/GreenLake SAN, Cisco Catalyst, SonicWall, Meraki, 10G fiber/DAC networking</dd>
+    
+    <dt class="resume-skill-category">Cloud &amp; AI</dt>
+    <dd class="resume-skill-items">AWS (EC2, VPC, IAM, Lambda, API Gateway, S3, CloudWatch, Amplify), Microsoft Copilot (semantic/vector search deployment), Claude &amp; MCP server architecture, Python, PowerShell</dd>
+    
+    <dt class="resume-skill-category">Platforms, Security &amp; Backup</dt>
+    <dd class="resume-skill-items">ConnectWise Manage/Automate, NinjaRMM, IT Glue, Sophos Central, Proofpoint, Veeam, Microsoft Entra ID/Intune/Defender, PAM &amp; identity provisioning, SOC 2 Type I compliance</dd>
+    
+    <dt class="resume-skill-category">Leadership</dt>
+    <dd class="resume-skill-items">Team building &amp; hiring, vendor evaluation, technical sales engineering, incident response &amp; crisis management, change management</dd>
+    
+  </dl>
+</section>
+
+<section class="resume-experience-section">
+  <h2 class="section-eyebrow">Professional Experience</h2>
+  
+  <article class="resume-job">
+    <h3 class="resume-company">EPC IT Solutions</h3>
+    
+    <ul class="resume-titles">
+      
+      <li class="resume-title-entry">
+        <span class="resume-role">Chief Technology Officer</span>
+        <span class="resume-dates">Sep 2020 - Present</span>
+      </li>
+      
+      <li class="resume-title-entry">
+        <span class="resume-role">Systems &amp; Network Engineer</span>
+        <span class="resume-dates">2019 - 2020</span>
+      </li>
+      
+      <li class="resume-title-entry">
+        <span class="resume-role">Support Specialist I-III</span>
+        <span class="resume-dates">2017 - 2019</span>
+      </li>
+      
+    </ul>
+    
+    <p class="resume-job-intro">Promoted three times in three years on the strength of demonstrated ownership - from entry-level support to final escalation authority for all technical and executive decisions across a 15-person MSP supporting 100+ business clients and up to 10,000 endpoints. Led the company through SOC 2 Type I compliance (2022).</p>
+    <ul class="resume-bullets">
+      
+      <li>Diagnosed and resolved a full production data center outage during a live colocation relocation - rebuilt two failed systems and restored all services within a single 8-hour overnight window with zero client impact or SLA breach; instituted the company&#39;s first formal change-management process as a result.</li>
+      
+      <li>Designed and deployed a self-hosted MCP (Model Context Protocol) platform giving Claude structured, secure access to core business systems (RMM, PSA, documentation, email/Slack) - architected a fail-closed authentication layer with per-employee token issuance/revocation and full audit logging, with SOC 2/HIPAA/CMMC-aware data boundaries built in from the start.</li>
+      
+      <li>Directed a standalone, billed Microsoft Copilot deployment for a client, implementing semantic/vector-based search across Teams and SharePoint with permission-aware data access; achieving full company-wide adoption.</li>
+      
+      <li>Led vendor evaluation and migration of the company&#39;s RMM platform (ConnectWise Automate to NinjaOne) across 100+ clients, personally engineering automation scripts, patch management policy, and security boundaries; completed the pilot client migration with zero service disruption, with phased rollout now underway company-wide.</li>
+      
+      <li>Designed and built a fully redundant VMware Horizon VDI environment for a 40-seat engineering/CAD client, engineering licensing-aware load balancing and right-sized (GPU-free) compute to meet performance requirements - ran in production for 4+ years.</li>
+      
+      <li>Own end-to-end design, security, and tooling strategy for the company&#39;s self-hosted colocation data center; lead a 4-person technical team and partner with the CEO on hiring and technical interviewing.</li>
+      
+    </ul>
+  </article>
+  
+</section>
+    <!-- RESUME_CONTENT:END -->
+    </div>
   </main>
 
   <footer class="site-footer">
@@ -36,7 +103,7 @@
       <li>
         <span id="email-link" class="email-placeholder">JavaScript required to display email</span>
       </li>
-      <li><a href="https://github.com/TroxelsCode">github.com/TroxelsCode</a></li>
+      <li><a href="https://github.com/TroxelsCode" target="_blank" rel="noopener noreferrer">github.com/TroxelsCode</a></li>
     </ul>
   </footer>
 

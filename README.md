@@ -42,7 +42,9 @@ push. No separate deploy step.
 
 ```text
 index.html                          Site entry point (homepage)
-resume/index.html                   Resume route (stub - real content synced in manually)
+resume/index.html                   Resume route (stub - real content synced in via
+                                     scripts/sync_resume.py; shares site nav/footer chrome)
+scripts/sync_resume.py              Splices a generated resume fragment into resume/index.html
 css/, js/                           Site stylesheet and script
 network-topology-prototype-spec.md  Build spec for the visualization
 topology/engine/                    Pure failover/reachability engine (no DOM)

@@ -266,6 +266,101 @@ section:last-of-type {
   }
 }
 
+/* ---- resume page ---- */
+/* Classes here match the contract in CLAUDE.md ("Resume page + cross-repo
+   pipeline") that the resume repo's generator targets - don't rename
+   without updating that contract on both sides. */
+
+.resume-page h1 {
+  font-size: clamp(2rem, 5vw, 2.5rem);
+}
+
+.resume-summary {
+  margin-top: 20px;
+  max-width: 70ch;
+}
+
+.resume-skills {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.resume-skill-category {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--site-accent);
+  margin: 0 0 4px;
+}
+
+.resume-skill-items {
+  margin: 0;
+  max-width: 70ch;
+}
+
+.resume-job {
+  margin-bottom: 32px;
+}
+
+.resume-job:last-child {
+  margin-bottom: 0;
+}
+
+.resume-company {
+  font-size: 1.1rem;
+  margin: 0 0 8px;
+}
+
+.resume-titles {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.resume-title-entry {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.resume-role {
+  font-weight: 600;
+}
+
+.resume-dates {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--site-muted);
+  white-space: nowrap;
+}
+
+.resume-job-intro {
+  margin: 0 0 12px;
+  max-width: 70ch;
+}
+
+.resume-bullets {
+  margin: 0;
+  padding-left: 20px;
+  max-width: 70ch;
+}
+
+.resume-bullets li {
+  margin-bottom: 8px;
+}
+
+.resume-bullets li:last-child {
+  margin-bottom: 0;
+}
+
 /* ---- footer ---- */
 
 .site-footer {

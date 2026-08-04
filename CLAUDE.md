@@ -78,7 +78,10 @@ Contact section and no Contact nav link - the user decided a full section was mo
 site needs. Email + GitHub live in the footer instead (`.footer-links` in
 `css/style.css`), on every page. The "Projects" item is still left out of the nav entirely,
 per the original plan. Public email is `sean@troxeltech.com`; there's no LinkedIn URL yet
-(footer doesn't currently have a LinkedIn link - add one if/when a profile exists). The
+(footer doesn't currently have a LinkedIn link - add one if/when a profile exists). External
+links (leaving the site's own domain - GitHub, future LinkedIn) get
+`target="_blank" rel="noopener noreferrer"` so visitors don't lose the page; internal nav
+links and `mailto:` stay same-tab. Apply this convention to any new external link. The
 email is rendered by `js/main.js` (`renderEmailLink`) from a char-code array at runtime
 rather than sitting in the static HTML, to raise the bar above trivial regex scraping - not
 a real security boundary, just reduces casual harvesting.
@@ -111,10 +114,9 @@ Typography: system stacks only for now - a mono stack
 (`ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace`) for labels/section
 eyebrows/technical accents, standard sans for body. No JetBrains Mono webfont is loaded yet
 (zero external requests); self-hosting a woff2 subset is the documented follow-up if the
-system-font fallback isn't distinctive enough - do not use the Google Fonts CDN. Open
-question, not yet decided: does the resume page adopt this site's identity too, or
-intentionally keep the print resume's navy/white look as a deliberate print-vs-web
-distinction.
+system-font fallback isn't distinctive enough - do not use the Google Fonts CDN. Resolved
+(2026-08-04): the resume page shares this site's identity/theme rather than keeping the print
+resume's navy/white look - see "Resume page + cross-repo pipeline" below for the mechanics.
 
 **No build step, by deliberate decision (2026-08-04), revisit at ~5 pages.** Node and Ruby
 are both absent from this machine; GitHub Pages already runs Jekyll server-side (no
@@ -131,17 +133,39 @@ anything with it.
 
 **Resume page + cross-repo pipeline.** Resume content (markdown) and the Python generator
 (`generate_html.py` + a Jinja template) live in a separate private repo, not this one - keep
-it that way so resume content edits don't require touching site code. This repo should present
-the resume as a live rendered HTML page (not a PDF/docx download link). Bridging approach not
-yet decided; recommended starting point:
+it that way so resume content edits don't require touching site code. This repo presents the
+resume as a live rendered HTML page (not a PDF/docx download link), and it **shares this
+site's nav/footer/theme chrome** (user decision, 2026-08-04) rather than being a standalone
+document - so the resume repo's generator must output a content-only fragment, not a full
+page.
 
-- **Manual sync (start here):** run the generator in the resume repo, copy the output HTML
-  into a `/resume/` folder in this repo, commit both repos when resume content changes. No new
-  infrastructure, matches this project's no-CI/no-build-step pattern.
-- **Automated sync (later, only if manual sync becomes a real pain point):** a GitHub Action in
-  the resume repo that runs the generator on push and commits output here via a PAT, so Pages
-  redeploys automatically. Real automation, but adds CI + a cross-repo credential this project
-  doesn't currently have.
+**Fragment contract:** no `<!DOCTYPE>`, `<html>`, `<head>`, `<body>`, `<nav>`, or `<footer>` -
+just the semantic content (headings, sections, lists) that goes inside this repo's
+`resume/index.html` `<main>`. Use this site's existing CSS classes/tokens
+(`css/style.css` - `--site-*` custom properties, `.section-eyebrow`, etc.) where practical so
+the resume inherits the same light/dark theming automatically, rather than bringing its own
+styling.
+
+**Sync mechanic:** `resume/index.html` in this repo is its own template - the region between
+the `<!-- RESUME_CONTENT:START -->` / `<!-- RESUME_CONTENT:END -->` markers inside `<main>` is
+the only part a sync touches; nav, footer, and `<head>` are untouched. `scripts/sync_resume.py`
+does the splice:
+
+```sh
+python scripts/sync_resume.py <path-to-fragment.html>
+```
+
+It validates the markers exist exactly once, warns (but doesn't block) if the fragment looks
+like a full document rather than a fragment, then rewrites `resume/index.html` in place.
+Workflow when resume content changes: run the generator in the resume repo, run this script
+against its output, review the diff here, commit and push both repos. No new infrastructure -
+matches this project's no-CI/no-build-step pattern, just a small Python helper consistent with
+the rest of this repo's tooling.
+
+Automating this further (a GitHub Action in the resume repo that runs the generator and
+commits output here via a PAT, so Pages redeploys automatically) is a future option, only
+worth it if manual sync becomes a real pain point - it adds CI + a cross-repo credential this
+project doesn't currently have.
 
 ## TODO: Hero integration + scrollytelling (Phase 2 - pick up in a fresh session)
 
