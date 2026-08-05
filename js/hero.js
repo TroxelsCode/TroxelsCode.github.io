@@ -30,7 +30,7 @@ import { tiers } from '../topology/tiers/tiers.js';
 /* ---- knobs ----
    Which tier the static hero shows, and whether the gremlin auto-plays.
    Scroll-driven tier swapping is deliberately NOT implemented here; see
-   "TODO: Hero integration + scrollytelling" in CLAUDE.md. If HERO_TIER
+   "TODO: Scrollytelling (Phase 2b)" in CLAUDE.md. If HERO_TIER
    changes, update --hero-tier-h in css/style.css to match (mountHero also
    re-asserts it from the live config, so a mismatch costs one reflow
    rather than a permanently wrong reservation). */
