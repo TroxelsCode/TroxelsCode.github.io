@@ -162,34 +162,108 @@ section:last-of-type {
   max-width: 60ch;
 }
 
-/* Reserved slot for the topology hero component (Phase 2). Sized to the
-   large tier's viewBox aspect ratio (1000x745) plus ~26px for the
-   component's status bar, which renders above the SVG in normal flow -
-   do not remove this reservation, it's what lets the tier-swap/scroll-pin
-   work land without a layout rework. */
+/*
+ * #hero-mount is the live slot for the topology component
+ * (topology/render/topology-render.js, mounted by js/hero.js). It has two
+ * jobs, and deliberately does not have a third.
+ *
+ * 1. Reserve the component's height before it mounts, so the page does not
+ *    reflow when the module lands. The reservation is a FLOOR, via an empty
+ *    ::before spacer in a shared grid cell - NOT aspect-ratio on .hero-mount
+ *    itself. aspect-ratio on a block box SETS the used height rather than
+ *    establishing a minimum, and the component's height is a width-driven
+ *    ratio term PLUS ~44px of fixed chrome, so any single ratio is only
+ *    correct at one viewport width. Everywhere else the component would
+ *    overflow and overlap the stats strip below, because nothing would push
+ *    the following section down. Do not "simplify" this back.
+ *
+ * 2. Stay out of the component's way visually. The component brings its own
+ *    background and radius, and --topo-bg is byte-identical to --site-bg, so
+ *    the diagram sits flush on the page with no card (deliberate). All
+ *    placeholder chrome lives on .hero-mount-fallback, which js/hero.js
+ *    removes on a successful mount, so it can never frame the real diagram.
+ *
+ * Parameterized so the deferred scroll-pin / tier-swap work can retarget the
+ * reservation by writing one custom property:
+ *   --hero-tier-h  the tier's viewBox height from topology/tiers/tiers.js
+ *                  (small 300, medium 375, large 745; width is always 1000).
+ *                  js/hero.js re-asserts this from the live tier config, so
+ *                  the value here only has to be right for first paint.
+ *   --hero-chrome  the component's fixed non-SVG vertical space: .topo-viz
+ *                  padding 10px top + 6px bottom, plus the status bar (13px
+ *                  text at the inherited line-height 1.5 = 19.5px, over its
+ *                  18px min-height) and its 8px bottom margin = 43.5px.
+ *                  Rounded up to 44 so the reservation errs slightly tall:
+ *                  a hair of dead space beats a visible shift on mount.
+ *   --hero-gutter  .topo-viz's own 12px horizontal padding, subtracted from
+ *                  the spacer's width so the reserved ratio measures the box
+ *                  the SVG actually occupies, not the panel around it.
+ *
+ * If a height cap is ever needed (the large tier on a wide monitor), cap the
+ * mount's WIDTH, not its height - the SVG is width-driven, so max-height
+ * would make it overflow rather than scale down:
+ *   max-width: calc((640px - var(--hero-chrome)) * 1000 / var(--hero-tier-h));
+ */
 .hero-mount {
+  --hero-tier-h: 300;
+  --hero-chrome: 44px;
+  --hero-gutter: 12px;
+
   margin-top: 32px;
-  /* the large tier's SVG is viewBox 1000x745 (topology/tiers/tiers.js);
-     the 771 here is 745 + a ~26px allowance for the component's status
-     bar, which renders above the SVG in normal document flow. aspect-ratio
-     (not a percentage min-height) is what makes this width-driven without
-     needing an explicit container height. */
-  aspect-ratio: 1000 / 771;
-  max-height: 640px;
-  border: 1px dashed var(--site-border);
-  border-radius: 10px;
-  background: var(--site-surface);
+  display: grid;
+  /* Explicit rather than an implicit auto column: an auto track sized by an
+     empty spacer's max-content contribution invites a circularity. 1fr
+     resolves against the definite container width. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.hero-mount::before {
+  content: "";
+  grid-area: 1 / 1;
+  margin: 0 var(--hero-gutter) var(--hero-chrome);
+  aspect-ratio: 1000 / var(--hero-tier-h);
+}
+
+/* Fallback and mounted component share the one cell, so the swap is
+   in-place and the spacer keeps sizing the row either way. */
+.hero-mount > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+/*
+ * Pre-mount / no-JS state. A real element rather than <noscript>, which
+ * renders only when scripting is disabled outright and would leave an empty
+ * box for the likelier failures (module 404'd, blocked, parse error, no
+ * module support). js/hero.js removes this only after a successful mount.
+ */
+.hero-mount-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 16px;
+  border: 1px dashed var(--site-border);
+  border-radius: 10px;
+  background: var(--site-surface);
 }
 
-.hero-mount-caption {
+.hero-mount-fallback p {
+  max-width: 52ch;
   font-family: var(--font-mono);
   font-size: 13px;
-  color: var(--site-muted);
+  line-height: 1.6;
   text-align: center;
+  color: var(--site-muted);
+}
+
+/* Pointer-only affordance, so js/hero.js unhides it only once the diagram
+   rendered. The nodes carry a click listener but no tabindex and no key
+   handler, so this deliberately is not offered as a keyboard instruction. */
+.hero-mount-hint {
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--site-muted);
 }
 
 /* ---- stats ---- */

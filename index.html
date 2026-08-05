@@ -28,12 +28,23 @@
         <!-- placeholder tagline copy, not finalized -->
         <p class="hero-tagline">I build resilient infrastructure and lead the teams that keep it running.</p>
       </div>
-      <div id="hero-mount" class="hero-mount" aria-hidden="true">
-        <!-- Reserved for the interactive topology component (Phase 2).
-             Sized to the large tier's aspect ratio now so the tier swap
-             and scroll-pin work later doesn't reflow this section. -->
-        <p class="hero-mount-caption">Interactive network resilience visualization - coming soon</p>
+      <div id="hero-mount" class="hero-mount">
+        <!-- Live mount point for the topology component. js/hero.js appends
+             the component here and removes the fallback below only on a
+             successful mount, so any failure (no JS, module blocked, 404)
+             leaves the described placeholder rather than an empty box.
+             The height is reserved in css/style.css so this does not reflow
+             when the module lands - see the derivation there before
+             changing anything about this element's sizing. -->
+        <div class="hero-mount-fallback">
+          <p>An interactive network diagram belongs here: an internet uplink into a
+            firewall, a switch behind it, and the servers and workstations it
+            serves. It needs JavaScript to run.</p>
+        </div>
       </div>
+      <!-- Pointer affordance only; js/hero.js unhides it once the diagram
+           actually rendered. The nodes are not keyboard operable today. -->
+      <p class="hero-mount-hint" hidden>Click any node to take it offline and watch the status change.</p>
     </section>
 
     <section class="stats" aria-label="Key figures">
@@ -86,5 +97,9 @@
   </footer>
 
   <script src="js/main.js"></script>
+  <!-- Separate module, NOT merged into main.js: main.js must stay a classic
+       script so the footer email still renders over file:// and without the
+       deferred-execution flash. See the header comment in js/hero.js. -->
+  <script type="module" src="js/hero.js"></script>
 </body>
 </html>

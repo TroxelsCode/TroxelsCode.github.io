@@ -152,7 +152,12 @@ export const TopologyViz = {
       viewBox: '0 0 ' + w + ' ' + h,
       preserveAspectRatio: 'xMidYMid meet',
       role: 'img',
-      'aria-label': 'Interactive network topology diagram. Click a node to toggle it offline.',
+      /* Describes the diagram; deliberately does NOT instruct a click. The
+         node groups below take a click listener but no tabindex and no key
+         handler, so they are pointer-only - telling an assistive-tech user
+         to click a node advertises something they cannot do. Kept tier-
+         agnostic so it stays true when the host swaps tiers. */
+      'aria-label': 'Network topology diagram. Device and link status update live as parts of the network fail and recover.',
     });
     root.appendChild(svg);
 

@@ -12,7 +12,7 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 ## Style rules (user directives)
 
 - **No em dashes and no non-ASCII characters anywhere**, in code, comments, or docs. ASCII only: use "->" not arrows, "x" not multiplication signs, plain hyphens for punctuation.
-- **Never commit/push unprompted.** After applying a change, ask the user whether to commit and push now or whether they have more changes to batch into the commit. The user tests locally (harness preview) before approving; wait for that approval.
+- **Never commit/push unprompted.** After applying a change, ask the user whether to commit and push now or whether they have more changes to batch into the commit. The user tests locally (`python -m http.server 8123`) before approving; wait for that approval.
 
 ## Environment
 
@@ -29,24 +29,31 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 
 ## Commands
 
-- **Local preview** (required for the topology pages; ES modules do not load over `file://`):
-  `python -m http.server 8123` from the repo root, then open `http://localhost:8123/harness/`.
-- **Engine tests**: open `http://localhost:8123/harness/engine-tests.html` in a browser (or headless Edge `--dump-dom` and grep for `TESTS:`). The page title reports `TESTS: N/N PASS`.
-- **Scenario verification workflow** (used both revision rounds): write a temporary `harness/_scenario-temp.html` that mounts one tier and applies `?tier=<id>&down=<id,id,...>` by dispatching click events on `[data-id]` nodes, screenshot it headlessly, Read the PNG to inspect, and DELETE the temp page before committing. Faster and more reliable than describing expected states.
-- **Deploy**: push to `main`; GitHub Pages auto-builds from the branch root (legacy Pages build, no Actions workflow). Note: everything on `main` is publicly served, including `harness/` (currently intentional; see open items).
+- **Local preview** (required; the homepage hero is an ES module and modules do not load over `file://`):
+  `python -m http.server 8123` from the repo root, then open `http://localhost:8123/`.
+- **Engine tests**: open `http://localhost:8123/_tests/engine-tests.html` in a browser (or headless Edge `--dump-dom` and grep for `TESTS:`). The page title reports `TESTS: N/N PASS`.
+- **Scenario verification workflow** (used both revision rounds): write a temporary `_tests/_scenario-temp.html` that mounts one tier and applies `?tier=<id>&down=<id,id,...>` by dispatching click events on `[data-id]` nodes, screenshot it headlessly, Read the PNG to inspect, and DELETE the temp page before committing. Faster and more reliable than describing expected states.
+- **Layout / no-JS measurement workflow** (added 2026-08-04, how the hero reservation was proven): write a temporary `_measure-temp.html` **in the repo root** that iframes the real page at a list of widths, waits, then reads `getBoundingClientRect()` off elements inside `iframe.contentDocument` and writes the numbers into `document.title` or a `<div>` for `--dump-dom` to pick up. Two things make this work:
+  - Iterating widths in one page beats one headless run per width, and it sidesteps the ~492px `--window-size` floor entirely - the iframe can be 320px wide even though the browser window cannot.
+  - `iframe.sandbox = "allow-same-origin"` (WITHOUT `allow-scripts`) renders the true **no-JS** state while still letting the parent read `contentDocument`. That is how to verify progressive-enhancement fallbacks and pre-mount layout reservations; there is no headless flag that does this cleanly.
+
+  Measure the reserved height against the real component's height at several widths and require a ~0 delta. DELETE the temp file before committing.
+- **Forcing dark mode for a screenshot**: copy `index.html` to a temp root file and splice in a `<style>` block before `</head>` that re-declares BOTH token sets with `!important` - `--site-*` on `:root` and `--topo-*` on `.topo-viz` - mirroring their `prefers-color-scheme: dark` blocks. Generating the copy with PowerShell (`(Get-Content $src -Raw) -replace '</head>', $style`) avoids transcription drift. Again: `--force-dark-mode` does NOT do this.
+- **Deploy**: push to `main`; GitHub Pages auto-builds from the branch root (legacy Pages build, no Actions workflow). Everything on `main` is publicly served **except underscore-prefixed directories**, which Jekyll's `EntryFilter` skips unless they are one of its known dirs (`_posts`, `_layouts`, ...) or are listed in an `include:` key. That is the only thing keeping `_tests/` off the live domain - it is not merely unlinked, it is absent from the built site. **Never add a `.nojekyll` file**: it bypasses the Jekyll build entirely and would start publishing `_tests/`. Same caveat if this ever migrates to an Actions-based Pages workflow - `actions/upload-pages-artifact` uploads the whole tree unless a Jekyll build runs first. (The files stay browsable on github.com either way; the repo is public. The goal is "not on the live domain", not "secret".)
 
 ## Architecture
 
-Root `index.html` / `css/style.css` / `js/main.js` are now the real Phase 1 homepage (see
-"Homepage build" below for what's built vs. deferred) - no longer the placeholder. The
-topology visualization prototype is spec'd in [network-topology-prototype-spec.md](network-topology-prototype-spec.md) (read it before touching the component). The spec is the baseline, but the code has user-approved amendments the spec does not reflect: dual site bridges (spec says a single stack-A-to-stack-A link), the harness rendering all tiers at once (spec says a tier switcher), gremlin mode (not in the spec at all), and the server naming below. Where code and spec disagree, the code + this file win.
+Root `index.html` / `css/style.css` / `js/main.js` / `js/hero.js` are the real homepage (see
+"Homepage build" below for what's built vs. deferred). `main.js` is a classic script,
+`hero.js` an ES module - that split is deliberate and load-bearing, see Phase 2a below. The
+topology visualization prototype is spec'd in [network-topology-prototype-spec.md](network-topology-prototype-spec.md) (read it before touching the component). The spec is the baseline, but the code has user-approved amendments the spec does not reflect: dual site bridges (spec says a single stack-A-to-stack-A link), gremlin mode (not in the spec at all), and the server naming below. **The spec also still describes a `/harness/index.html` preview page with a tier switcher (its sections 6 and 301) - that page no longer exists**, deleted 2026-08-04 when the hero went live; ignore those references, and note the spec predates this repo's ASCII-only rule so it still contains em dashes. Where code and spec disagree, the code + this file win.
 
 - `topology/engine/topology-engine.js` - pure state computation (pairwise failover, mesh reachability, site bridge fallback, status rollup). **Zero DOM code; keep it that way.** Redundancy is dispatched per class (`single`/`pair`/`mesh` + site-level bridge); do NOT unify into one generic shortest-path pass - that produces the documented both-pair-members-light bug.
 - `topology/render/topology-render.js` - SVG renderer + click interaction. Consumes engine output; contains no failover logic. Mount API: `TopologyViz.mount(containerEl, tierConfig, options)` returns `{ root, update, reset, destroy, startGremlin, stopGremlin, gremlinRunning }`. Injects its own stylesheet link (resolved via `import.meta.url`) once per document. "Gremlin mode" (`options.gremlin = { enabled, breakMin, breakMax, fixMin, fixMax }`) is ambient auto-play: random node breaks with per-strike randomized repair timers, SVG badge popouts (purple imp with pointy ears and an evil grin while down - deliberately NOT a red devil, user is sensitive to religious readings - and a teal check on repair). Pacing merges defaults < tier config `gremlin` block < mount options; tier configs scale pacing with network size (small slowest, large busiest, fix/break ratio ~0.6). Gremlin only toggles the same downSet a click uses; the engine stays pure and failover stays instant. The mount hides the component root until its injected stylesheet loads (prevents a black-fill first paint / mid-transition screenshots).
 - `topology/render/topology.css` - every visual token is a `--topo-*` custom property on `.topo-viz` with light defaults + `prefers-color-scheme: dark` overrides. Hosts retheme by overriding the properties; no colors in JS.
 - `topology/tiers/tiers.js` - small/medium/large tier data (nodes, edges, layout coords in viewBox units, and a `structure` block naming fabric roles per site so the engine dispatches by declared role). The large tier is generated by `buildLargeTier()` since both sites are identical.
-- `harness/index.html` - THROWAWAY preview page, renders all three tiers at once (also proves multi-instance isolation); gremlin mode on by default with a toggle button per tier.
-- `harness/engine-tests.html` - THROWAWAY browser-run engine assertions (24 scenario tests).
+- `js/hero.js` - the component's only host. ES module, mounts one tier into `#hero-mount` on the homepage. See "Homepage build" below.
+- `_tests/engine-tests.html` - browser-run engine assertions (24 scenario tests). The repo's only test suite, so keep it working; the underscore prefix on the directory is what keeps it off the live domain (see Deploy above). The former `harness/index.html` preview page was deleted on 2026-08-04 when the hero went live - it rendered all three tiers at once and is fully superseded by the real homepage.
 
 Large-tier bridges: TWO stack-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches stack redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
 
@@ -63,12 +70,56 @@ during implementation: the forced teal-on-near-black palette, replaced by respec
 `prefers-color-scheme`; and a dedicated Contact page section, replaced by footer links). This
 file is the sole source of truth going forward.
 
-**Phase 1 COMPLETE (2026-08-04): static homepage skeleton, no interactive hero yet.**
+**Phase 2a COMPLETE (2026-08-04): the hero is live.** `js/hero.js` mounts the topology
+component into `#hero-mount` on the homepage. Details:
+
+- **Small tier, gremlin ON** (`HERO_TIER` / `HERO_GREMLIN` at the top of `js/hero.js`, each a
+  one-line change). Chosen with eyes open: the small tier is a no-redundancy chain and the
+  gremlin picks victims uniformly, so 3 of its 5 nodes take everything down - the hero reads
+  "Business down" roughly 20% of the time and "Services affected" another ~15%. That is the
+  intended "this is what a single point of failure costs" provocation, and it keeps the
+  initial view continuous with the future scroll narrative, which also starts on small.
+- **Gremlin needs no JS `prefers-reduced-motion` gate. Do not add one** - this was
+  investigated and rejected. Everything that genuinely moves is already handled in
+  `topology/render/topology.css` (packet dots hidden, sync dash march stopped, badge pop
+  disabled). What gremlin adds on top is color changes and a status-text swap, which is not
+  "moving, blinking or scrolling" under WCAG 2.2.2.
+- **`js/hero.js` is a separate module from `js/main.js` on purpose.** `main.js` must stay a
+  classic script: converting it would defer it (flashing the footer email placeholder) and
+  would break it over `file://`, where ES modules do not load, taking the email link down
+  with the hero. Two script tags, independent failure domains.
+- **The height reservation is a floor, not `aspect-ratio` on `.hero-mount`.** See the long
+  comment in `css/style.css`. `aspect-ratio` on a block box *sets* the used height, and the
+  component's height is a width-driven ratio term plus ~44px of fixed chrome, so one ratio is
+  only right at one viewport width - everywhere else the component overflows and overlaps the
+  stats strip. It is now an empty `::before` spacer in a shared grid cell, parameterized by
+  `--hero-tier-h` / `--hero-chrome` / `--hero-gutter` so the scroll work can retarget it by
+  writing one property. Also: cap **width**, never `max-height` - the SVG is width-driven, so
+  a height cap makes it overflow rather than scale.
+- **No visible card, deliberate.** `--topo-bg` is byte-identical to `--site-bg` in both
+  schemes, so the diagram sits flush on the page. Placeholder chrome lives on
+  `.hero-mount-fallback` (removed by JS on successful mount), never on `.hero-mount`.
+- **Progressive enhancement**: `.hero-mount-fallback` is a real element, not `<noscript>` -
+  `<noscript>` only covers scripting-disabled, not a 404/blocked/parse-error module, which
+  would leave an empty reserved box. It is removed only after a successful mount.
+- **`data-topo-css` trap**: never hand-place `<link data-topo-css>` in the HTML. `mount()`
+  holds the component at `visibility: hidden` until that link fires `load`, and a link the
+  browser already finished loading never fires it again - the hero would be invisible
+  forever. Use `<link rel="preload">` without the attribute if warming is ever needed.
+- **Known a11y gap**: nodes are pointer-only (click listener, no `tabindex`, no key handler).
+  The SVG's `aria-label` was rewritten to describe the diagram instead of instructing a click,
+  and the pointer instruction moved to a visible `.hero-mount-hint` that JS unhides only on
+  successful mount. Named fix if it ever matters: `tabindex="0"` + `role="button"` +
+  `aria-pressed` + a keydown handler in the renderer, plus a `:focus-visible` style in
+  `topology.css`. Do NOT add `aria-live` to the status bar - with gremlin running it would
+  announce a change every few seconds.
+
+**Phase 1 COMPLETE (2026-08-04): static homepage skeleton.**
 `index.html` / `css/style.css` / `js/main.js` are no longer the placeholder. Built: nav
 (`sean troxel` wordmark + Home/Resume, no Contact/Projects items - see below), header/intro
 banner with a placeholder tagline (`hero-tagline` in `index.html`, marked with a comment -
-still needs real copy), a reserved hero slot (`#hero-mount` / `.hero-mount` in
-`css/style.css`), stats strip (real figures, both endpoint numbers shown with the ~2,000
+still needs real copy), the hero slot (`#hero-mount` / `.hero-mount` in
+`css/style.css`, filled for real in Phase 2a above), stats strip (real figures, both endpoint numbers shown with the ~2,000
 figure primary and the 10,000 figure as a subordinate qualifier), promotion timeline, and
 footer. `/resume/index.html` carries the same nav/footer chrome and, as of 2026-08-04, real
 resume content synced in from the separate resume repo (see "Resume page + cross-repo
@@ -193,18 +244,22 @@ commits output here via a PAT, so Pages redeploys automatically) is a future opt
 worth it if manual sync becomes a real pain point - it adds CI + a cross-repo credential this
 project doesn't currently have.
 
-## TODO: Hero integration + scrollytelling (Phase 2 - pick up in a fresh session)
+## TODO: Scrollytelling (Phase 2b - pick up in a fresh session)
 
-**Prerequisite: DONE.** Phase 1 (above) shipped the reserved hero section: `#hero-mount` in
-`index.html`, sized in `css/style.css` via `.hero-mount { aspect-ratio: 1000 / 771; ... }` -
-771 is the large tier's viewBox height (745, from `topology/tiers/tiers.js`) plus a ~26px
-allowance for the component's status bar, which renders above the SVG in normal flow. Don't
-remove that reservation without re-deriving the math; it's what lets tier-swapping land
-without a layout rework.
+**BLOCKED on the mobile-treatment decision** (deferred by the user 2026-08-04 as a dedicated
+task). The scroll sequence's whole payoff is revealing the large tier, and the large tier is
+exactly what the mobile decision governs, so this cannot ship cleanly until that is settled.
+Do that first.
 
-**Goal:** promote the existing `topology/` component (currently only mounted in the throwaway
-`harness/`) into the production hero, with small tier visible on load and medium/large tiers
-revealed via scroll ("pinned scrollytelling" - mechanism spec'd below).
+**Prerequisite: DONE.** Phase 2a (above) shipped the live hero - the component is mounted in
+production by `js/hero.js` on the small tier. Tier swapping needs to write `--hero-tier-h`
+(the reservation is already parameterized for it) and re-mount; note the renderer has **no
+tier-swap API**, so a swap is `destroy()` + a fresh `mount()`, or mount all three into stacked
+containers and cross-fade. Each instance keeps its own `downSet`, so call `reset()` on
+transition or a hidden tier retains whatever the visitor knocked offline.
+
+**Goal:** small tier visible on load (already true) with medium/large tiers revealed via
+scroll ("pinned scrollytelling" - mechanism spec'd below).
 
 **Mechanism - sticky-pin, NOT scroll-jacking:** wrap the hero in a taller container sized to a
 fixed pixel scroll distance (not a `vh` multiple, so pacing doesn't swing between a tall
@@ -269,8 +324,10 @@ Treat this file as living documentation, not a one-time snapshot. Whenever you l
 Running list of things noticed or deferred, not yet acted on. Add to this list as items come up; remove them once resolved.
 
 - Prototype phase COMPLETE and committed (66f61a2, 2026-07-13): user approved after two revision rounds (server renames, dual bridges, gremlin mode with purple imp badges and per-tier pacing).
-- Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. Resume cross-repo pipeline COMPLETE and committed (7b9ffad, 2026-08-04): sync tooling built, first real resume content synced in and styled - see "Resume page + cross-repo pipeline" above. Phase 2 (hero integration + scrollytelling) is spec'd and next - see "TODO: Hero integration + scrollytelling" above; large-tier density, dimmed-node treatment, tagline copy, and gremlin fixer ideas live there, not here.
+- Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. Resume cross-repo pipeline COMPLETE and committed (7b9ffad, 2026-08-04): sync tooling built, first real resume content synced in and styled - see "Resume page + cross-repo pipeline" above.
+- Phase 2a COMPLETE (2026-08-04): hero is live on the homepage, small tier + gremlin, harness retired - see "Homepage build" above for the details and the traps. Phase 2b (scrollytelling) is spec'd but BLOCKED on the mobile decision below.
+- **Mobile treatment: deferred by the user (2026-08-04) as its own dedicated task, and it now blocks Phase 2b.** Open within it: whether the large tier gets a genuinely simplified mobile rendering / is reserved for wider screens / is capped at small-medium on phones; the breakpoint(s); `dvh` vs `vh`; and touch targets (nodes are well under the ~44px minimum when scaled down). See the Phase 2b section for the full notes. One measured item to fold in: the hero reservation matches the mounted component **exactly (delta 0.0px) from 480px up**, but at 320px the `.hero-mount-fallback` paragraph is taller than the reserved box (179.6 vs 116.3), so a slow module load on a very narrow screen collapses ~63px. Fix by shortening the fallback copy or clamping it at narrow widths.
+- Known a11y gap, logged not fixed: topology nodes are pointer-only (no `tabindex`, no key handler), so the click-to-break interaction is unavailable to keyboard users. Defensible today because it is a non-essential enhancement and nothing on the page is available *solely* through it. Named fix is in the "Homepage build" section.
 - Spec-literal behavior worth confirming with the user: in bridge mode (and generally in the shared mesh), stack-B firewalls light up as transit because a surviving path exists through them (active-active "every edge on any surviving path"). Matches the spec text; may or may not match intent.
 - Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation) noted in spec as out of scope this phase.
-- The prototype harness is publicly served at troxeltech.com/harness/. Decision (2026-08-04): keep it around until the hero integration/network-outage implementation is finalized on the main site; revisit its fate (leave public, robots.txt-exclude, or remove) once that's done.
-- No CI/Actions workflow; Pages uses the legacy branch-based build.
+- No CI/Actions workflow; Pages uses the legacy branch-based build. Note this is load-bearing for `_tests/` staying off the live domain - see Deploy above before changing it.
