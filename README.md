@@ -17,6 +17,12 @@ which has no redundancy on purpose - a "gremlin" breaks nodes at random so
 you can see what a single point of failure costs. Scroll-driven tier
 transitions are the next phase.
 
+Every tier has both a wide and a tall layout, and the hero switches between
+them live as the window resizes or a phone rotates - a diagram drawn for a
+desktop does not merely look small on a phone, its labels and tap targets
+stop working. On narrow screens the hero collapses behind a disclosure so
+the resume content comes first, and it does no work at all until expanded.
+
 ## Tech stack
 
 Plain HTML, CSS, and JavaScript (ES modules + SVG). No build tools,
@@ -57,7 +63,8 @@ css/, js/                           Site stylesheet and scripts (main.js classic
 network-topology-prototype-spec.md  Build spec for the visualization
 topology/engine/                    Pure failover/reachability engine (no DOM)
 topology/render/                    SVG renderer + component stylesheet
-topology/tiers/                     Small/medium/large network configs
+topology/tiers/                     Small/medium/large network configs, each with a wide
+                                     and a narrow-screen layout
 _tests/                             Browser-run engine assertions; the underscore
                                      prefix keeps Jekyll from publishing it
 .gitattributes                      Pins LF line endings, avoids autocrlf warnings on Windows

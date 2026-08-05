@@ -112,6 +112,13 @@ const GREMLIN_DEFAULTS = {
   fixMin: 2000, fixMax: 6000,       // ms until a strike gets repaired
 };
 
+/* Probability that a gremlin strike is drawn from the nodes currently on
+   screen rather than from the whole network. Not 1.0 on purpose: the
+   leftover share keeps off-screen parts of the diagram live, so scrolling
+   a tall portrait tier reveals damage that happened while the visitor was
+   looking somewhere else. See the viewport-bias note below. */
+const GREMLIN_VISIBLE_BIAS = 0.8;
+
 export const TopologyViz = {
   mount(container, config, options) {
     instanceCounter += 1;
@@ -419,10 +426,63 @@ export const TopologyViz = {
       }
     }
 
+    /*
+     * ---- viewport-biased victim selection ----
+     * The portrait tier layouts are much taller than they are wide (the
+     * large tier renders around 1190px tall on a phone), so a uniformly
+     * random victim is usually a node the visitor has scrolled past. The
+     * gremlin would break something invisible and the only evidence would
+     * be a status bar changing for no apparent reason.
+     *
+     * So node groups are observed and strikes are drawn preferentially
+     * from whatever is actually on screen. Entirely an enhancement: if
+     * IntersectionObserver is missing or throws, visibleNodeIds stays
+     * empty and selection degrades to the original uniform-random pick.
+     */
+    const visibleNodeIds = new Set();
+    let nodeObserver = null;
+
+    function startNodeObserver() {
+      if (typeof IntersectionObserver !== 'function') return;
+      try {
+        nodeObserver = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            const id = entry.target.getAttribute('data-id');
+            if (!id) continue;
+            if (entry.isIntersecting) visibleNodeIds.add(id);
+            else visibleNodeIds.delete(id);
+          }
+        }, { threshold: 0.5 });
+        for (const g of nodeViews.values()) nodeObserver.observe(g);
+      } catch (err) {
+        // Some engines refuse to observe SVG children. Not worth failing over.
+        nodeObserver = null;
+        visibleNodeIds.clear();
+      }
+    }
+
+    function stopNodeObserver() {
+      if (nodeObserver === null) return;
+      nodeObserver.disconnect();
+      nodeObserver = null;
+      visibleNodeIds.clear();
+    }
+
+    function pickVictim(candidates) {
+      if (visibleNodeIds.size === 0) {
+        return candidates[Math.floor(Math.random() * candidates.length)];
+      }
+      const onScreen = candidates.filter((n) => visibleNodeIds.has(n.id));
+      const pool = (onScreen.length > 0 && Math.random() < GREMLIN_VISIBLE_BIAS)
+        ? onScreen
+        : candidates;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
     function gremlinStrike() {
       const candidates = config.nodes.filter((n) => !downSet.has(n.id));
       if (candidates.length > 0) {
-        const victim = candidates[Math.floor(Math.random() * candidates.length)];
+        const victim = pickVictim(candidates);
         downSet.add(victim.id);
         gremlinBroken.add(victim.id);
         const badge = makeGremlinBadge(victim.id);
@@ -451,14 +511,17 @@ export const TopologyViz = {
 
     function startGremlin() {
       if (gremlinTimer !== null) return;
+      startNodeObserver();
       gremlinTimer = setTimeout(gremlinStrike, rand(gremlinOpts.breakMin, gremlinOpts.breakMax));
     }
 
     /* Stops new strikes; pending repairs still complete so the diagram
-       winds down to healthy instead of freezing mid-outage. */
+       winds down to healthy instead of freezing mid-outage. The observer
+       goes with the strikes - nothing else consumes visibility. */
     function stopGremlin() {
       if (gremlinTimer !== null) clearTimeout(gremlinTimer);
       gremlinTimer = null;
+      stopNodeObserver();
     }
 
     update();
