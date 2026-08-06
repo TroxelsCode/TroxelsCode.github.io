@@ -39,18 +39,39 @@
              diagram will read, so it has to carry the claim in words
              rather than just label a control. -->
         <summary class="hero-disclosure-summary">See what one missing piece costs a network</summary>
-        <div id="hero-mount" class="hero-mount">
-          <!-- Live mount point for the topology component. js/hero.js appends
-               the component here and removes the fallback below only on a
-               successful mount, so any failure (no JS, module blocked, 404)
-               leaves the described placeholder rather than an empty box.
-               The height is reserved in css/style.css so this does not reflow
-               when the module lands - see the derivation there before
-               changing anything about this element's sizing. -->
-          <div class="hero-mount-fallback">
-            <p>An interactive network diagram belongs here: an internet uplink into a
-              firewall, a switch behind it, and the servers and workstations it
-              serves. It needs JavaScript to run.</p>
+        <!-- Scroll track for the tier sequence. It has NO height until
+             js/hero.js sets data-hero-mode="pinned" on it, so a no-JS or
+             failed-module visitor gets the fallback at its natural size
+             instead of a tall empty scroll region. See css/style.css. -->
+        <div id="hero-scroll" class="hero-scroll">
+          <div class="hero-pin">
+            <div id="hero-mount" class="hero-mount">
+              <!-- Live mount point for the topology component. js/hero.js
+                   mounts one instance per .hero-layer and removes the
+                   fallback below only after ALL of them succeed, so any
+                   failure (no JS, module blocked, 404) leaves the described
+                   placeholder rather than an empty box. The height is
+                   reserved in css/style.css so this does not reflow when the
+                   module lands - see the derivation there before changing
+                   anything about this element's sizing.
+
+                   The three layers share one grid cell and are cross-faded
+                   when pinned; on narrow screens and under reduced motion
+                   they stack in flow instead. Empty until JS fills them, so
+                   they contribute nothing without it. -->
+              <div class="hero-layer" data-tier="small"></div>
+              <div class="hero-layer" data-tier="medium"></div>
+              <div class="hero-layer" data-tier="large"></div>
+              <div class="hero-mount-fallback">
+                <p>An interactive network diagram belongs here: an internet uplink into a
+                  firewall, a switch behind it, and the servers and workstations it
+                  serves. It needs JavaScript to run.</p>
+              </div>
+            </div>
+            <!-- Caption for the tier currently on screen. Filled by
+                 js/hero.js when pinned; in stacked mode each layer renders
+                 its own from a data-caption attribute instead. -->
+            <p id="hero-caption" class="hero-caption"></p>
           </div>
         </div>
         <!-- Pointer affordance only; js/hero.js unhides it once the diagram

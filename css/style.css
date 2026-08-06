@@ -171,7 +171,20 @@ section:last-of-type {
  * content with no JS. See js/hero.js for the direction of the progressive
  * enhancement (ships open, JS collapses).
  */
+/*
+ * Sticky so the collapse control follows the visitor down the tier sequence
+ * (user request): once expanded on a phone the hero runs ~2400px, and backing
+ * out of it should always be one tap away rather than a scroll back to the
+ * top. It needs an opaque background because the diagram would otherwise
+ * scroll through it while stuck, and js/hero.js publishes its measured height
+ * as --hero-summary-h so .hero-pin and the sticky status bars can offset
+ * themselves below it instead of colliding with it.
+ */
 .hero-disclosure-summary {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--site-bg);
   margin-top: 32px;
   padding: 12px 4px;
   border-top: 1px solid var(--site-border);
@@ -341,6 +354,212 @@ section:last-of-type {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--site-muted);
+}
+
+/*
+ * ---- scrollytelling: the tier sequence (Phase 2b) ----
+ *
+ * Two INDEPENDENT axes, and conflating them is a real bug that shipped once
+ * in the prototype:
+ *
+ *   which tier DATA   landscape vs portrait  -> width only
+ *   which LAYOUT      pinned vs stacked      -> width OR reduced motion
+ *
+ * PINNED (wide screen, motion allowed): the three tiers share one grid cell
+ * and cross-fade as the visitor scrolls through the track's extra height.
+ * STACKED (narrow screen, or prefers-reduced-motion): the pin is dropped and
+ * all three render at full size in normal flow.
+ *
+ * The stacked trigger is a JS-set data-hero-mode attribute rather than a
+ * media query, because "narrow OR reduced motion" cannot be expressed as one
+ * CSS media block without duplicating every rule.
+ *
+ * Why stacked at all on narrow screens - measured, do not re-derive. A pinned
+ * slide must fit the viewport, and the SVG is width-driven, so fitting it
+ * shrinks node boxes below the ~44px touch minimum the portrait layouts exist
+ * to protect. On a 375x667 phone the pin has about 506px to work with:
+ *   small   340x500,  natural ~513px -> fits, nodes 111x48px   OK
+ *   medium  340x580,  natural ~589px -> squeezed to 247px wide,
+ *                                       nodes 81x38px          FAILS
+ *   large   360x1290, natural ~1187px -> needs a 155px width,
+ *                                       nodes ~28x22px         FAILS BADLY
+ * Only small survives, and medium misses by only ~80px, so any rescue would
+ * depend on the visitor's phone being taller than roughly 700px. Stacking is
+ * the answer, not a smaller scale.
+ *
+ * Why stacked under reduced motion: the preference means suppress MOTION, not
+ * content. Settling on the first tier and never advancing hides medium and
+ * large entirely, which is the whole payoff of the sequence. Stacking shows
+ * all three with no scroll-driven swapping at all.
+ */
+
+/*
+ * The track's height IS the scroll distance the pin lasts. Fixed px on
+ * purpose: a vh multiple makes pacing swing between a tall monitor and a
+ * short laptop with dev tools open.
+ *
+ * Height is applied ONLY under [data-hero-mode="pinned"], which js/hero.js
+ * sets after a successful mount. Without JS, or if the module 404s or throws,
+ * the track has no height and the fallback renders at its natural size rather
+ * than floating in a 1860px empty scroll region.
+ */
+.hero-scroll {
+  --hero-step: 620px;
+  --hero-steps: 3;
+
+  position: relative;
+}
+
+.hero-scroll[data-hero-mode="pinned"] {
+  height: calc(var(--hero-step) * var(--hero-steps));
+}
+
+.hero-scroll[data-hero-mode="pinned"] .hero-pin {
+  position: sticky;
+  /* Below the stuck summary, never underneath it. js/hero.js measures and
+     publishes --hero-summary-h; the fallback 0px is correct on a desktop,
+     where the summary is display:none. */
+  top: var(--hero-summary-h, 0px);
+  /* dvh, not vh: iOS Safari's address-bar show/hide makes 100vh unstable
+     mid-scroll, which is exactly when this is on screen. */
+  height: calc(100dvh - var(--hero-summary-h, 0px));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* Lets the stage shrink inside the flex column instead of overflowing it. */
+.hero-scroll[data-hero-mode="pinned"] .hero-mount {
+  min-height: 0;
+  margin-top: 0;
+}
+
+/*
+ * Once JS owns the layout, the pre-mount reservation spacer must stop adding
+ * height - the pin height governs when pinned, and each layer sizes itself
+ * when stacked. It stays active only for the pre-mount / no-JS state, which
+ * is the one case it was built for.
+ */
+.hero-scroll[data-hero-mode] .hero-mount::before {
+  display: none;
+}
+
+.hero-layer {
+  min-width: 0;
+  /*
+   * Load-bearing, and its absence fails in a confusing way. These are grid
+   * items, and per spec justify-self:stretch does NOT apply to an item with
+   * an auto inline margin - so margin-inline:auto alone silently drops each
+   * layer to its max-content width. For an SVG at width:100% that is the
+   * 300px default intrinsic width of a replaced element, which renders the
+   * whole hero at roughly a quarter scale. An explicit width restores the
+   * fill; max-width still caps it and the auto margins still center it.
+   */
+  width: 100%;
+  opacity: 0;
+  /* Only the tier faded in may be clicked, or an invisible layer would
+     swallow taps meant for the visible one. */
+  pointer-events: none;
+  /*
+   * Cap WIDTH, never max-height - the SVG is width-driven, so a height cap
+   * makes it overflow rather than scale (same rule as .hero-mount).
+   * --hero-fit is the height budget a pinned layer has to fit inside.
+   */
+  --hero-fit: calc(100dvh - var(--hero-summary-h, 0px) - 96px);
+  max-width: calc((var(--hero-fit) - var(--hero-chrome))
+                  * var(--hero-tier-w) / var(--hero-tier-h));
+  margin-inline: auto;
+}
+
+.hero-layer.is-current {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hero-layer {
+    transition: opacity 260ms linear;
+  }
+}
+
+/* ---- axis 1: tier data, width-based ---- */
+.hero-layer[data-tier="small"]  { --hero-tier-w: 1000; --hero-tier-h: 300; }
+.hero-layer[data-tier="medium"] { --hero-tier-w: 1000; --hero-tier-h: 375; }
+.hero-layer[data-tier="large"]  { --hero-tier-w: 1000; --hero-tier-h: 745; }
+
+@media (max-width: 800px) {
+  .hero-layer[data-tier="small"]  { --hero-tier-w: 340; --hero-tier-h: 500; }
+  .hero-layer[data-tier="medium"] { --hero-tier-w: 340; --hero-tier-h: 580; }
+  .hero-layer[data-tier="large"]  { --hero-tier-w: 360; --hero-tier-h: 1290; }
+}
+
+.hero-caption {
+  margin: 0;
+  min-height: 3em;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--site-muted);
+  text-align: center;
+}
+
+/* ---- axis 2: stacked layout ---- */
+
+.hero-scroll[data-hero-mode="stacked"] .hero-mount {
+  /* Flow, not a shared grid cell: the layers stack instead of dissolving. */
+  display: block;
+}
+
+.hero-scroll[data-hero-mode="stacked"] .hero-layer {
+  opacity: 1;
+  pointer-events: auto;
+  /* The viewport-fit cap is the entire reason a pinned slide has to shrink.
+     Stacked layers are not competing for viewport height, so drop it. */
+  max-width: none;
+  margin: 0 auto 40px;
+}
+
+/*
+ * The large tier runs about two phone screens tall, so a visitor who breaks a
+ * node near the bottom could not otherwise see the status roll up. Pure CSS,
+ * no renderer change: this works because topology-render.js appends
+ * .topo-status as the FIRST child of .topo-viz, before the SVG. Confirmed no
+ * ancestor carries overflow:hidden. Offset below the stuck summary.
+ */
+.hero-scroll[data-hero-mode="stacked"] .topo-status {
+  position: sticky;
+  top: var(--hero-summary-h, 0px);
+  z-index: 2;
+  background: var(--topo-bg);
+}
+
+/* Each stacked tier carries its own caption; the shared one is for the
+   pinned stage only. */
+.hero-scroll[data-hero-mode="stacked"] .hero-layer::after {
+  content: attr(data-caption);
+  display: block;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--site-muted);
+  text-align: center;
+}
+
+.hero-scroll[data-hero-mode="stacked"] .hero-caption {
+  display: none;
+}
+
+/* Narrow + stacked re-applies the phone width cap. Declared after the
+   max-width:none above at equal specificity so it wins on source order.
+   Portrait is sized for a phone, so near the top of this range it would
+   otherwise scale up to cartoonish node boxes (measured 209x90px at 760px
+   wide). Same value and reason as the .hero-mount cap above. */
+@media (max-width: 800px) {
+  .hero-scroll[data-hero-mode="stacked"] .hero-layer {
+    max-width: 460px;
+  }
 }
 
 /* ---- stats ---- */

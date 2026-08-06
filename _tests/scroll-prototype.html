@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phase 2b scroll-pin prototype</title>
+<!--
+  Standalone prototype for the Phase 2b scrollytelling hero, per CLAUDE.md
+  ("prototype the scroll-pin behavior standalone, against the existing hero
+  markup, not the full page, before wiring it into the rest of the homepage").
+
+  Lives under _tests/ so Jekyll's EntryFilter keeps it off the live domain.
+  Never add a .nojekyll file - that would start publishing this.
+
+  What it exercises:
+    - three tier instances mounted into stacked grid cells, cross-faded
+    - sticky-pin scroll track (fixed px distance, NOT a vh multiple)
+    - sticky <summary> so the collapse control stays reachable while scrolling
+    - the large tier released from the pin on narrow screens (see the fit
+      math in the CSS below - it cannot be pinned on a phone)
+    - only the visible tier's gremlin runs; hidden tiers are reset
+    - native animation-timeline path + rAF JS fallback driving one model
+    - prefers-reduced-motion settles on a static tier
+-->
+<link rel="stylesheet" href="../css/style.css">
+<style>
+/*
+ * ---- prototype-only harness chrome ----
+ * Not part of the real design. Gives the track something to scroll into and
+ * out of, and reports live state so a headless --dump-dom can assert on it.
+ */
+.proto-readout {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 50;
+  padding: 6px 10px;
+  border: 1px solid var(--site-border);
+  border-radius: 6px;
+  background: var(--site-surface);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--site-text);
+  white-space: pre;
+  pointer-events: none;
+}
+
+.proto-spacer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 90dvh;
+  border-top: 1px dashed var(--site-border);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--site-muted);
+}
+
+/*
+ * ================= the actual candidate CSS =================
+ * Everything below here is what would move into css/style.css.
+ */
+
+/*
+ * ---- scroll track ----
+ * Height is the scroll DISTANCE the pin lasts, in fixed px on purpose: a vh
+ * multiple makes pacing swing between a tall monitor and a short laptop with
+ * dev tools open. --hero-step is the distance spent on each tier, so the
+ * track is (steps * step) plus one step of lead-in/out.
+ */
+.hero-scroll {
+  --hero-step: 620px;
+  --hero-steps: 3;
+
+  position: relative;
+  height: calc(var(--hero-step) * var(--hero-steps));
+}
+
+/*
+ * ---- sticky collapse control ----
+ * User request: once expanded on a phone, the collapse control follows the
+ * visitor down so backing out is always one tap away. It sits ABOVE the
+ * pinned stage in the sticky stacking order and the stage offsets itself by
+ * --hero-summary-h so the two never overlap.
+ */
+.hero-disclosure-summary {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  /* The summary is transparent by default and would let the diagram scroll
+     through it while stuck. */
+  background: var(--site-bg);
+}
+
+.hero-pin {
+  position: sticky;
+  top: var(--hero-summary-h, 0px);
+  /* Fills the space left under the stuck summary. dvh, not vh: iOS Safari's
+     address-bar show/hide makes 100vh unstable mid-scroll. */
+  height: calc(100dvh - var(--hero-summary-h, 0px));
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* The three instances share one cell so the cross-fade is a true dissolve
+   rather than a reflow. Mirrors the .hero-mount fallback/component stacking
+   that already works. */
+.hero-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 0;
+}
+
+.hero-layer {
+  grid-area: 1 / 1;
+  min-width: 0;
+  align-self: center;
+  justify-self: center;
+  width: 100%;
+  opacity: 0;
+  /* Only the tier currently faded in may be clicked, or an invisible layer
+     would swallow taps meant for the visible one. */
+  pointer-events: none;
+  /*
+   * Cap WIDTH, never max-height - the SVG is width-driven, so a height cap
+   * makes it overflow instead of scale (same rule as .hero-mount).
+   * --hero-fit is the height budget the layer has to fit inside.
+   */
+  max-width: calc((var(--hero-fit) - var(--hero-chrome))
+                  * var(--hero-tier-w) / var(--hero-tier-h));
+  margin-inline: auto;
+}
+
+.hero-layer.is-current {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hero-stage {
+  --hero-chrome: 44px;
+  --hero-fit: calc(100dvh - var(--hero-summary-h, 0px) - 96px);
+}
+
+/* Landscape viewBoxes. */
+.hero-layer[data-tier="small"]  { --hero-tier-w: 1000; --hero-tier-h: 300; }
+.hero-layer[data-tier="medium"] { --hero-tier-w: 1000; --hero-tier-h: 375; }
+.hero-layer[data-tier="large"]  { --hero-tier-w: 1000; --hero-tier-h: 745; }
+
+.hero-caption {
+  margin: 0;
+  min-height: 3em;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--site-muted);
+  text-align: center;
+}
+
+/*
+ * ---- narrow screens: NO PIN AT ALL ----
+ * This is the load-bearing mobile decision, and it was measured, not guessed.
+ * Do not "restore" the pin here.
+ *
+ * A pinned slide has to fit the viewport, and the SVG is width-driven, so
+ * fitting it means shrinking its width until the height lands - which drags
+ * the node boxes below the ~44px touch minimum the portrait layouts exist to
+ * protect. Measured on a 375x667 phone, where the pin has about 506px of
+ * height to work with (667 - 65px summary - caption and gaps):
+ *
+ *   small   340x500,  natural ~513px tall  -> fits, nodes 111x48px  OK
+ *   medium  340x580,  natural ~589px tall  -> squeezed to 247px wide,
+ *                                             nodes 81x38px         FAILS
+ *   large   360x1290, natural ~1187px tall -> would need a 155px width,
+ *                                             nodes ~28x22px        FAILS BADLY
+ *
+ * Only small survives a pinned phone viewport, and medium only fails by
+ * ~80px, which means any fix would depend on the visitor's phone being
+ * taller than roughly 700px. So the pin is dropped on narrow screens
+ * entirely: the three tiers become ordinary full-size stacked sections that
+ * scroll past at their designed scale. Full sequence, valid touch targets,
+ * no viewport-height dependency. The cross-fade is a desktop affordance.
+ *
+ * Keep this breakpoint in sync with PORTRAIT_MAX_WIDTH in js/hero.js and the
+ * summary block in css/style.css - three places, they must move together.
+ */
+/*
+ * Two INDEPENDENT axes here, and conflating them was a bug:
+ *
+ *   which tier DATA   landscape vs portrait  -> width only
+ *   which LAYOUT      pinned vs stacked      -> width OR reduced motion
+ *
+ * A reduced-motion visitor on a wide desktop wants landscape tiers in a
+ * stacked layout. Keying the stacking off the width media query alone left
+ * them pinned on the first tier forever, with medium and large unreachable.
+ */
+
+/* ---- axis 1: portrait tier data, width-based ---- */
+@media (max-width: 800px) {
+  .hero-layer[data-tier="small"]  { --hero-tier-w: 340; --hero-tier-h: 500; }
+  .hero-layer[data-tier="medium"] { --hero-tier-w: 340; --hero-tier-h: 580; }
+  .hero-layer[data-tier="large"]  { --hero-tier-w: 360; --hero-tier-h: 1290; }
+}
+
+/*
+ * ---- axis 2: stacked layout ----
+ * Driven by a JS-set attribute rather than a media query, because its
+ * trigger is "narrow OR prefers-reduced-motion" and CSS cannot OR two media
+ * queries into one block without duplicating every rule. Default (no
+ * attribute) is pinned, which is the correct first paint on a desktop.
+ */
+.hero-scroll[data-hero-mode="stacked"] {
+  height: auto;
+}
+
+.hero-scroll[data-hero-mode="stacked"] .hero-pin {
+  position: static;
+  height: auto;
+  display: block;
+}
+
+/* Flow, not a shared grid cell: the layers stack instead of dissolving. */
+.hero-scroll[data-hero-mode="stacked"] .hero-stage {
+  display: block;
+}
+
+.hero-scroll[data-hero-mode="stacked"] .hero-layer {
+  opacity: 1;
+  pointer-events: auto;
+  /* The viewport-fit cap is the whole reason a pinned slide has to shrink.
+     Stacked layers are not fighting for viewport height, so drop it. */
+  max-width: none;
+  margin: 0 auto 40px;
+}
+
+/* The large tier runs about two phone screens tall, so a visitor who breaks
+   a node near the bottom could not otherwise see the status roll up. Pure
+   CSS, no renderer change: this works because topology-render.js appends
+   .topo-status as the FIRST child of .topo-viz, before the SVG. Offset below
+   the stuck summary so the two sticky elements do not overlap. */
+.hero-scroll[data-hero-mode="stacked"] .topo-status {
+  position: sticky;
+  top: var(--hero-summary-h, 0px);
+  z-index: 2;
+  background: var(--topo-bg);
+}
+
+/* Per-tier caption travels with its section instead of sitting under a
+   shared stage. */
+.hero-scroll[data-hero-mode="stacked"] .hero-layer::after {
+  content: attr(data-caption);
+  display: block;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--site-muted);
+  text-align: center;
+}
+
+.hero-scroll[data-hero-mode="stacked"] .hero-caption {
+  display: none;
+}
+
+/* Narrow + stacked re-applies the phone cap. Declared here, at equal
+   specificity and later in source order, so it beats the max-width:none
+   above. Portrait is sized for a phone, so near the top of this range it
+   would otherwise scale up to cartoonish node boxes (measured 209x90px at
+   760px wide). Same value as the existing .hero-mount cap in css/style.css. */
+@media (max-width: 800px) {
+  .hero-scroll[data-hero-mode="stacked"] .hero-layer {
+    max-width: 460px;
+  }
+}
+
+/*
+ * ---- native scroll-driven path ----
+ * Enhancement only. The JS driver below writes .is-current regardless, so
+ * this layers a smooth dissolve on top where supported rather than being
+ * load-bearing. Both paths drive the SAME three-layer opacity model, which is
+ * what keeps them from drifting as thresholds change.
+ */
+@supports (animation-timeline: view()) {
+  .hero-scroll {
+    view-timeline-name: --hero-track;
+    view-timeline-axis: block;
+  }
+
+  .hero-layer {
+    transition: opacity 260ms linear;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-layer {
+    transition: none;
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="proto-readout" id="readout">booting</div>
+
+<main id="main">
+  <section class="hero">
+    <div class="hero-intro">
+      <h1>Sean Troxel</h1>
+      <p class="hero-title">Chief Technology Officer</p>
+      <p class="hero-tagline">I build resilient infrastructure and lead the teams that keep it running.</p>
+    </div>
+
+    <details id="hero-disclosure" class="hero-disclosure" open>
+      <summary class="hero-disclosure-summary">See what one missing piece costs a network</summary>
+
+      <div class="hero-scroll" id="hero-scroll">
+        <div class="hero-pin" id="hero-pin">
+          <div class="hero-stage" id="hero-stage">
+            <div class="hero-layer" data-tier="small"></div>
+            <div class="hero-layer" data-tier="medium"></div>
+            <div class="hero-layer" data-tier="large"></div>
+          </div>
+          <p class="hero-caption" id="hero-caption"></p>
+        </div>
+      </div>
+
+    </details>
+  </section>
+
+  <div class="proto-spacer">page continues here - the hero unpins naturally</div>
+</main>
+
+<script type="module">
+import { TopologyViz } from '../topology/render/topology-render.js';
+import { tiers, tiersPortrait } from '../topology/tiers/tiers.js';
+
+const PORTRAIT_MAX_WIDTH = 800;
+const ORDER = ['small', 'medium', 'large'];
+
+const CAPTIONS = {
+  small: 'One uplink, one firewall, one switch. Every box is a single point of failure.',
+  medium: 'Add a second path and the same failure stops being an outage.',
+  large: 'Two sites, paired stacks, a meshed core. Now the network absorbs damage.',
+};
+
+const portraitQuery = typeof window.matchMedia === 'function'
+  ? window.matchMedia('(max-width: ' + PORTRAIT_MAX_WIDTH + 'px)')
+  : null;
+
+const reducedMotion = typeof window.matchMedia === 'function'
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+
+const isPortrait = () => (portraitQuery === null ? true : portraitQuery.matches);
+const tierSet = () => (isPortrait() ? tiersPortrait : tiers);
+
+/* Prototype-only escape hatch: headless Chromium reports
+   prefers-reduced-motion: reduce by default, so without this the harness
+   could never observe the pinned sequencing. */
+let forceMotion = false;
+
+const prefersReducedMotion = () =>
+  !forceMotion && reducedMotion !== null && reducedMotion.matches;
+
+/*
+ * Stacked instead of pinned when EITHER the screen is too narrow to fit a
+ * tier in the viewport (see the measured fit math in the CSS) OR the visitor
+ * asked for reduced motion.
+ *
+ * Reduced motion must not mean "settle on the first tier and hide the rest".
+ * Scroll-driven swapping is the motion; the medium and large tiers are
+ * CONTENT, and they are the entire point of the sequence. Stacking shows all
+ * three at full size with no scroll trickery at all, which satisfies the
+ * preference without removing anything.
+ */
+const isPinned = () => !isPortrait() && !prefersReducedMotion();
+
+const scrollEl = document.getElementById('hero-scroll');
+const stage = document.getElementById('hero-stage');
+const caption = document.getElementById('hero-caption');
+const details = document.getElementById('hero-disclosure');
+const summary = details.querySelector('summary');
+const readout = document.getElementById('readout');
+
+const layers = new Map();
+for (const el of stage.querySelectorAll('.hero-layer')) {
+  layers.set(el.getAttribute('data-tier'), { el, instance: null });
+}
+
+let current = null;
+
+/* Publishes the stuck summary's height so .hero-pin can offset itself below
+   it and the two sticky elements never overlap. */
+function measureSummary() {
+  const h = summary.getBoundingClientRect().height;
+  document.documentElement.style.setProperty('--hero-summary-h', Math.round(h) + 'px');
+}
+
+function mountAll() {
+  const set = tierSet();
+  const pinned = isPinned();
+
+  /* Drives the whole stacked-vs-pinned CSS switch. */
+  scrollEl.setAttribute('data-hero-mode', pinned ? 'pinned' : 'stacked');
+
+  for (const [id, layer] of layers) {
+    if (layer.instance !== null) {
+      layer.instance.destroy();
+      layer.instance = null;
+    }
+    layer.el.setAttribute('data-caption', CAPTIONS[id] || '');
+    /*
+     * Pinned: gremlin starts disabled on every layer and setCurrent() runs
+     * exactly one, so timers are never burnt on an invisible tier.
+     * Stacked (narrow): every tier is genuinely on the page, so each runs its
+     * own gremlin. The renderer's own IntersectionObserver already biases
+     * strikes toward whatever is on screen, so an off-screen tier stays
+     * mostly quiet without any coordination here.
+     */
+    layer.instance = TopologyViz.mount(layer.el, set[id], {
+      gremlin: { enabled: !pinned },
+    });
+  }
+
+  current = null;
+  if (pinned) setCurrent(ORDER[0]);
+}
+
+/*
+ * The single transition point. Only the visible tier runs a gremlin, and a
+ * tier that leaves the screen is reset so it does not come back still
+ * carrying nodes the visitor knocked offline.
+ */
+function setCurrent(id) {
+  if (id === current) return;
+  const previous = current;
+  current = id;
+
+  for (const [tierId, layer] of layers) {
+    const on = tierId === id;
+    layer.el.classList.toggle('is-current', on);
+    if (layer.instance === null) continue;
+    if (on) {
+      layer.instance.startGremlin();
+    } else {
+      layer.instance.stopGremlin();
+      if (tierId === previous) layer.instance.reset();
+    }
+  }
+
+  caption.textContent = CAPTIONS[id] || '';
+  report();
+}
+
+/*
+ * Scroll progress through the track, 0 at the moment the pin engages and 1
+ * when it releases. Derived from getBoundingClientRect rather than
+ * scrollY so it is independent of everything above the hero on the page.
+ */
+function progress() {
+  const rect = scrollEl.getBoundingClientRect();
+  const pinEl = document.getElementById('hero-pin');
+  const travel = rect.height - pinEl.getBoundingClientRect().height;
+  if (travel <= 0) return 0;
+  const summaryH = summary.getBoundingClientRect().height;
+  const scrolled = summaryH - rect.top;
+  return Math.min(1, Math.max(0, scrolled / travel));
+}
+
+function driveFromScroll() {
+  /* Stacked mode shows every tier in flow - nothing to sequence. Covers both
+     narrow screens and reduced motion. */
+  if (!isPinned()) return;
+  const p = progress();
+  const idx = Math.min(ORDER.length - 1, Math.floor(p * ORDER.length));
+  setCurrent(ORDER[idx]);
+}
+
+/* rAF-gated: never react to a raw scroll event directly. */
+let frame = null;
+function onScroll() {
+  if (frame !== null) return;
+  frame = requestAnimationFrame(() => {
+    frame = null;
+    driveFromScroll();
+    report();
+  });
+}
+
+/* The scroll listener is only attached while the hero is actually near the
+   viewport. */
+function gateScrollListener() {
+  if (typeof IntersectionObserver !== 'function') {
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return;
+  }
+  let attached = false;
+  const io = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting && !attached) {
+        window.addEventListener('scroll', onScroll, { passive: true });
+        attached = true;
+      } else if (!entry.isIntersecting && attached) {
+        window.removeEventListener('scroll', onScroll);
+        attached = false;
+      }
+    }
+  }, { rootMargin: '100% 0px' });
+  io.observe(scrollEl);
+}
+
+function report() {
+  const p = progress();
+  readout.textContent = [
+    'w=' + window.innerWidth + ' portrait=' + isPortrait(),
+    'pinned=' + isPinned() + ' reducedMotion=' + (reducedMotion !== null && reducedMotion.matches),
+    'current=' + current,
+    'progress=' + p.toFixed(3),
+    'roots=' + document.querySelectorAll('.topo-viz').length,
+  ].join('\n');
+  document.title = 'PROTO: current=' + current + ' progress=' + p.toFixed(2) +
+    ' roots=' + document.querySelectorAll('.topo-viz').length;
+}
+
+function boot() {
+  measureSummary();
+  if (portraitQuery !== null && portraitQuery.matches) details.open = false;
+
+  const start = () => {
+    measureSummary();
+    mountAll();
+    driveFromScroll();
+    gateScrollListener();
+    report();
+  };
+
+  if (!details.open) {
+    details.addEventListener('toggle', () => {
+      if (details.open && current === null) start();
+    });
+    report();
+  } else {
+    start();
+  }
+
+  const reorient = () => {
+    if (portraitQuery !== null && !portraitQuery.matches) details.open = true;
+    if (details.open) {
+      measureSummary();
+      mountAll();
+      driveFromScroll();
+    }
+    report();
+  };
+
+  if (portraitQuery !== null && typeof portraitQuery.addEventListener === 'function') {
+    portraitQuery.addEventListener('change', reorient);
+  }
+  /* Toggling the OS animation setting flips pinned<->stacked, so it has to
+     re-lay-out exactly like a breakpoint crossing does. */
+  if (reducedMotion !== null && typeof reducedMotion.addEventListener === 'function') {
+    reducedMotion.addEventListener('change', reorient);
+  }
+}
+
+boot();
+
+/*
+ * Prototype-only debug hook. Headless Edge never fires requestAnimationFrame
+ * under --virtual-time-budget (see CLAUDE.md), so the rAF-gated scroll driver
+ * cannot be exercised by scrolling alone. This lets a harness page scroll the
+ * iframe and then advance the state machine synchronously. Do NOT carry this
+ * into js/hero.js.
+ */
+window.__proto = {
+  driveFromScroll, progress, setCurrent, report, mountAll,
+  setForceMotion(v) { forceMotion = !!v; },
+};
+</script>
+</body>
+</html>
