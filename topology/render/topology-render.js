@@ -95,6 +95,17 @@ function curveMidpoint(na, nb, bow) {
   };
 }
 
+/*
+ * Packet dot timing. The phase step used to be a flat 0.65s, which was fine
+ * for the 7 dots the old throttle produced but bands badly at 50:
+ * 0.65 * 3 = 1.95, so every third dot landed within 0.05s of the same phase
+ * and neighbouring edges pulsed in unison. Stepping by the duration times the
+ * golden ratio conjugate spreads any number of dots about as evenly as a
+ * fixed step can, and never repeats a phase at realistic edge counts.
+ */
+const PACKET_DUR = 2;
+const PACKET_PHASE_STEP = PACKET_DUR * 0.6180339887;
+
 const GREMLIN_DEFAULTS = {
   enabled: false,
   breakMin: 4000, breakMax: 9000,   // ms between gremlin strikes
@@ -192,6 +203,9 @@ export const TopologyViz = {
       edgeViews.push({
         el: path,
         pathId,
+        /* Fixed position in the config. Drives the packet phase offset, which
+           must NOT depend on which other edges happen to be active. */
+        index: i,
         id: edgeKey(edge.a, edge.b),
         a: edge.a,
         b: edge.b,
@@ -286,8 +300,33 @@ export const TopologyViz = {
       }
     }
 
+    /*
+     * Live packet dots, keyed by edge id. Held across updates ON PURPOSE -
+     * see the incremental reconcile in renderPackets().
+     */
+    const packetDots = new Map();
+
+    function makePacketDot(ev) {
+      const dot = svgEl('circle', { class: 'topo-packet', r: 5 });
+      const motion = svgEl('animateMotion', {
+        dur: PACKET_DUR + 's',
+        /*
+         * Negative begin starts the animation already part-way through.
+         * Keyed to the edge's FIXED position in the config, never to its
+         * position among the currently-active edges - see renderPackets().
+         */
+        begin: (-((ev.index * PACKET_PHASE_STEP) % PACKET_DUR)).toFixed(3) + 's',
+        repeatCount: 'indefinite',
+      });
+      const mpath = svgEl('mpath', {});
+      mpath.setAttribute('href', '#' + ev.pathId);
+      mpath.setAttributeNS(XLINK_NS, 'xlink:href', '#' + ev.pathId);
+      motion.appendChild(mpath);
+      dot.appendChild(motion);
+      return dot;
+    }
+
     function renderPackets(state) {
-      gPackets.textContent = '';
       /*
        * EVERY active edge carries a packet (sync links excepted - they are a
        * cosmetic heartbeat, not a traffic path).
@@ -303,36 +342,39 @@ export const TopologyViz = {
        * showing a seventh of them undersold exactly that.
        *
        * Edge COLORING was always accurate; only the dots were subsetted.
+       *
+       * ---- why this reconciles instead of rebuilding ----
+       * It used to clear gPackets and recreate every dot on every update, and
+       * take each dot's phase from its index among the ACTIVE edges. Both
+       * halves of that leaked unrelated state into the animation, and the
+       * combination was visible: toggling any node restarted every packet on
+       * the diagram, and removing an edge re-indexed every edge AFTER it in
+       * config order onto a different phase while leaving earlier ones alone.
+       *
+       * On the small tier (edges isp--fw, fw--sw, sw--srv, sw--ws) that made
+       * the coupling asymmetric and easy to spot: toggling Workstations
+       * dropped the LAST edge, so the Server dot kept its index and barely
+       * moved, but toggling Server shifted the Workstations dot from index 3
+       * to 2 and visibly jumped it. Nothing about the engine or the state was
+       * wrong - it was purely a rendering artifact.
+       *
+       * So: phases key off the edge's fixed config index, and dots for edges
+       * that are still active are LEFT ALONE. Only the difference is applied,
+       * so a packet is never disturbed by a change elsewhere in the network.
        */
-      const chosen = edgeViews.filter(
-        (ev) => state.activeEdgeIds.has(ev.id) && ev.kind !== 'sync'
-      );
-      /*
-       * Phase offset per dot. The old 0.65s step was fine for 7 dots but
-       * bands badly at 50: 0.65 * 3 = 1.95, so every third dot landed within
-       * 0.05s of the same phase and neighbouring edges pulsed in unison.
-       * Stepping by duration * the golden ratio conjugate spreads any number
-       * of dots about as evenly as a fixed step can, and never repeats a
-       * phase for realistic edge counts.
-       */
-      const PACKET_DUR = 2;
-      const PACKET_PHASE_STEP = PACKET_DUR * 0.6180339887;
-      let stagger = 0;
-      for (const ev of chosen) {
-        const dot = svgEl('circle', { class: 'topo-packet', r: 5 });
-        const motion = svgEl('animateMotion', {
-          dur: PACKET_DUR + 's',
-          /* Negative begin starts the animation already part-way through. */
-          begin: (-((stagger * PACKET_PHASE_STEP) % PACKET_DUR)).toFixed(3) + 's',
-          repeatCount: 'indefinite',
-        });
-        const mpath = svgEl('mpath', {});
-        mpath.setAttribute('href', '#' + ev.pathId);
-        mpath.setAttributeNS(XLINK_NS, 'xlink:href', '#' + ev.pathId);
-        motion.appendChild(mpath);
-        dot.appendChild(motion);
+      const wanted = new Set();
+      for (const ev of edgeViews) {
+        if (!state.activeEdgeIds.has(ev.id) || ev.kind === 'sync') continue;
+        wanted.add(ev.id);
+        if (packetDots.has(ev.id)) continue;   // already running, do not touch
+        const dot = makePacketDot(ev);
+        packetDots.set(ev.id, dot);
         gPackets.appendChild(dot);
-        stagger += 1;
+      }
+      for (const [id, dot] of [...packetDots]) {
+        if (wanted.has(id)) continue;
+        dot.remove();
+        packetDots.delete(id);
       }
     }
 
