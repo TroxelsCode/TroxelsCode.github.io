@@ -12,16 +12,22 @@ resume's content and generator (see `CLAUDE.md` for the sync mechanic).
 The hero is a network topology / failover visualization built in the open
 under `topology/`: a pure engine (no DOM) computing reachability and
 failover, and an SVG renderer that consumes it. Click any node to take it
-offline and watch the status roll up. It currently runs the small tier,
-which has no redundancy on purpose - a "gremlin" breaks nodes at random so
-you can see what a single point of failure costs. Scroll-driven tier
-transitions are the next phase.
+offline and watch the status roll up, and watch packets reroute along
+whatever paths survive.
+
+It runs three networks in sequence - a small one with no redundancy, a
+medium one with a second path, and a large two-site design with paired
+firewall stacks and a meshed core - so the same failure gets progressively
+less interesting as the design improves. A "gremlin" breaks nodes at random
+to demonstrate that without waiting on the visitor; a toggle turns it off
+for anyone who would rather inspect the diagrams undisturbed.
 
 Every tier has both a wide and a tall layout, and the hero switches between
 them live as the window resizes or a phone rotates - a diagram drawn for a
 desktop does not merely look small on a phone, its labels and tap targets
-stop working. On narrow screens the hero collapses behind a disclosure so
-the resume content comes first, and it does no work at all until expanded.
+stop working. The hero collapses behind a disclosure so the resume content
+comes first, and it does no work at all - no SVG, no timers - until
+expanded.
 
 ## Tech stack
 
@@ -41,6 +47,10 @@ python -m http.server
 - Engine tests: `/_tests/engine-tests.html` (browser-run assertions; the
   page title reports N/N PASS). Local only - the leading underscore keeps
   Jekyll from publishing the directory to the live site.
+- Scroll-sequence prototype: `/_tests/scroll-prototype.html`. A pinned,
+  cross-fading presentation of the same three tiers, built and then switched
+  off on the live page. Kept as the place to try presentation ideas without
+  touching the homepage. Also local only.
 
 ## Deployment
 
@@ -65,7 +75,8 @@ topology/engine/                    Pure failover/reachability engine (no DOM)
 topology/render/                    SVG renderer + component stylesheet
 topology/tiers/                     Small/medium/large network configs, each with a wide
                                      and a narrow-screen layout
-_tests/                             Browser-run engine assertions; the underscore
-                                     prefix keeps Jekyll from publishing it
+_tests/                             Browser-run engine assertions and the scroll-sequence
+                                     prototype; the underscore prefix keeps Jekyll from
+                                     publishing the directory
 .gitattributes                      Pins LF line endings, avoids autocrlf warnings on Windows
 ```
