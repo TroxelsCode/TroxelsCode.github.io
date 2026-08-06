@@ -97,13 +97,36 @@ let mounted = false;
 
 /*
  * Publishes the sticky summary's measured height so .hero-pin and the sticky
- * status bars can offset themselves below it. Measured rather than hardcoded
- * because the summary is placeholder copy that will change length, and it
- * wraps to two lines on a narrow phone.
+ * status bars can offset themselves below it. The OTHER link in that chain,
+ * --site-nav-h, is published by js/main.js instead, because the nav is
+ * site-wide chrome that /resume/ needs too and this module never runs there.
+ * See the sticky-chain comment on .site-header in css/style.css.
+ *
+ * Measured rather than hardcoded because the summary copy is still a
+ * placeholder that will change length, and it wraps to two lines on a narrow
+ * phone - exactly where a stale constant would overlap the diagram.
  */
-function measureSummary(summary) {
-  const h = summary === null ? 0 : summary.getBoundingClientRect().height;
-  document.documentElement.style.setProperty('--hero-summary-h', Math.round(h) + 'px');
+function measureChrome(refs) {
+  const h = refs.summary === null
+    ? 0
+    : Math.round(refs.summary.getBoundingClientRect().height);
+  document.documentElement.style.setProperty('--hero-summary-h', h + 'px');
+}
+
+/*
+ * The summary re-wraps at arbitrary widths, not just at the hero's
+ * breakpoint, so its height cannot be refreshed from the matchMedia
+ * listeners alone. ResizeObserver fires on the actual height change rather
+ * than on every resize frame. Feature-detected - if it is missing the
+ * load-time measurement simply stands.
+ */
+function watchChrome(refs) {
+  if (refs.summary === null || typeof ResizeObserver !== 'function') return;
+  try {
+    new ResizeObserver(() => measureChrome(refs)).observe(refs.summary);
+  } catch (err) {
+    /* Nothing broken - the load-time value is still in place. */
+  }
 }
 
 /* ---- mounting ---- */
@@ -307,7 +330,7 @@ function watchLayout(refs) {
       return;
     }
 
-    measureSummary(refs.summary);
+    measureChrome(refs);
     layout(refs);
   };
 
@@ -322,7 +345,7 @@ function watchLayout(refs) {
 }
 
 function start(refs) {
-  measureSummary(refs.summary);
+  measureChrome(refs);
   if (!layout(refs)) return;
   watchScroll(refs);
 }
@@ -346,6 +369,11 @@ function boot() {
     pin: scroll.querySelector('.hero-pin'),
     summary: details ? details.querySelector('summary') : null,
   };
+
+  /* The sticky chain needs this offset published before anything measures
+     against it, including while the hero is still collapsed. */
+  measureChrome(refs);
+  watchChrome(refs);
 
   /* Collapse on narrow screens. The markup ships open (see index.html), so
      this is the enhancement rather than the baseline. */

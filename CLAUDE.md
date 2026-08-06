@@ -58,7 +58,9 @@ topology visualization prototype is spec'd in [network-topology-prototype-spec.m
 
 Large-tier bridges: TWO stack-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches stack redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
 
-Component conventions: edge ids are `a + '--' + b` (see `edgeKey`); edge `bow` is a lateral quadratic-curve offset (positive bows right of the a->b direction) used to route around node boxes; packet animations are a deterministic representative subset per (site, section) and never affect state accuracy.
+Component conventions: edge ids are `a + '--' + b` (see `edgeKey`); edge `bow` is a lateral quadratic-curve offset (positive bows right of the a->b direction) used to route around node boxes; packet animations ride **every active edge** except sync links, and never affect state accuracy.
+
+**Packet throttle removed 2026-08-05 - do not reinstate it.** `renderPackets()` used to keep only one active edge per (site, section), which on the large tier animated 7 of 50 active edges, and always the same ones: the tie-break was a lexicographic compare on the edge id, so the alphabetically-first edge won and every dot clustered on the top and leftmost paths. That looked like an active/standby pathing decision and was asked about as one; it was purely a rendering throttle, tuned back when the hero only ever showed the small tier. The scroll sequence inverted the tradeoff - the entire argument medium and large make is "traffic keeps flowing along the other paths", and animating a seventh of them undersold exactly that. Edge *coloring* was always accurate; only the dots were subsetted. Measured after the change: dots now equal active edges exactly (small 4, medium 7, large 46). The dead `edgeSection()` helper and the `section` / `siteId` fields on `edgeViews` went with it. Packet phase now steps by `duration * 0.618` rather than a flat 0.65s, because at 50 dots the old step banded (0.65 x 3 = 1.95, so every third dot sat within 0.05s of the same phase and neighbouring edges pulsed in unison).
 
 Default palette values came from the bundled dataviz skill's validated reference palette (status colors #0ca30c / #fab219 / #d03b3b, active teal #1baf7a light / #21c489 dark).
 
@@ -386,6 +388,34 @@ Automating this further (a GitHub Action in the resume repo that runs the genera
 commits output here via a PAT, so Pages redeploys automatically) is a future option, only
 worth it if manual sync becomes a real pain point - it adds CI + a cross-repo credential this
 project doesn't currently have.
+
+**Sticky nav (added 2026-08-05, user request): the header pins to the top on every page.**
+Pure CSS on `.site-header`, so it works on `/resume/` and without JS. The thing to know is
+that it created a sticky **chain**, and every link offsets against the ones above it:
+
+| element | `top` | z-index |
+| --- | --- | --- |
+| `.site-header` | `0` | 4 |
+| `.hero-disclosure-summary` | `--site-nav-h` | 3 |
+| `.hero-pin` and stacked `.topo-status` | `--site-nav-h + --hero-summary-h` | 2 |
+
+- **`--site-nav-h` is published by `js/main.js`, NOT `js/hero.js`.** It was in hero.js first
+  and that was wrong: the nav is site-wide chrome, so `/resume/` has the same sticky header and
+  the same `#main` scroll-margin depending on the value, but no hero and therefore no hero.js.
+  The resume page fell back to `0px` and a skip-link jump landed underneath the nav. Verified
+  fixed - the resume page now reports `--site-nav-h: 57px` and a 65px scroll-margin.
+- **Both heights are measured, not hardcoded**, via `ResizeObserver` (feature-detected, and the
+  load-time measurement stands without it). The nav wraps to two lines on a very narrow screen
+  and the summary copy is still a placeholder that will change length - a stale constant would
+  overlap content in exactly those cases.
+- **`.hero-pin`'s `height` must subtract BOTH**, not just its `top`, or the pinned tier
+  overflows the viewport by the height of the chrome above it.
+- **`#main` carries `scroll-margin-top`** so the skip link does not land under the nav. Add any
+  future in-page anchors to that selector.
+- Cost on a phone: nav 57px + summary 65px = 122px of permanent chrome. Acceptable because
+  narrow screens are stacked rather than pinned, so it costs scroll viewport, not layout.
+- Measured no-overlap at scroll: header occupies 0..57, summary 57..122, status bars stick at
+  122.
 
 ## Phase 2b: scrollytelling tier sequence (BUILT 2026-08-05)
 

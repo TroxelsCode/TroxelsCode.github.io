@@ -80,8 +80,39 @@ button:focus-visible {
 
 /* ---- header / nav ---- */
 
+/*
+ * Pinned so the wordmark and the Home/Resume links are always reachable
+ * (user request, 2026-08-05). Needs no JS - sticky is pure CSS and works on
+ * every page including /resume/.
+ *
+ * It is the TOP of a sticky CHAIN, though, and the rest of the chain has to
+ * offset itself below it or things overlap:
+ *
+ *   .site-header                top: 0                     z-index 4
+ *   .hero-disclosure-summary    top: --site-nav-h          z-index 3
+ *   .hero-pin / .topo-status    top: nav + summary         z-index 2
+ *
+ * js/hero.js measures this element and publishes --site-nav-h, because the
+ * nav wraps to two lines on a very narrow screen and a hardcoded height
+ * would be wrong exactly where the chrome budget is tightest. The fallback
+ * 0px in every consumer is deliberate: if hero.js never runs, nothing else
+ * in the chain exists either.
+ *
+ * The background must be opaque or page content scrolls through it.
+ */
 .site-header {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--site-bg);
   border-bottom: 1px solid var(--site-border);
+}
+
+/* A sticky nav covers whatever an in-page jump lands on, so anything
+   targetable has to reserve room for it. Today that is the skip link's
+   destination; add to this selector if real anchors ever appear. */
+#main {
+  scroll-margin-top: calc(var(--site-nav-h, 0px) + 8px);
 }
 
 .site-nav {
@@ -182,7 +213,8 @@ section:last-of-type {
  */
 .hero-disclosure-summary {
   position: sticky;
-  top: 0;
+  /* Second link in the sticky chain - see the .site-header comment. */
+  top: var(--site-nav-h, 0px);
   z-index: 3;
   background: var(--site-bg);
   margin-top: 32px;
@@ -416,13 +448,14 @@ section:last-of-type {
 
 .hero-scroll[data-hero-mode="pinned"] .hero-pin {
   position: sticky;
-  /* Below the stuck summary, never underneath it. js/hero.js measures and
-     publishes --hero-summary-h; the fallback 0px is correct on a desktop,
-     where the summary is display:none. */
-  top: var(--hero-summary-h, 0px);
+  /* Third link in the sticky chain: below BOTH the stuck nav and the stuck
+     summary, never underneath either. js/hero.js measures and publishes both
+     heights; --hero-summary-h resolves to 0px on a desktop, where the
+     summary is display:none. */
+  top: calc(var(--site-nav-h, 0px) + var(--hero-summary-h, 0px));
   /* dvh, not vh: iOS Safari's address-bar show/hide makes 100vh unstable
      mid-scroll, which is exactly when this is on screen. */
-  height: calc(100dvh - var(--hero-summary-h, 0px));
+  height: calc(100dvh - var(--site-nav-h, 0px) - var(--hero-summary-h, 0px));
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -466,7 +499,7 @@ section:last-of-type {
    * makes it overflow rather than scale (same rule as .hero-mount).
    * --hero-fit is the height budget a pinned layer has to fit inside.
    */
-  --hero-fit: calc(100dvh - var(--hero-summary-h, 0px) - 96px);
+  --hero-fit: calc(100dvh - var(--site-nav-h, 0px) - var(--hero-summary-h, 0px) - 96px);
   max-width: calc((var(--hero-fit) - var(--hero-chrome))
                   * var(--hero-tier-w) / var(--hero-tier-h));
   margin-inline: auto;
@@ -529,7 +562,8 @@ section:last-of-type {
  */
 .hero-scroll[data-hero-mode="stacked"] .topo-status {
   position: sticky;
-  top: var(--hero-summary-h, 0px);
+  /* Third link in the sticky chain, same offset as .hero-pin. */
+  top: calc(var(--site-nav-h, 0px) + var(--hero-summary-h, 0px));
   z-index: 2;
   background: var(--topo-bg);
 }

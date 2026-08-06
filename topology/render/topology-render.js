@@ -95,17 +95,6 @@ function curveMidpoint(na, nb, bow) {
   };
 }
 
-/* Section classification drives which edges get a packet animation.
-   Purely a rendering throttle: the active/color state always reflects
-   every active edge; animated dots ride a representative subset. */
-function edgeSection(edge, nodeById) {
-  if (edge.kind === 'bridge') return 'bridge';
-  const classes = [nodeById.get(edge.a).class, nodeById.get(edge.b).class];
-  if (classes.includes('isp')) return 'upstream';
-  if (classes.includes('server') || classes.includes('workstation')) return 'access';
-  return 'core';
-}
-
 const GREMLIN_DEFAULTS = {
   enabled: false,
   breakMin: 4000, breakMax: 9000,   // ms between gremlin strikes
@@ -133,7 +122,7 @@ export const TopologyViz = {
 
     const nodeById = new Map(config.nodes.map((n) => [n.id, n]));
 
-    // Map every node to its site (for packet throttling per site).
+    // Map every node to its site (positions the per-site row labels).
     const siteOfNode = new Map();
     for (const site of config.structure.sites) {
       const ids = [];
@@ -207,8 +196,6 @@ export const TopologyViz = {
         a: edge.a,
         b: edge.b,
         kind: edge.kind,
-        section: edgeSection(edge, nodeById),
-        siteId: siteOfNode.get(edge.a) || siteOfNode.get(edge.b),
       });
     });
 
@@ -301,21 +288,42 @@ export const TopologyViz = {
 
     function renderPackets(state) {
       gPackets.textContent = '';
-      // Representative subset: one active edge per (site, section),
-      // chosen deterministically, plus the bridge whenever it carries.
-      const chosen = new Map();
-      for (const ev of edgeViews) {
-        if (!state.activeEdgeIds.has(ev.id) || ev.kind === 'sync') continue;
-        const key = ev.kind === 'bridge' ? 'bridge' : ev.siteId + '/' + ev.section;
-        const cur = chosen.get(key);
-        if (!cur || ev.id < cur.id) chosen.set(key, ev);
-      }
+      /*
+       * EVERY active edge carries a packet (sync links excepted - they are a
+       * cosmetic heartbeat, not a traffic path).
+       *
+       * This used to keep only one edge per (site, section), which on the
+       * large tier animated 7 of 50 active edges and always the same ones:
+       * the tie-break was a lexicographic compare on the edge id, so the
+       * alphabetically-first edge won and the dots clustered on the top and
+       * leftmost paths. That throttle was tuned when the hero only ever
+       * showed the small tier. Once the scroll sequence made medium and
+       * large reachable the tradeoff inverted - the whole argument those
+       * tiers make is "traffic keeps flowing along the other paths", and
+       * showing a seventh of them undersold exactly that.
+       *
+       * Edge COLORING was always accurate; only the dots were subsetted.
+       */
+      const chosen = edgeViews.filter(
+        (ev) => state.activeEdgeIds.has(ev.id) && ev.kind !== 'sync'
+      );
+      /*
+       * Phase offset per dot. The old 0.65s step was fine for 7 dots but
+       * bands badly at 50: 0.65 * 3 = 1.95, so every third dot landed within
+       * 0.05s of the same phase and neighbouring edges pulsed in unison.
+       * Stepping by duration * the golden ratio conjugate spreads any number
+       * of dots about as evenly as a fixed step can, and never repeats a
+       * phase for realistic edge counts.
+       */
+      const PACKET_DUR = 2;
+      const PACKET_PHASE_STEP = PACKET_DUR * 0.6180339887;
       let stagger = 0;
-      for (const ev of chosen.values()) {
+      for (const ev of chosen) {
         const dot = svgEl('circle', { class: 'topo-packet', r: 5 });
         const motion = svgEl('animateMotion', {
-          dur: '2s',
-          begin: (-stagger * 0.65) + 's',
+          dur: PACKET_DUR + 's',
+          /* Negative begin starts the animation already part-way through. */
+          begin: (-((stagger * PACKET_PHASE_STEP) % PACKET_DUR)).toFixed(3) + 's',
           repeatCount: 'indefinite',
         });
         const mpath = svgEl('mpath', {});
