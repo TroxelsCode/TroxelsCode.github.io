@@ -39,6 +39,21 @@
              diagram will read, so it has to carry the claim in words
              rather than just label a control. -->
         <summary class="hero-disclosure-summary">See what one missing piece costs a network</summary>
+        <!-- ONE control governing every tier at once (deliberate - the old
+             harness page had one per tier, but the tiers are stacked now and
+             three switches for one behavior reads as clutter). Ships hidden
+             because it does nothing without the module; js/hero.js unhides it
+             on a successful mount, same pattern as .hero-mount-hint below.
+             A real <button>, so keyboard operation and pressed-state
+             semantics come free - unlike the diagram nodes themselves, which
+             are still pointer-only. -->
+        <div class="hero-controls" hidden>
+          <button type="button" id="gremlin-toggle" class="hero-toggle" aria-pressed="true">
+            <span class="hero-toggle-dot" aria-hidden="true"></span>
+            <span class="hero-toggle-label">Simulated failures on</span>
+          </button>
+          <p class="hero-toggle-note">Toggles simulated network failures. Turn it off to inspect the diagrams undisturbed.</p>
+        </div>
         <!-- Scroll track for the tier sequence. It has NO height until
              js/hero.js sets data-hero-mode="pinned" on it, so a no-JS or
              failed-module visitor gets the fallback at its natural size

@@ -449,6 +449,30 @@ width, not just on phones, so the homepage builds no SVG and starts no gremlin t
 visitor actually expands the diagram. Measured `roots=0` on load at 1400px, 1000px, 760px and
 375px.
 
+**Gremlin toggle restored to the live page (2026-08-05).** The old `Gremlin: ON/off` buttons
+lived in `harness/index.html` and died with it in `0fe0c65`; the component API
+(`startGremlin` / `stopGremlin` / `gremlinRunning`) survived untouched, so this was a small
+addition rather than a rebuild. Now: **one** control for all tiers (user decision - the harness
+had one per tier, but with the tiers stacked three switches for one behavior reads as clutter),
+sitting directly under the disclosure summary with a line of explanatory copy.
+
+- **`syncGremlin()` in `js/hero.js` is the single authority on which instances strike.** Tiers
+  are now always mounted with `gremlin: { enabled: false }` and this turns on exactly the right
+  ones afterward, so the mount path and the toggle path cannot disagree. The rule differs by
+  layout: stacked runs every tier (the renderer's `IntersectionObserver` already keeps
+  off-screen ones quiet), pinned runs only the `is-current` tier. Both `startGremlin` and
+  `stopGremlin` are idempotent, so it is safe to call on every layout, transition and click.
+- **Turning it off does not reset the diagram, deliberately.** `stopGremlin()` lets pending
+  repairs finish, so the network winds down to healthy instead of freezing mid-outage. Verified:
+  9s after switching off, badges and downed nodes both reach 0.
+- `HERO_GREMLIN` is now only the STARTING state, not the switch.
+- The control is `[hidden]` in the markup and unhidden on a successful mount, same pattern as
+  `.hero-mount-hint` - a control that cannot do anything is never shown, and a no-JS visitor
+  never sees it. Verified `hidden=true, rendered=false` with scripts blocked.
+- It is a real `<button>` with `aria-pressed`, so focus, keyboard activation and pressed-state
+  semantics are the platform's job. **Worth noting: this is currently the only keyboard-operable
+  part of the diagram** - the nodes themselves are still pointer-only (see the logged a11y gap).
+
 Everything from here down describes the mechanism as built, and stays accurate for when it is
 switched back on. Read it before touching `js/hero.js` or the scrollytelling block in
 `css/style.css`.

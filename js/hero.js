@@ -55,6 +55,8 @@ const HERO_PINNED_SEQUENCE = false;
 /* Order of the sequence. Also the stacking order in stacked mode. */
 const TIER_ORDER = ['small', 'medium', 'large'];
 
+/* Only the STARTING state of the gremlin. The toggle under the disclosure
+   summary owns it from the first click onward - see syncGremlin(). */
 const HERO_GREMLIN = true;
 
 /* placeholder copy, not finalized - same status as the hero tagline and the
@@ -161,6 +163,58 @@ function watchChrome(refs) {
   }
 }
 
+/* ---- gremlin ---- */
+
+/*
+ * Whether the visitor wants simulated failures at all. HERO_GREMLIN is only
+ * the starting value now; the toggle under the summary owns it from there.
+ */
+let gremlinOn = HERO_GREMLIN;
+
+/*
+ * The one place that decides which instances are striking. Two rules, and
+ * they differ by layout:
+ *
+ *   stacked - every tier is genuinely on the page, so all of them run. The
+ *             renderer's own IntersectionObserver already biases strikes
+ *             toward whatever is on screen, so off-screen tiers stay quiet
+ *             without any coordination here.
+ *   pinned  - only the tier currently faded in, so timers are never burnt on
+ *             an invisible diagram.
+ *
+ * Both start/stopGremlin are idempotent, so this is safe to call on every
+ * layout, every tier transition and every click of the toggle. Turning the
+ * gremlin off deliberately does NOT reset the diagram: stopGremlin() lets
+ * pending repairs finish, so the network winds down to healthy on its own
+ * rather than freezing mid-outage.
+ */
+function syncGremlin() {
+  const stacked = !isPinned();
+  for (const layer of layers) {
+    const run = gremlinOn && (stacked || layer.el.classList.contains('is-current'));
+    if (run) layer.instance.startGremlin();
+    else layer.instance.stopGremlin();
+  }
+}
+
+function wireGremlinToggle(refs) {
+  const btn = refs.gremlinToggle;
+  if (btn === null) return;
+  const label = btn.querySelector('.hero-toggle-label');
+
+  const paint = () => {
+    btn.setAttribute('aria-pressed', gremlinOn ? 'true' : 'false');
+    if (label) label.textContent = 'Simulated failures ' + (gremlinOn ? 'on' : 'off');
+  };
+
+  btn.addEventListener('click', () => {
+    gremlinOn = !gremlinOn;
+    paint();
+    syncGremlin();
+  });
+  paint();
+}
+
 /* ---- mounting ---- */
 
 /*
@@ -176,13 +230,12 @@ function buildAll(pinned) {
   try {
     for (const id of TIER_ORDER) {
       const holder = document.createElement('div');
-      /* Pinned: gremlins start off and setCurrent() runs exactly one, so
-         timers are never burnt on an invisible tier. Stacked: every tier is
-         genuinely on the page, so each runs its own. The renderer's own
-         IntersectionObserver already biases strikes toward what is on
-         screen, so an off-screen tier stays mostly quiet by itself. */
+      /* Always mounted with the gremlin OFF; syncGremlin() turns on exactly
+         the instances that should be running once the layers are in place.
+         Single source of truth, so the mount path and the toggle path cannot
+         disagree about which tiers are live. */
       const instance = TopologyViz.mount(holder, set[id], {
-        gremlin: { enabled: HERO_GREMLIN && !pinned },
+        gremlin: { enabled: false },
       });
       built.push({ id, instance });
     }
@@ -226,6 +279,11 @@ function layout(refs) {
     refs.caption.textContent = '';
   }
 
+  /* After the layers are in place and any is-current class has been set, so
+     the pinned rule has something to read. Also carries the visitor's toggle
+     choice across a re-layout, which a fresh mount would otherwise reset. */
+  syncGremlin();
+
   if (!mounted) {
     mounted = true;
     /* mount() APPENDS, it does not clear, so the fallback has to be removed
@@ -238,6 +296,10 @@ function layout(refs) {
        unless the diagram actually rendered. */
     const hint = document.querySelector('.hero-mount-hint');
     if (hint) hint.hidden = false;
+
+    /* Same reasoning: the toggle drives the mounted instances, so it is
+       meaningless until they exist. */
+    if (refs.controls) refs.controls.hidden = false;
   }
   return true;
 }
@@ -255,15 +317,13 @@ function setCurrent(id, refs) {
   current = id;
 
   for (const layer of layers) {
-    const on = layer.id === id;
-    layer.el.classList.toggle('is-current', on);
-    if (on) {
-      if (HERO_GREMLIN) layer.instance.startGremlin();
-    } else {
-      layer.instance.stopGremlin();
-      if (layer.id === previous) layer.instance.reset();
-    }
+    layer.el.classList.toggle('is-current', layer.id === id);
+    /* The tier being left behind is reset so it does not come back still
+       carrying nodes the visitor knocked offline. */
+    if (layer.id === previous) layer.instance.reset();
   }
+  /* Reads the is-current classes just set, and honours the toggle. */
+  syncGremlin();
   refs.caption.textContent = CAPTIONS[id] || '';
 }
 
@@ -411,7 +471,15 @@ function boot() {
     details,
     pin: scroll.querySelector('.hero-pin'),
     summary: details ? details.querySelector('summary') : null,
+    controls: document.querySelector('.hero-controls'),
+    gremlinToggle: document.getElementById('gremlin-toggle'),
   };
+
+  /* Wired before any mount so the button reflects the starting state even
+     while the diagram is still collapsed. syncGremlin() no-ops over an empty
+     layer list, so an early click cannot break anything - and layout() calls
+     it again once the instances exist. */
+  wireGremlinToggle(refs);
 
   /* Publishes whether the pinned sequence is live. css/style.css keys the
      summary-hiding rule off this, so with the sequence off the collapse
