@@ -419,11 +419,42 @@ that it created a sticky **chain**, and every link offsets against the ones abov
 - Measured no-overlap at scroll: header occupies 0..57, summary 57..122, status bars stick at
   122.
 
-## Phase 2b: scrollytelling tier sequence (BUILT 2026-08-05)
+## Phase 2b: scrollytelling tier sequence (BUILT, then SWITCHED OFF 2026-08-05)
 
-The hero now mounts **all three tiers** and sequences them. `HERO_TIER` is gone; medium and
-large are reachable in production for the first time. Read this before touching `js/hero.js`
-or the scrollytelling block in `css/style.css`.
+**CURRENT STATE: the pinned scroll sequence is OFF.** `HERO_PINNED_SEQUENCE = false` at the
+top of `js/hero.js`. The user liked the execution but decided the pinned presentation was not
+what they had envisioned, and wanted it reversibly disabled while they think about the
+direction - not deleted. So everything below is still live code, just gated.
+
+**What the site does today:** every screen size behaves the way narrow screens already did.
+No sticky pin, no cross-fade, no scroll driver. All three tiers render at full size in a plain
+vertical scroll, collapsed by default behind the `<details>` disclosure at **every** width,
+with the summary always visible as the expand/collapse control.
+
+**To turn it back on, flip the one flag.** Nothing else needs changing:
+
+- `isPinned()` is the single predicate gating the whole mechanism.
+- The pinned CSS all lives under `.hero-scroll[data-hero-mode="pinned"]`.
+- `collapsesByDefault()` reverts to collapsing only on narrow screens.
+- `watchScroll()` returns immediately while the flag is off, so a switched-off hero costs zero
+  scroll work rather than running a handler that returns early.
+- The summary-hiding rule in `css/style.css` is gated on `[data-hero-sequence="on"]`, which
+  `js/hero.js` writes onto `<html>` from the flag. **That gate is load-bearing while the flag
+  is off**: the disclosure now starts collapsed on desktop too, so hiding the control above
+  801px would strand the diagram with no way to open it. The attribute is absent entirely when
+  JS never runs, which is the correct no-JS baseline - content expanded, control visible.
+
+**A side benefit worth keeping in mind:** with the sequence off the mount is deferred at every
+width, not just on phones, so the homepage builds no SVG and starts no gremlin timers until a
+visitor actually expands the diagram. Measured `roots=0` on load at 1400px, 1000px, 760px and
+375px.
+
+Everything from here down describes the mechanism as built, and stays accurate for when it is
+switched back on. Read it before touching `js/hero.js` or the scrollytelling block in
+`css/style.css`.
+
+The hero mounts **all three tiers**. `HERO_TIER` is gone; medium and large are reachable in
+production for the first time.
 
 **The whole design turns on two INDEPENDENT axes. Conflating them is a bug that actually
 shipped in the prototype and had to be fixed:**
@@ -549,7 +580,7 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. Resume cross-repo pipeline COMPLETE and committed (7b9ffad, 2026-08-04): sync tooling built, first real resume content synced in and styled - see "Resume page + cross-repo pipeline" above.
 - Phase 2a COMPLETE (2026-08-04): hero is live on the homepage, small tier + gremlin, harness retired - see "Homepage build" above for the details and the traps.
 - **Mobile treatment COMPLETE (2026-08-05)**: portrait layouts for all three tiers, viewport-biased gremlin, live re-orientation on resize/rotation, and the narrow-screen `<details>` collapse with lazy mounting. All three tiers have portrait variants; large gets no landscape fallback by explicit user decision. See "Mobile treatment" under Homepage build for the geometry and the traps.
-- **Phase 2b (scrollytelling) BUILT 2026-08-05** - all three tiers now mount and sequence; `HERO_TIER` is gone. See the "Phase 2b" section above for the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Not yet committed or user-tested in a real browser at time of writing. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
+- **Phase 2b (scrollytelling) BUILT then SWITCHED OFF, 2026-08-05.** All three tiers mount; `HERO_TIER` is gone. The pinned sequence works and shipped, but the user decided the presentation was not what they wanted and asked for it to be reversibly disabled rather than deleted - `HERO_PINNED_SEQUENCE = false` in `js/hero.js`. Every width now uses the plain stacked scroll behind a collapsed-by-default disclosure. **The user intends to revisit the hero presentation; they could not articulate the change they wanted yet, so do not assume the stacked layout is the final answer.** See the "Phase 2b" section above for the flag, the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
 - Still open on the hero: the disclosure summary copy, the hero tagline, and the `CAPTIONS` map in `js/hero.js` are all marked placeholders. Also one measured item never folded in - the hero reservation matches the mounted component **exactly (delta 0.0px) from 480px up**, but at 320px the `.hero-mount-fallback` paragraph is taller than the reserved box (179.6 vs 116.3), so a slow module load on a very narrow screen collapses ~63px. Fix by shortening the fallback copy or clamping it at narrow widths.
 - Known a11y gap, logged not fixed: topology nodes are pointer-only (no `tabindex`, no key handler), so the click-to-break interaction is unavailable to keyboard users. Defensible today because it is a non-essential enhancement and nothing on the page is available *solely* through it. Named fix is in the "Homepage build" section.
 - Spec-literal behavior worth confirming with the user: in bridge mode (and generally in the shared mesh), stack-B firewalls light up as transit because a surviving path exists through them (active-active "every edge on any surviving path"). Matches the spec text; may or may not match intent.

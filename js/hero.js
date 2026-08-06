@@ -32,6 +32,26 @@ import { tiers, tiersPortrait } from '../topology/tiers/tiers.js';
 
 /* ---- knobs ---- */
 
+/*
+ * THE SCROLL SEQUENCE IS CURRENTLY OFF (user decision, 2026-08-05). Flip this
+ * to true to bring it back; nothing else needs to change.
+ *
+ * With it false, every screen size behaves the way narrow screens already
+ * did: no sticky pin, no cross-fade, no scroll driver. All three tiers render
+ * at full size in a plain vertical scroll, collapsed by default behind the
+ * <details> disclosure at EVERY width rather than only on phones.
+ *
+ * This is a one-line switch rather than a deletion because the pinned path is
+ * built, verified and documented - the user wants to rethink the presentation,
+ * not throw the mechanism away. Everything it needs is still here:
+ *   - isPinned() below is the single predicate that gates the whole thing
+ *   - the pinned CSS lives under .hero-scroll[data-hero-mode="pinned"]
+ *   - the summary-hiding rule is gated on [data-hero-sequence="on"], which
+ *     this flag publishes onto <html>
+ * See the Phase 2b section in CLAUDE.md before turning it back on.
+ */
+const HERO_PINNED_SEQUENCE = false;
+
 /* Order of the sequence. Also the stacking order in stacked mode. */
 const TIER_ORDER = ['small', 'medium', 'large'];
 
@@ -77,13 +97,25 @@ const isPortrait = () => (portraitQuery === null ? true : portraitQuery.matches)
 const prefersReducedMotion = () => (motionQuery !== null && motionQuery.matches);
 
 /*
- * Stacked instead of pinned when EITHER the screen is too narrow to fit a
- * tier in the viewport OR the visitor asked for reduced motion. The measured
- * fit math behind the width half, and the reasoning behind the motion half,
- * are both in the scrollytelling block of css/style.css - read that before
- * changing this predicate.
+ * Stacked instead of pinned when the sequence is switched off entirely, OR
+ * the screen is too narrow to fit a tier in the viewport, OR the visitor
+ * asked for reduced motion. The measured fit math behind the width term, and
+ * the reasoning behind the motion term, are both in the scrollytelling block
+ * of css/style.css - read that before changing this predicate.
+ *
+ * While HERO_PINNED_SEQUENCE is false the other two terms are redundant. They
+ * are kept rather than collapsed so flipping the flag restores the full
+ * behavior, including the cases where stacking is required regardless.
  */
-const isPinned = () => !isPortrait() && !prefersReducedMotion();
+const isPinned = () =>
+  HERO_PINNED_SEQUENCE && !isPortrait() && !prefersReducedMotion();
+
+/*
+ * With the sequence off, the disclosure collapses at every width instead of
+ * only on phones, and the summary stays visible so there is always a control
+ * to reopen it.
+ */
+const collapsesByDefault = () => !HERO_PINNED_SEQUENCE || isPortrait();
 
 const tierSet = () => (isPortrait() ? tiersPortrait : tiers);
 
@@ -265,6 +297,11 @@ function driveFromScroll(refs) {
  * hero is anywhere near the viewport.
  */
 function watchScroll(refs) {
+  /* Nothing to drive if the sequence can never pin. Skipping the attach
+     entirely means a switched-off hero costs zero scroll work, rather than
+     running a listener whose handler returns immediately. */
+  if (!HERO_PINNED_SEQUENCE) return;
+
   let frame = null;
   const onScroll = () => {
     if (frame !== null) return;
@@ -317,8 +354,14 @@ function watchLayout(refs) {
        above the breakpoint, so a details left closed would hide the diagram
        with no control left to reopen it. Going narrow deliberately does NOT
        auto-collapse - pulling away content someone is already reading is
-       worse than simply revealing a collapse control. */
-    if (refs.details && !isPortrait()) refs.details.open = true;
+       worse than simply revealing a collapse control.
+
+       Only applies while the sequence is on. With it off the summary is
+       visible at every width, so there is always a control to reopen with and
+       force-opening would just override the visitor's own choice. */
+    if (refs.details && HERO_PINNED_SEQUENCE && !isPortrait()) {
+      refs.details.open = true;
+    }
 
     /* Still collapsed and never mounted. Nothing to re-lay-out; whenever it
        does mount it reads the live queries. Only mount here for the deferred
@@ -370,18 +413,28 @@ function boot() {
     summary: details ? details.querySelector('summary') : null,
   };
 
+  /* Publishes whether the pinned sequence is live. css/style.css keys the
+     summary-hiding rule off this, so with the sequence off the collapse
+     control stays visible at every width. Absent when JS never runs, which
+     is the correct no-JS baseline: content shown, control shown. */
+  document.documentElement.setAttribute(
+    'data-hero-sequence', HERO_PINNED_SEQUENCE ? 'on' : 'off'
+  );
+
   /* The sticky chain needs this offset published before anything measures
      against it, including while the hero is still collapsed. */
   measureChrome(refs);
   watchChrome(refs);
 
-  /* Collapse on narrow screens. The markup ships open (see index.html), so
-     this is the enhancement rather than the baseline. */
-  if (details && isPortrait()) details.open = false;
+  /* Collapse by default - at every width while the sequence is off, on narrow
+     screens only while it is on. The markup ships open (see index.html), so
+     this is the enhancement rather than the baseline: a no-JS visitor gets
+     the content expanded rather than stranded behind a dead control. */
+  if (details && collapsesByDefault()) details.open = false;
 
   if (details && !details.open) {
-    /* Defer everything while collapsed: a phone does no module work, builds
-       no SVG and starts no gremlin timers until the first expand. */
+    /* Defer everything while collapsed: the visitor does no module work,
+       builds no SVG and starts no gremlin timers until the first expand. */
     details.addEventListener('toggle', () => {
       if (details.open && !mounted) start(refs);
     });

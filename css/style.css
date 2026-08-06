@@ -239,17 +239,25 @@ section:last-of-type {
 }
 
 /*
- * Above the breakpoint the disclosure is always open (js/hero.js enforces
- * it on the way up), so the control is noise - hide it and let this read as
- * a plain wrapper. Keep this breakpoint in sync with the portrait media
- * query below and PORTRAIT_MAX_WIDTH in js/hero.js.
+ * Above the breakpoint the disclosure is always open (js/hero.js enforces it
+ * on the way up), so the control is noise - hide it and let this read as a
+ * plain wrapper. Keep this breakpoint in sync with the portrait media query
+ * below and PORTRAIT_MAX_WIDTH in js/hero.js.
+ *
+ * Gated on [data-hero-sequence="on"], which js/hero.js writes onto <html>
+ * from HERO_PINNED_SEQUENCE. That flag is currently OFF, so this whole block
+ * is inert and the collapse control shows at every width - which is required,
+ * because with the sequence off the disclosure also starts COLLAPSED at every
+ * width and hiding the control would strand the diagram with no way to open
+ * it. The attribute is absent entirely when JS never runs, so a no-JS visitor
+ * likewise keeps a visible control next to already-expanded content.
  */
 @media (min-width: 801px) {
-  .hero-disclosure-summary {
+  [data-hero-sequence="on"] .hero-disclosure-summary {
     display: none;
   }
 
-  .hero-disclosure .hero-mount {
+  [data-hero-sequence="on"] .hero-disclosure .hero-mount {
     margin-top: 32px;
   }
 }
