@@ -1,0 +1,29 @@
+# Jekyll configuration for the GitHub Pages build.
+#
+# This repo has no build step and no local Ruby. This file exists for exactly
+# one reason: to keep internal working notes off the live domain.
+#
+# Why it is needed. GitHub Pages enables jekyll-optional-front-matter, so a
+# root markdown file is rendered into a page even though it has no YAML front
+# matter. Measured 2026-08-07: every root .md was served TWICE - once verbatim
+# at /NAME.md and once rendered at /NAME.html. Underscore-prefixed DIRECTORIES
+# (_tests/, _icons/) are dropped by Jekyll's EntryFilter, but root FILES are
+# not, so they need an explicit exclude. One entry here removes both outputs.
+#
+# Scope note: this only removes the files from the built site. The repository
+# is public, so they remain readable on github.com, including in history. The
+# goal is "not served from the professional domain", not "secret".
+#
+# Do NOT move or rename CLAUDE.md to solve this. It has to stay at the repo
+# root for Claude Code to find it, which is precisely why an exclude is the
+# right tool.
+#
+# Never add a .nojekyll file. It bypasses the Jekyll build entirely, which
+# would start publishing _tests/ and _icons/ AND would make this list inert.
+#
+# README.md is deliberately NOT excluded - a readme is normal public-facing
+# content for a repo landing page.
+
+exclude:
+  - CLAUDE.md
+  - network-topology-prototype-spec.md
