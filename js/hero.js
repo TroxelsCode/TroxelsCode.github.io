@@ -300,11 +300,13 @@ function layout(refs) {
     const fallback = refs.mount.querySelector('.hero-mount-fallback');
     if (fallback) fallback.remove();
 
-    /* The nodes are pointer-only (click listener, no tabindex or key
-       handler), so this hint is a pointer affordance and is meaningless
-       unless the diagram actually rendered. */
-    const hint = document.querySelector('.hero-mount-hint');
-    if (hint) hint.hidden = false;
+    /* Directions for an interaction that only exists once the diagram is
+       really there - and for the topology they are a POINTER affordance
+       specifically, since the nodes are pointer-only (click listener, no
+       tabindex or key handler). The .exhibit-description beside them is NOT
+       gated this way: it is real copy and stands on its own without JS. */
+    const directions = document.querySelector('.exhibit-directions');
+    if (directions) directions.hidden = false;
 
     /* Same reasoning: the toggle drives the mounted instances, so it is
        meaningless until they exist. */

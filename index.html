@@ -45,11 +45,40 @@
              diagram will read, so it has to carry the claim in words
              rather than just label a control. -->
         <summary class="hero-disclosure-summary">See what one missing piece costs a network</summary>
+        <!-- Exhibit intro, and it sits FIRST on purpose: what the piece is
+             and how to work it have to be readable before the visitor meets
+             the diagram, not found underneath it after scrolling past three
+             tiers.
+
+             Named exhibit-* rather than hero-* because this is shell, not
+             topology - it is the first piece of the shared exhibit shell to
+             be built, and every future exhibit row gets the same two-part
+             block (see the naming decision in CLAUDE.md). The two halves
+             have deliberately different visibility rules:
+
+               .exhibit-description  always renders, including with no JS at
+                                     all - it is the only account of the
+                                     exhibit a visitor gets when the module
+                                     never loads.
+               .exhibit-directions   describes an interaction that does not
+                                     exist until the exhibit mounts, so it
+                                     ships hidden and js/hero.js unhides it
+                                     on success, same rule as .hero-controls
+                                     below. -->
+        <div class="exhibit-intro">
+          <!-- draft copy, workshop alongside the summary above -->
+          <p class="exhibit-description">Three versions of the same network, each with more redundancy
+            than the last: a single path from the internet to the desks, then a firewall pair with a
+            standby ready to take over, then a two-site design with clustered firewalls and multiple
+            uplinks. Reachability is computed live for each one, so a failure shows you exactly which
+            parts of the business it takes with it.</p>
+          <p class="exhibit-directions" hidden>Click any node to take it offline and watch the status change.</p>
+        </div>
         <!-- ONE control governing every tier at once (deliberate - the old
              harness page had one per tier, but the tiers are stacked now and
              three switches for one behavior reads as clutter). Ships hidden
              because it does nothing without the module; js/hero.js unhides it
-             on a successful mount, same pattern as .hero-mount-hint below.
+             on a successful mount, same pattern as .exhibit-directions above.
              A real <button>, so keyboard operation and pressed-state
              semantics come free - unlike the diagram nodes themselves, which
              are still pointer-only. -->
@@ -95,9 +124,6 @@
             <p id="hero-caption" class="hero-caption"></p>
           </div>
         </div>
-        <!-- Pointer affordance only; js/hero.js unhides it once the diagram
-             actually rendered. The nodes are not keyboard operable today. -->
-        <p class="hero-mount-hint" hidden>Click any node to take it offline and watch the status change.</p>
       </details>
     </section>
 

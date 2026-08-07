@@ -199,8 +199,9 @@ component into `#hero-mount` on the homepage. Details:
   forever. Use `<link rel="preload">` without the attribute if warming is ever needed.
 - **Known a11y gap**: nodes are pointer-only (click listener, no `tabindex`, no key handler).
   The SVG's `aria-label` was rewritten to describe the diagram instead of instructing a click,
-  and the pointer instruction moved to a visible `.hero-mount-hint` that JS unhides only on
-  successful mount. Named fix if it ever matters: `tabindex="0"` + `role="button"` +
+  and the pointer instruction moved to a visible `.exhibit-directions` line that JS unhides only
+  on successful mount (it was `.hero-mount-hint` below the diagram until 2026-08-07 - see the
+  exhibit-intro block in the exhibit-list section). Named fix if it ever matters: `tabindex="0"` + `role="button"` +
   `aria-pressed` + a keydown handler in the renderer, plus a `:focus-visible` style in
   `topology.css`. Do NOT add `aria-live` to the status bar - with gremlin running it would
   announce a change every few seconds.
@@ -616,7 +617,7 @@ sitting directly under the disclosure summary with a line of explanatory copy.
   9s after switching off, badges and downed nodes both reach 0.
 - `HERO_GREMLIN` is now only the STARTING state, not the switch.
 - The control is `[hidden]` in the markup and unhidden on a successful mount, same pattern as
-  `.hero-mount-hint` - a control that cannot do anything is never shown, and a no-JS visitor
+  `.exhibit-directions` - a control that cannot do anything is never shown, and a no-JS visitor
   never sees it. Verified `hidden=true, rendered=false` with scripts blocked.
 - It is a real `<button>` with `aria-pressed`, so focus, keyboard activation and pressed-state
   semantics are the platform's job. **Worth noting: this is currently the only keyboard-operable
@@ -772,8 +773,13 @@ churn with no visible benefit, and `js/hero.js` genuinely is the topology host. 
 `module` was rejected outright because this repo already uses "module" for ES modules, and
 `js/main.js` being a classic script while `js/hero.js` is a module is load-bearing here.)
 
-**Do not extract the shared shell until exhibit #2 actually exists.** One instance is not
-enough to factor a pattern from without guessing. What is recorded here instead is the
+**The first `exhibit-*` piece now exists: the intro block, built 2026-08-07** (see the
+subsection below). It is shell, it is generic, and it is already named under the new prefix -
+so `exhibit-*` and `hero-*` coexist in `index.html` and `css/style.css` on purpose. That is not
+drift; it is the boundary in the table below being drawn as pieces get built.
+
+**Do not extract the rest of the shared shell until exhibit #2 actually exists.** One instance
+is not enough to factor a pattern from without guessing. What is recorded here instead is the
 boundary, so the extraction is mechanical when the time comes:
 
 | shared shell (becomes `exhibit-*`) | topology-specific (stays in `hero.js` / `topology/`) |
@@ -784,6 +790,39 @@ boundary, so the extraction is mechanical when the time comes:
 | deferred work until first expand | portrait-vs-landscape tier data switching |
 | fallback element and its removal on success | the pinned/stacked mode choice |
 | controls hidden until a successful mount | |
+| **the intro block - BUILT, already `exhibit-*`** | |
+
+### The exhibit intro block (built 2026-08-07)
+
+**Every exhibit opens with a description and its interaction directions, directly under the
+summary and ABOVE both the controls and the exhibit itself.** User direction: the click
+instruction used to trail the diagram as `.hero-mount-hint`, which meant a visitor found out
+the thing was interactive only after scrolling past all three tiers. It should be the first
+thing read on expanding. The markup is deliberately generic, so exhibit #2 copies it verbatim
+and only swaps the copy:
+
+```html
+<div class="exhibit-intro">
+  <p class="exhibit-description">What the piece is. Real copy.</p>
+  <p class="exhibit-directions" hidden>How to interact with it.</p>
+</div>
+```
+
+- **The two halves have different visibility rules, and that split is the point.** The
+  description always renders - with no JS it is the only account of the exhibit a visitor gets
+  besides the fallback text. The directions describe an interaction that does not exist until
+  the exhibit mounts, so they follow the `.hero-controls` rule: `[hidden]` in the markup,
+  unhidden by JS on a successful mount. **Do not gate the description the same way** and do not
+  merge the two into one paragraph, or a no-JS visitor loses the description with it.
+- **Order inside the `<details>` is summary -> intro -> controls -> exhibit.** Controls sit
+  below the intro because a toggle means nothing before you know what it is toggling.
+- **The topology directions are a POINTER instruction specifically** (nodes are click-only, no
+  `tabindex`, no key handler - see the logged a11y gap). An exhibit that IS keyboard-operable
+  should word its own directions accordingly rather than copying this sentence's framing.
+- Verified 2026-08-07 headlessly at 1200px and 375px, JS and no-JS: order correct, all three
+  tiers mounted, `directions hidden=true rendered=false` in every no-JS and pre-mount state and
+  `false` / `true` after a successful mount, description rendering in all four combinations,
+  and the collapsed strip unchanged (the intro does not leak out of a closed `<details>`).
 
 **Invariants every new exhibit must honor.** These are not style preferences; each one was
 paid for by a real bug or a real progressive-enhancement requirement, all documented above:
@@ -796,12 +835,16 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
 3. **Remove that fallback only after the exhibit has fully succeeded.** For the topology that
    means all three tiers mounting into detached containers first.
 4. **Ship interactive controls `[hidden]` and unhide them on successful mount.** A control that
-   cannot do anything is never shown. See `.hero-controls` and `.hero-mount-hint`.
+   cannot do anything is never shown. Same for interaction directions. See `.hero-controls` and
+   `.exhibit-directions`.
 5. **Defer all real work until the first expand.** No DOM building, no timers, no network while
    collapsed. The homepage currently builds zero SVG and starts zero timers on load.
 6. **Write the summary as real copy, not a control label.** It is the only thing a visitor who
    never expands will read - on a phone especially. See the placeholder-copy item below; the
    topology summary is the template the rest will follow.
+7. **Open with an `.exhibit-intro` block: a description, then the interaction directions.**
+   Above the controls, above the exhibit. See the subsection above for the markup and for why
+   only the directions half is JS-gated.
 
 **What exhibit #2 will actually run into.** The first item below is the good news and was
 settled by measurement; the other two are cosmetic and cheap. None were fixed pre-emptively,
@@ -859,6 +902,12 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - **Mobile treatment COMPLETE (2026-08-05)**: portrait layouts for all three tiers, viewport-biased gremlin, live re-orientation on resize/rotation, and the `<details>` collapse with lazy mounting. All three tiers have portrait variants; large gets no landscape fallback by explicit user decision. See "Mobile treatment" under Homepage build for the geometry and the traps. *(The collapse was narrow-screens-only when built; it now applies at every width - see Phase 2b below.)*
 - **Phase 2b (scrollytelling) BUILT then SWITCHED OFF, 2026-08-05. Presentation DECIDED 2026-08-07 - this is no longer an open question.** All three tiers mount; `HERO_TIER` is gone. The pinned sequence works and shipped, but the user decided the presentation was not what they wanted - `HERO_PINNED_SEQUENCE = false` in `js/hero.js`. Every width uses the plain stacked scroll behind a collapsed-by-default disclosure, and on 2026-08-07 the user confirmed they want to keep exactly that. **The gated pin code stays in the tree on purpose** so the option can be revisited without rebuilding it; do not delete it in a cleanup pass. See the "Phase 2b" section above for the flag, the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
 - **Expandable exhibit list: direction set 2026-08-07, nothing to build yet.** The disclosure is the first row of a growing list of collapsed-by-default interactive pieces; future additions become rows rather than new presentations. No code changes were needed to adopt this - it is a decision about where future work goes. See the "Expandable exhibit list" section above for the six invariants a new exhibit must honor, the shared-vs-specific boundary, the `exhibit` naming decision (user-approved 2026-08-07), and the two cosmetic constraints that bite once a SECOND row exists (doubled borders between adjacent rows, and the 32px summary margin spacing rows apart). **Sticky handoff between stacked summaries needs no work at all** - measured 2026-08-07, the browser already gives exactly the wanted behavior because each summary is constrained by its own `<details>`.
+- **Exhibit intro block BUILT (2026-08-07)**, at user request: the click instruction moved from
+  below the diagram to the top of the exhibit, and was generalized into an `.exhibit-intro`
+  (description + directions) that every future exhibit reuses. First piece of the shared shell
+  to carry the `exhibit-*` prefix. See "The exhibit intro block" subsection for the markup, the
+  visibility split and the verification. The description copy is a draft written in that
+  session - worth workshopping alongside the summary.
 - **Placeholder copy, still open**: the disclosure summary (`index.html`, load-bearing - on a phone it is the only thing a visitor who never expands will read, and as of 2026-08-07 it is also the **template** every future exhibit summary will follow, which raises the stakes on getting it right), the hero tagline (`hero-tagline` in `index.html`), and the **small-tier caption only** in the `CAPTIONS` map. All marked with comments at their definition sites. The user is workshopping the summary separately. *(The medium and large captions came off this list on 2026-08-07 - they are now finished copy naming VRRP, ECMP and clustering. Note captions render on the live page in stacked mode; an earlier claim in this file that they were pinned-only was wrong.)*
 - ~~320px fallback taller than the reserved hero box (~63px collapse on a slow module load)~~ **RESOLVED by Phase 2b, re-measured 2026-08-06 - do not re-file.** The bug needed the hero to be *expanded on page load* with the fallback occupying visible space while the module was still arriving. It now ships collapsed at every width with the mount deferred behind the expand click, so the module is already loaded when the mount happens and the fallback never occupies visible space at all: measured `shift=0.0px` on expand at 320px, 375px and 480px, with the fallback already gone 50ms after the click. In the genuine failure cases (module 404s, blocked, parse error) `hero.js` never runs, so nothing collapses the disclosure and the page renders exactly like the no-JS baseline - where the grid row is sized by the fallback (`mountH == fallbackH` at all three widths), so it simply renders at its natural height with no overlap and nothing to collapse. Verified, not reasoned.
 - **Sticky nav + packet changes COMPLETE (2026-08-05, `268aab6` and `30bd9d0`).** The header pins on every page - see the sticky-chain table in the Homepage build section, and note `--site-nav-h` must stay published from `js/main.js` so `/resume/` gets it. Packet dots now ride every active edge and reconcile incrementally instead of being rebuilt; see the two packet paragraphs in Architecture, both marked do-not-revert.

@@ -451,14 +451,51 @@ section:last-of-type {
   color: var(--site-muted);
 }
 
-/* Pointer-only affordance, so js/hero.js unhides it only once the diagram
-   rendered. The nodes carry a click listener but no tabindex and no key
-   handler, so this deliberately is not offered as a keyboard instruction. */
-.hero-mount-hint {
+/*
+ * ---- exhibit intro ----
+ * Shared shell, not topology - the first piece to carry the exhibit-* prefix
+ * (see the naming decision in CLAUDE.md), and the block every future exhibit
+ * row reuses unchanged. It renders directly under the disclosure summary and
+ * ABOVE the controls and the exhibit itself, so a visitor reads what the piece
+ * is and how to work it on expanding rather than discovering the instructions
+ * below the thing they were meant to instruct.
+ *
+ * The two halves differ in visibility on purpose. The description is real copy
+ * that always renders - with no JS it is the only account of the exhibit a
+ * visitor gets, alongside the fallback text. The directions describe an
+ * interaction that does not exist until the exhibit mounts, so they follow the
+ * .hero-controls rule: [hidden] in the markup, unhidden by JS on success.
+ *
+ * For the topology exhibit the directions are also a POINTER affordance
+ * specifically - the nodes carry a click listener but no tabindex and no key
+ * handler, so this deliberately is not offered as a keyboard instruction. A
+ * future exhibit that is keyboard-operable should word its own directions
+ * accordingly.
+ */
+.exhibit-intro {
+  margin-top: 16px;
+}
+
+.exhibit-description {
+  max-width: 68ch;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* 13px rather than the 12px this line used when it sat under the diagram as a
+   trailing hint: it is the first actionable thing a visitor reads now, so it
+   should not be the smallest text in the block. */
+.exhibit-directions {
   margin-top: 10px;
+  max-width: 68ch;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--site-muted);
+}
+
+.exhibit-directions[hidden] {
+  display: none;
 }
 
 /*
