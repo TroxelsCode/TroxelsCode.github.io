@@ -404,6 +404,16 @@ export const TopologyViz = {
         if (ev.kind === 'sync') {
           ev.el.classList.toggle('sync-live',
             !sa.down && !sb.down && sa.reachable && sb.reachable);
+        } else if (ev.kind === 'bridge') {
+          /*
+           * Standby site link: up at both ends but not carrying. Same
+           * liveness test the sync links use, plus "not active" - an
+           * active bridge is drawn solid with packets on it, so marching
+           * its (absent) dashes would do nothing. See topology.css.
+           */
+          ev.el.classList.toggle('bridge-standby',
+            !sa.down && !sb.down && sa.reachable && sb.reachable
+              && !state.activeEdgeIds.has(ev.id));
         }
       }
 

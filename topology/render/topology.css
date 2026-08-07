@@ -144,6 +144,25 @@
   stroke-width: 2;
 }
 
+/* Same heartbeat crawl the sync links get, and for the same reason: a standby
+   site link is not idle hardware. It carries keepalives and routing adjacency
+   the whole time it is not carrying traffic, which is exactly why the failover
+   it backstops can be instant. Only the STANDBY state marches - once a bridge
+   actually carries it goes solid teal (rule below) and the packet dots take
+   over the job of showing motion, so there is no dash left to march.
+
+   The keyframe distance must be a whole number of dash periods (2 + 6 = 8) or
+   the loop visibly jumps at the wrap. -24 is three periods, and over 2.4s that
+   is the same 10 units/sec the sync march runs at, so the two heartbeats read
+   as one mechanism rather than two unrelated speeds. */
+.topo-viz .topo-edge.kind-bridge.bridge-standby {
+  animation: topo-bridge-march 2.4s linear infinite;
+}
+
+@keyframes topo-bridge-march {
+  to { stroke-dashoffset: -24; }
+}
+
 .topo-viz .topo-edge.kind-bridge.is-active {
   stroke-dasharray: none;
   stroke: var(--topo-active);
@@ -314,7 +333,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .topo-viz .topo-edge.kind-sync.sync-live {
+  .topo-viz .topo-edge.kind-sync.sync-live,
+  .topo-viz .topo-edge.kind-bridge.bridge-standby {
     animation: none;
   }
   .topo-viz .topo-packets {
