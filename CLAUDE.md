@@ -37,6 +37,9 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 - **Headless Edge works for verification**: `"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"` with `--headless=new --disable-gpu --virtual-time-budget=5000` plus `--screenshot=<path> --window-size=WxH` (visual check via Read on the PNG) or `--dump-dom` (run JS, grep output). Use `Start-Process -Wait -RedirectStandardOutput` in PowerShell; plain `>` redirection of msedge output produced an empty file (this also happens in Git Bash, not just PowerShell - use the PowerShell tool's redirection workaround even when starting from a bash session).
 - **Headless Edge on this machine clamps `--window-size` below a content width of ~492px** (confirmed 2026-08-04 by loading a page that reports `window.innerWidth`): requests below that floor render at 492 regardless, and `--screenshot` still crops to the requested canvas size, so a screenshot requested at e.g. 375px wide silently shows a *cropped* 492px-wide layout, not a true 375px layout - text will look cut off rather than wrapped even when the CSS itself is fine. Always request `--window-size` at or above ~492 (`492,H` is the effective floor; sizes above ~500 subtract a consistent ~24px chrome overhead, e.g. `600,H` -> 576px viewport) and treat anything below that as untestable in this environment - reason about it from the CSS instead of trying to screenshot it.
 - **Headless Edge cannot test live resizing at all** (established 2026-08-05, do not re-investigate). With `--virtual-time-budget` there is no rendering lifecycle, so `requestAnimationFrame` callbacks never fire and **neither `window` `resize` nor `MediaQueryList` `change` events are dispatched** - verified by instrumenting an iframe through four width changes across a breakpoint and counting zero of each, while `innerWidth` inside the iframe reported every new width correctly. Longer virtual-time budgets do not help; an rAF-gated wait hangs forever. So resize/rotation behavior can only be verified by loading fresh at each width (which does work - see the iframe measurement workflow below) plus reasoning about the handler. Anything that depends on a live resize event has to be confirmed by the user dragging a real browser window. Note `matchMedia(...).matches` is still *read* correctly at any iframe width, so state that depends on the current match is testable even though the transition is not.
+- **SCROLL POSITION and `position: sticky` layout ARE fully measurable headlessly, despite the rAF/resize limits above. Established 2026-08-07 - do not assume scroll-dependent layout is untestable just because the scroll DRIVER is not.** `window.scrollTo(0, y)` applies synchronously and a following `getBoundingClientRect()` reports the correct **stuck** position, so sticky offsets, stick/release thresholds and handoff between competing sticky elements can all be measured exactly. The distinction that matters: what fails headlessly is anything needing the rendering lifecycle to *fire a callback* (rAF, `resize`, `MediaQueryList` `change`); reading laid-out geometry after a synchronous scroll is not that. This is how the multi-exhibit sticky-summary question was settled - twelve scroll positions in one page load, recording every summary's rect at each. Pattern: scroll, measure, push a line into an array, and write the array into a `<pre>` at the end for `--dump-dom`.
+- **`--dump-dom` prints the FINAL DOM, so anything you tear down is invisible in the output.** Obvious in hindsight, cost a confused round trip on 2026-08-07: a measurement page that called `destroy()` after each mount produced correct numbers but dumped an empty container, making it impossible to confirm from the dump *which* markup had been measured. If the dump has to prove what was rendered, leave the last instance mounted, or echo the relevant text into your results array as you go.
+- **Do not put a `Remove-Item` cleanup in the same PowerShell call that invokes msedge from `C:\Program Files (x86)\...`.** Hit 2026-08-07: the call was rejected with `Remove-Item on system path '"C:\Program' is blocked`, i.e. the guard associated the Program Files path with the delete rather than with `Start-Process`. Harmless but it fails the whole command. Run the cleanup as its own call.
 - **Headless Chromium reports `prefers-reduced-motion: reduce` BY DEFAULT** (established 2026-08-05, cost real debugging time). Any code branch gated on that query takes the reduced-motion path in every headless run, so behavior you cannot reproduce headlessly may simply be the motion-suppressed variant. The symptom that exposed it: a scroll-driven tier sequence whose progress value swept 0.00 -> 1.00 correctly while the tier never changed, because the reduced-motion branch returned early. There is no Chromium flag to turn it off - the fixes are (a) an explicit test-only override in the code under test, as `_tests/scroll-prototype.html` does with `window.__proto.setForceMotion()`, or (b) for a real page you do not want to instrument, a scratch copy that shims `window.matchMedia` (see Commands below). Note this cuts both ways: it makes the reduced-motion path *easy* to verify, and it is why the reduced-motion behavior of the hero is the best-tested branch on the site.
 - **PowerShell 5.1 writes a UTF-8 BOM**, and it will silently violate this repo's ASCII-only rule. `Out-File -Encoding utf8` and `Set-Content -Encoding utf8` both prepend `ef bb bf`; they also write CRLF. This bit a `CLAUDE.md` rewrite done by PowerShell splice on 2026-08-05. **A `Select-String`-based ASCII scan will NOT catch it** because Select-String reads decoded text and the BOM has already been consumed - check the raw bytes instead (`head -c 3 <file> | od -An -tx1`, expect the file's real first characters, e.g. `23 20 43` for a Markdown `# C`). To fix: `tail -c +4 file | tr -d '\r' > tmp && mv tmp file`. Prefer the Write tool over PowerShell for any file this repo will commit; use PowerShell splices only for throwaway scratch copies.
 - **The reliable ASCII check is a byte scan in Python, not grep.** Two ways a shell one-liner lies: `grep -q '[^ -~]' file` is fine, but **`if grep ... | head -5; then`** reports the exit status of `head`, which always succeeds - so it claims a violation on a perfectly clean file (false positive hit on `CLAUDE.md`, 2026-08-06). Anything piped has this problem. Use this instead, which also reports the byte offset of each hit so a real one is actionable:
@@ -75,6 +78,7 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
   - `iframe.sandbox = "allow-same-origin"` (WITHOUT `allow-scripts`) renders the true **no-JS** state while still letting the parent read `contentDocument`. That is how to verify progressive-enhancement fallbacks and pre-mount layout reservations; there is no headless flag that does this cleanly.
 
   Measure the reserved height against the real component's height at several widths and require a ~0 delta. DELETE the temp file before committing.
+- **Label-fit measurement workflow** (added 2026-08-07, how the `cluster A` sub-label was cleared). **SVG `<text>` neither wraps nor truncates**, so an over-long node label silently spills outside its box - never eyeball this, and never estimate it from character count. Write a temporary `_measure-temp.html` **at the repo root** (it needs to import `./topology/...`), import `tiers` / `tiersPortrait` and `TopologyViz` directly rather than going through `js/hero.js`, mount the tier into a host div of a chosen pixel width, then walk `g[data-id]` and compare `rect.getBBox().width` to `.topo-sub`'s `getBBox().width`. Both are in the same SVG user space, so they subtract directly; multiply by `svgPxWidth / viewBox.width` to convert the slack into rendered pixels. Check the portrait tiers at ~319px (the real phone width after the 12px gutter) since those are far tighter than landscape. **List every node, not just the tightest** - character count is a bad proxy because the sub-label font is not monospace, and the measured winner is often not the one you would guess (`cluster A` at 9 characters measured *narrower* than `off SW-2` at 8). DELETE the temp file before committing.
 - **Forcing dark mode for a screenshot**: copy `index.html` to a temp root file and splice in a `<style>` block before `</head>` that re-declares BOTH token sets with `!important` - `--site-*` on `:root` and `--topo-*` on `.topo-viz` - mirroring their `prefers-color-scheme: dark` blocks. Generating the copy with PowerShell (`(Get-Content $src -Raw) -replace '</head>', $style`) avoids transcription drift. Again: `--force-dark-mode` does NOT do this.
 - **Forcing MOTION on (defeating the headless reduced-motion default)**: same splice pattern, but insert a **classic** `<script>` before `</head>` that wraps `window.matchMedia` and returns a stub `{ matches: false, addEventListener(){}, ... }` for any query matching `/prefers-reduced-motion/`, delegating everything else to the real one. A classic script in `<head>` runs before the deferred module, so `js/hero.js` sees the shim. This is how the pinned hero was verified on 2026-08-05 (`_forcemotion-temp.html` at the repo root - it must be at the ROOT, since `hero.js` imports `../topology/...`). Delete it when done; never commit it.
 - **Checking a deploy**: `gh api repos/TroxelsCode/TroxelsCode.github.io/pages/builds/latest` gives status/commit/duration, and `.../pages/builds` gives the history. A healthy build on this repo takes **31-45 seconds**; treat `duration: 0` as "never actually ran". On 2026-08-06 two consecutive doc-only commits errored with `duration: 0` and the generic message `Page build failed.`, and a retry then sat in `building` for over four hours - that was a GitHub-side incident, not repo content. **Do not go hunting for a Jekyll/Liquid bug when the failing commits only touched Markdown and the duration is 0**; push a new commit and see whether it builds. The next push (the favicon commit) built normally in 40s and cleared it. A real content error looks different: nonzero duration and a specific message such as a Liquid exception.
@@ -122,6 +126,19 @@ topology visualization prototype is spec'd in [network-topology-prototype-spec.m
 - `_tests/engine-tests.html` - browser-run engine assertions (24 scenario tests). The repo's only test suite, so keep it working; the underscore prefix on the directory is what keeps it off the live domain (see Deploy above). The former `harness/index.html` preview page was deleted on 2026-08-04 when the hero went live - it rendered all three tiers at once and is fully superseded by the real homepage.
 
 Large-tier bridges: TWO stack-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches stack redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
+
+**Redundancy model per tier, and why the large tier lights both firewall stacks (RESOLVED 2026-08-07 - this closes a long-standing open question).** The two tiers deliberately model *different* real-world HA designs, and the difference is not an inconsistency:
+
+- **Medium is an active/standby pair, and is already textbook.** `fw-a` is `sub: 'primary'`, `fw-b` is `sub: 'standby'`, joined by a `sync` edge. `pair-fabric` in the engine resolves one side and **keeps the standby's links dark even though the standby is healthy** (see the comment at the mesh pass). That is what an HA pair actually does.
+- **Large is a CLUSTERED, ECMP-routed design, not an HA pair behaving oddly.** It uses `mesh-fabric`, which resolves ISPs, every firewall from both stacks, and the shared switch core in one reachability pass, so every edge on a surviving path lights. The old open item asked whether stack-B firewalls lighting as transit was intended. **It is** - the user's decision was to keep the engine model and make the labeling say so.
+
+The reasoning, so nobody re-opens it: for a *pair*, active/standby is the enterprise default - you must size each unit for 100% of load anyway, so active/active buys no dependable capacity, and it invites the asymmetric routing that stateful inspection hates. But at the scale the large tier depicts (two sites, four ISPs, dual firewall stacks, meshed core, site bridges), both-boxes-carrying is genuinely normal, and it is achieved by clustering, per-context or per-VLAN splits, or ECMP. The large tier is at exactly that scale, so the mesh model is the *more* accurate one. There is also a presentation argument: darkening stack B would remove a large fraction of the tier's lit surface and work directly against the "traffic keeps flowing along the other paths" point that the packet-throttle removal was made to strengthen.
+
+**How this is expressed to the visitor** (the actual change, 2026-08-07):
+
+- Large-tier firewall sub-labels read **`cluster A` / `cluster B`** rather than `stack A` / `stack B`. **The DISPLAY term changed; the internal vocabulary did not.** Node ids, `structure.bridges`, and this file still say stack - do not chase the rename through the code.
+- `CAPTIONS` in `js/hero.js` names the mechanisms outright: medium cites a VRRP standby, large cites clustered firewalls, ECMP uplinks and multi-group VRRP. This is deliberate portfolio surface - the user built a fully active/active VRRP + ECMP MikroTik cluster and wants that knowledge visible. Do not flatten these back into describing the picture.
+- Sub-label length is constrained: SVG `<text>` neither wraps nor truncates, and the portrait large node box is 64 viewBox units. Measured 2026-08-07: `cluster A` renders 36.5u against that 64u box, and is actually *narrower* than the existing `off SW-2` (37.4u) because the sub-label font is not monospace. Tightest label on the tier still has 23.6px of slack at a 319px SVG width. **Measure before lengthening any sub-label.**
 
 Component conventions: edge ids are `a + '--' + b` (see `edgeKey`); edge `bow` is a lateral quadratic-curve offset (positive bows right of the a->b direction) used to route around node boxes; packet animations ride **every active edge** except sync links, and never affect state accuracy.
 
@@ -544,10 +561,19 @@ that it created a sticky **chain**, and every link offsets against the ones abov
 
 ## Phase 2b: scrollytelling tier sequence (BUILT, then SWITCHED OFF 2026-08-05)
 
-**CURRENT STATE: the pinned scroll sequence is OFF.** `HERO_PINNED_SEQUENCE = false` at the
-top of `js/hero.js`. The user liked the execution but decided the pinned presentation was not
-what they had envisioned, and wanted it reversibly disabled while they think about the
-direction - not deleted. So everything below is still live code, just gated.
+**CURRENT STATE: the pinned scroll sequence is OFF, and that is now the DECIDED presentation,
+not a pending question.** `HERO_PINNED_SEQUENCE = false` at the top of `js/hero.js`. The user
+liked the execution but decided the pinned presentation was not what they had envisioned. On
+2026-08-07 they confirmed they like the stacked-behind-a-disclosure behavior as it stands and
+want to keep it. **Do not treat the stacked layout as a placeholder any more** - earlier
+versions of this file said the user intended to revisit it, and that is no longer true.
+
+**The gated pin code is retained deliberately - do not delete it as dead code.** The user
+explicitly wants the pinned/scrollytelling implementation kept present and non-functional so
+the option can be revisited without rediscovering it. That covers the `HERO_PINNED_SEQUENCE`
+flag and everything it gates, the `.hero-scroll[data-hero-mode="pinned"]` CSS block, and
+`_tests/scroll-prototype.html`. A future "simplify" or dead-code pass must leave all three
+alone. Everything below is still live code, just switched off.
 
 **What the site does today:** every screen size behaves the way narrow screens already did.
 No sticky pin, no cross-fade, no scroll driver. All three tiers render at full size in a plain
@@ -705,15 +731,119 @@ scratch pages. It is the only place the driver can be exercised synchronously, a
 
 **Still open inside Phase 2b:**
 
-- Caption copy (`CAPTIONS` in `js/hero.js`) is placeholder, same status as the hero tagline and
-  the disclosure summary.
-- `--hero-step: 620px` pacing was chosen, not tuned against real scrolling. Worth a pass.
-- Large-tier density and the dimmed treatment for unreachable nodes are still unresolved from
-  the prototype phase, and now that large is actually reachable this matters more.
+One of these went DORMANT on 2026-08-07 when the stacked presentation was made permanent. It is
+not worth doing while the flag is off, and not worth deleting either, since the flag is meant
+to stay flippable:
+
+- **`CAPTIONS` is LIVE, not dormant - correcting an error made earlier in this file.** An
+  earlier pass claimed captions only render when pinned. They do not: `.hero-layer::after` in
+  `css/style.css` uses `content: attr(data-caption)` in **stacked** mode, which is every width
+  today, so all three captions are on the production page beneath their tiers. Verify before
+  assuming otherwise. As of 2026-08-07 the medium and large captions are finished copy naming
+  real mechanisms (see the redundancy-model note in Architecture); only the small caption is
+  still placeholder-grade, and it has no mechanism to name by design.
+- *(dormant)* `--hero-step: 620px` pacing was chosen, not tuned against real scrolling. Worth a
+  pass, but only if the pin comes back - nothing reads the value while the flag is off.
+- **Still genuinely open**: large-tier density and the dimmed treatment for unreachable nodes,
+  unresolved from the prototype phase. Unaffected by the flag, since large is reachable either
+  way - it is simply the third row of the stack now.
 - Gremlin idea, not built: the fixer could also repair visitor-caused breakage.
 
 See the mount API docs in the Architecture section above (`TopologyViz.mount`) for the
 component's existing interface.
+
+## Expandable exhibit list (direction set 2026-08-07)
+
+**The disclosure is not a one-off wrapper around the network diagram. It is the first row of a
+growing list.** User decision, made while looking at the collapsed hero on a dark-mode desktop:
+they like how that single bordered strip reads, and want future interactive pieces to populate
+the same list downward - each shipping collapsed by default and expanding the way the topology
+diagram does now.
+
+So a future session adding an interactive piece to the homepage should **add a row to this
+list**, not invent a new presentation. The topology diagram is exhibit #1.
+
+**Naming: use an `exhibit` prefix for the shared shell, NOT `hero`.** Today everything is named
+`hero-*` / `HERO_*` / `--hero-*`, which conflates two different things: the intro banner, and
+the expandable interactive piece below it. That was accurate when there was one of each. It
+stops being accurate at exhibit #2. **Do not rename the existing `hero-*` names** - that is
+churn with no visible benefit, and `js/hero.js` genuinely is the topology host. Name the
+*shared* shell `exhibit` when it first gets extracted. (`explorable` was the runner-up;
+`module` was rejected outright because this repo already uses "module" for ES modules, and
+`js/main.js` being a classic script while `js/hero.js` is a module is load-bearing here.)
+
+**Do not extract the shared shell until exhibit #2 actually exists.** One instance is not
+enough to factor a pattern from without guessing. What is recorded here instead is the
+boundary, so the extraction is mechanical when the time comes:
+
+| shared shell (becomes `exhibit-*`) | topology-specific (stays in `hero.js` / `topology/`) |
+| --- | --- |
+| the `<details>` wrapper and its summary row | the gremlin toggle and `syncGremlin()` |
+| sticky summary behavior and measured height | the three `.hero-layer` tier layers |
+| ships-open / JS-collapses rule | the caption |
+| deferred work until first expand | portrait-vs-landscape tier data switching |
+| fallback element and its removal on success | the pinned/stacked mode choice |
+| controls hidden until a successful mount | |
+
+**Invariants every new exhibit must honor.** These are not style preferences; each one was
+paid for by a real bug or a real progressive-enhancement requirement, all documented above:
+
+1. **Ship `open` in the markup and let JS collapse it - never the reverse.** Shipping closed
+   and opening with JS strands a no-JS visitor at a control that does nothing.
+2. **Provide a real fallback element, not `<noscript>`.** `<noscript>` only covers scripting
+   disabled; it does nothing for a 404'd module, a blocked script or a parse error, which would
+   leave an empty box.
+3. **Remove that fallback only after the exhibit has fully succeeded.** For the topology that
+   means all three tiers mounting into detached containers first.
+4. **Ship interactive controls `[hidden]` and unhide them on successful mount.** A control that
+   cannot do anything is never shown. See `.hero-controls` and `.hero-mount-hint`.
+5. **Defer all real work until the first expand.** No DOM building, no timers, no network while
+   collapsed. The homepage currently builds zero SVG and starts zero timers on load.
+6. **Write the summary as real copy, not a control label.** It is the only thing a visitor who
+   never expands will read - on a phone especially. See the placeholder-copy item below; the
+   topology summary is the template the rest will follow.
+
+**What exhibit #2 will actually run into.** The first item below is the good news and was
+settled by measurement; the other two are cosmetic and cheap. None were fixed pre-emptively,
+because building an abstraction against a hypothetical second instance is how you build the
+wrong one:
+
+- **Stacked sticky summaries need NO code - the desired behavior is already the default.
+  MEASURED 2026-08-07, and this REVERSES an earlier claim in this section.** The earlier text
+  said N collapsed exhibits would stack N sticky bars at the top of the viewport and that the
+  rule had to be scoped to `details[open]`. That is wrong, and the reason is worth knowing: a
+  sticky element is constrained by its **parent** box, and each summary's parent is its own
+  `<details>`. A collapsed `<details>` is only as tall as its summary, so the summary has no
+  room to travel within it and simply scrolls away like static content. An open one holds its
+  summary stuck for exactly as long as that exhibit occupies the viewport, then the bottom of
+  its own box pushes the summary off the top as the next exhibit's summary arrives and takes
+  over. That is precisely the "un-sticky and be replaced by the top in-view exhibit" behavior
+  the user asked for, and it also handles two exhibits open at once.
+
+  Probed with four `<details>` (two open, two collapsed) at the real 57px nav offset, sampling
+  twelve scroll positions and recording each summary's rect: **never more than one stuck at a
+  time**. The handoff is visible in the numbers - summary 1 holds at `top: 57` through
+  `scrollY=1200`, reads `-11` at `1700` as its own box runs out, and summary 2 is stuck at `57`
+  by `1750`. The two collapsed summaries never reached the stick point at all, passing straight
+  through it (`39`, then `-61`). **Do not "fix" this pre-emptively**; the only thing that would
+  break it is giving the summaries a common sticky container instead of one `<details>` each.
+
+  Residual, small: `--hero-summary-h` is a single published value, so if exhibit summaries end
+  up different heights (one-line vs. two-line copy), whatever offsets against it could be stale
+  by the difference. Only matters for things that offset below a stuck summary - today that is
+  `.hero-pin` and the stacked `.topo-status`. See the sticky-chain table in the Homepage build
+  section.
+- **Adjacent summary rows will double their borders.** The summary carries BOTH `border-top`
+  and `border-bottom`, so two rows in sequence render a 2px line between them. Drop one side on
+  subsequent rows.
+- **`margin-top: 32px` on the summary spaces rows apart.** Stacked rows would sit 32px apart
+  rather than forming the contiguous list that the single row's appearance implies. Decide
+  which look is wanted before adding the second row.
+
+**The second horizontal rule visible below the collapsed summary is NOT part of the
+disclosure.** It is the generic `section` `border-bottom` in `css/style.css`, with the
+section's 48px bottom padding between the two. Worth knowing before someone tries to explain it
+as a stray exhibit border.
 
 ## Maintaining this file
 
@@ -727,8 +857,9 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. Resume cross-repo pipeline COMPLETE and committed (7b9ffad, 2026-08-04): sync tooling built, first real resume content synced in and styled - see "Resume page + cross-repo pipeline" above.
 - Phase 2a COMPLETE (2026-08-04): hero went live on the homepage, small tier + gremlin, harness retired - see "Homepage build" above for the details and the traps. *(Historical: the single-tier `HERO_TIER` mount it describes was replaced by the three-tier mount in Phase 2b below.)*
 - **Mobile treatment COMPLETE (2026-08-05)**: portrait layouts for all three tiers, viewport-biased gremlin, live re-orientation on resize/rotation, and the `<details>` collapse with lazy mounting. All three tiers have portrait variants; large gets no landscape fallback by explicit user decision. See "Mobile treatment" under Homepage build for the geometry and the traps. *(The collapse was narrow-screens-only when built; it now applies at every width - see Phase 2b below.)*
-- **Phase 2b (scrollytelling) BUILT then SWITCHED OFF, 2026-08-05.** All three tiers mount; `HERO_TIER` is gone. The pinned sequence works and shipped, but the user decided the presentation was not what they wanted and asked for it to be reversibly disabled rather than deleted - `HERO_PINNED_SEQUENCE = false` in `js/hero.js`. Every width now uses the plain stacked scroll behind a collapsed-by-default disclosure. **The user intends to revisit the hero presentation; they could not articulate the change they wanted yet, so do not assume the stacked layout is the final answer.** See the "Phase 2b" section above for the flag, the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
-- **Placeholder copy, still open**: the disclosure summary (`index.html`, load-bearing - on a phone it is the only thing a visitor who never expands will read), the hero tagline (`hero-tagline` in `index.html`), and the `CAPTIONS` map in `js/hero.js`. All three are marked with comments at their definition sites. The user is workshopping the summary separately.
+- **Phase 2b (scrollytelling) BUILT then SWITCHED OFF, 2026-08-05. Presentation DECIDED 2026-08-07 - this is no longer an open question.** All three tiers mount; `HERO_TIER` is gone. The pinned sequence works and shipped, but the user decided the presentation was not what they wanted - `HERO_PINNED_SEQUENCE = false` in `js/hero.js`. Every width uses the plain stacked scroll behind a collapsed-by-default disclosure, and on 2026-08-07 the user confirmed they want to keep exactly that. **The gated pin code stays in the tree on purpose** so the option can be revisited without rebuilding it; do not delete it in a cleanup pass. See the "Phase 2b" section above for the flag, the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
+- **Expandable exhibit list: direction set 2026-08-07, nothing to build yet.** The disclosure is the first row of a growing list of collapsed-by-default interactive pieces; future additions become rows rather than new presentations. No code changes were needed to adopt this - it is a decision about where future work goes. See the "Expandable exhibit list" section above for the six invariants a new exhibit must honor, the shared-vs-specific boundary, the `exhibit` naming decision (user-approved 2026-08-07), and the two cosmetic constraints that bite once a SECOND row exists (doubled borders between adjacent rows, and the 32px summary margin spacing rows apart). **Sticky handoff between stacked summaries needs no work at all** - measured 2026-08-07, the browser already gives exactly the wanted behavior because each summary is constrained by its own `<details>`.
+- **Placeholder copy, still open**: the disclosure summary (`index.html`, load-bearing - on a phone it is the only thing a visitor who never expands will read, and as of 2026-08-07 it is also the **template** every future exhibit summary will follow, which raises the stakes on getting it right), the hero tagline (`hero-tagline` in `index.html`), and the **small-tier caption only** in the `CAPTIONS` map. All marked with comments at their definition sites. The user is workshopping the summary separately. *(The medium and large captions came off this list on 2026-08-07 - they are now finished copy naming VRRP, ECMP and clustering. Note captions render on the live page in stacked mode; an earlier claim in this file that they were pinned-only was wrong.)*
 - ~~320px fallback taller than the reserved hero box (~63px collapse on a slow module load)~~ **RESOLVED by Phase 2b, re-measured 2026-08-06 - do not re-file.** The bug needed the hero to be *expanded on page load* with the fallback occupying visible space while the module was still arriving. It now ships collapsed at every width with the mount deferred behind the expand click, so the module is already loaded when the mount happens and the fallback never occupies visible space at all: measured `shift=0.0px` on expand at 320px, 375px and 480px, with the fallback already gone 50ms after the click. In the genuine failure cases (module 404s, blocked, parse error) `hero.js` never runs, so nothing collapses the disclosure and the page renders exactly like the no-JS baseline - where the grid row is sized by the fallback (`mountH == fallbackH` at all three widths), so it simply renders at its natural height with no overlap and nothing to collapse. Verified, not reasoned.
 - **Sticky nav + packet changes COMPLETE (2026-08-05, `268aab6` and `30bd9d0`).** The header pins on every page - see the sticky-chain table in the Homepage build section, and note `--site-nav-h` must stay published from `js/main.js` so `/resume/` gets it. Packet dots now ride every active edge and reconcile incrementally instead of being rebuilt; see the two packet paragraphs in Architecture, both marked do-not-revert.
 - **Gremlin toggle COMPLETE (2026-08-05, `b7a6c80`).** One control for all tiers under the disclosure summary. `syncGremlin()` in `js/hero.js` is the single authority on which instances strike.
@@ -744,7 +875,7 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
   cannot be screenshotted headlessly, and browsers plus the Pages CDN cache favicons hard, so
   re-check in a private window rather than assuming a stale icon means something is broken.
 - Known a11y gap, logged not fixed: topology nodes are pointer-only (no `tabindex`, no key handler), so the click-to-break interaction is unavailable to keyboard users. Defensible today because it is a non-essential enhancement and nothing on the page is available *solely* through it. Named fix is in the "Homepage build" section. **The gremlin toggle is now the one keyboard-operable control in the hero**, which slightly raises the floor but does not close this.
-- **Verification status of the 2026-08-05/06 hero work.** User-confirmed live: the stacked layout at desktop and at a ~492px window, and the packet-reroute fix (they reported the asymmetric-disturbance bug from the live site and confirmed the fix resolved it). NOT yet confirmed in a real browser: the pinned scroll sequence (`HERO_PINNED_SEQUENCE` was switched off before they could test it from a non-RDP machine) and the gremlin toggle - both ship and are headlessly verified, but nobody has watched them run. **The user works over RDP much of the time and will not change RDP animation settings, so any `prefers-reduced-motion` behavior has to be checked from their console session**; they also cannot reach `localhost` from their phone, so mobile verification happens against the deployed site.
-- Spec-literal behavior worth confirming with the user: in bridge mode (and generally in the shared mesh), stack-B firewalls light up as transit because a surviving path exists through them (active-active "every edge on any surviving path"). Matches the spec text; may or may not match intent.
+- **Verification status of the hero work - everything shipping is now user-confirmed live.** Confirmed in a real browser: the stacked layout at desktop and at a ~492px window, the packet-reroute fix (the user reported the asymmetric-disturbance bug from the live site and confirmed the fix resolved it), and **the gremlin toggle (confirmed 2026-08-07, working as expected)**. The only unwatched piece is the pinned scroll sequence, and that is **dormant rather than open**: `HERO_PINNED_SEQUENCE` is off permanently, so nothing renders it: re-verify only if the flag is ever flipped back on. **The user works over RDP much of the time and will not change RDP animation settings, so any `prefers-reduced-motion` behavior has to be checked from their console session**; they also cannot reach `localhost` from their phone, so mobile verification happens against the deployed site.
+- ~~Spec-literal behavior worth confirming: stack-B firewalls lighting as transit in bridge mode and the shared mesh~~ **RESOLVED 2026-08-07 - confirmed as intended, do not re-file.** The user chose to keep the engine model and make the labeling state it: the large tier is a clustered, ECMP-routed design, so both stacks carrying traffic is correct at that scale. Medium remains an active/standby pair with the standby's links dark. Firewall sub-labels now read `cluster A` / `cluster B`, and the captions name VRRP, ECMP and clustering outright. Full reasoning, including why active/standby is still the enterprise default for a *pair*, is in the redundancy-model note in the Architecture section.
 - Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation) noted in spec as out of scope this phase.
 - No **custom** CI/Actions workflow; Pages uses the legacy branch-based build. This is load-bearing for `_tests/` and `_icons/` staying off the live domain - see Deploy above before changing it. **Correction learned 2026-08-06: "no Actions workflow" does not mean Actions is uninvolved.** The legacy deploy still executes as a GitHub-managed workflow named `pages-build-deployment`, which is why an Actions outage took the deploy down even though this repo owns no workflow file. It also means `gh run list --workflow="pages-build-deployment"` works here at all. Do **not** treat that listing as authoritative though - it and the Pages API each proved wrong at least once on 2026-08-06/07, in opposite directions; fetch the served file to settle it. See Environment.

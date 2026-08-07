@@ -59,13 +59,22 @@ const TIER_ORDER = ['small', 'medium', 'large'];
    summary owns it from the first click onward - see syncGremlin(). */
 const HERO_GREMLIN = true;
 
-/* placeholder copy, not finalized - same status as the hero tagline and the
-   disclosure summary in index.html. Shown under the pinned stage, or beneath
-   each tier in stacked mode. */
+/* Shown under the pinned stage, or beneath each tier in stacked mode - which
+   is every width today, so these ARE on the live page via the
+   content: attr(data-caption) rule in css/style.css.
+
+   The medium and large captions deliberately name the real mechanisms (VRRP,
+   ECMP, clustering) rather than describing the picture. They are the only
+   place the large tier explains WHY both firewall stacks carry traffic at
+   once: it is a clustered, ECMP-routed design, not an HA pair behaving oddly.
+   See the redundancy-model note in CLAUDE.md before rewording them.
+
+   The small caption is still placeholder-grade - it has no mechanism to name,
+   which is the whole point of that tier. */
 const CAPTIONS = {
   small: 'One uplink, one firewall, one switch. Every box is a single point of failure.',
-  medium: 'Add a second path and the same failure stops being an outage.',
-  large: 'Two sites, paired stacks, a meshed core. Now the network absorbs damage.',
+  medium: 'A VRRP standby and a second path turn the same failure into a failover.',
+  large: 'Two sites, clustered firewalls, ECMP uplinks, multi-group VRRP. Every path carries traffic, so damage is absorbed.',
 };
 
 /*

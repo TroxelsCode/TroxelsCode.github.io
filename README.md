@@ -15,19 +15,22 @@ failover, and an SVG renderer that consumes it. Click any node to take it
 offline and watch the status roll up, and watch packets reroute along
 whatever paths survive.
 
-It runs three networks in sequence - a small one with no redundancy, a
-medium one with a second path, and a large two-site design with paired
-firewall stacks and a meshed core - so the same failure gets progressively
-less interesting as the design improves. A "gremlin" breaks nodes at random
-to demonstrate that without waiting on the visitor; a toggle turns it off
-for anyone who would rather inspect the diagrams undisturbed.
+It runs three networks in order - a small one with no redundancy, a medium
+one with a VRRP standby and a second path, and a large two-site design with
+clustered firewalls, ECMP uplinks and a meshed core - so the same failure
+gets progressively less interesting as the design improves. Each diagram
+says which mechanism is doing the work, because the point is the design and
+not the picture. A "gremlin" breaks nodes at random to demonstrate that
+without waiting on the visitor; a toggle turns it off for anyone who would
+rather inspect the diagrams undisturbed.
 
 Every tier has both a wide and a tall layout, and the hero switches between
 them live as the window resizes or a phone rotates - a diagram drawn for a
 desktop does not merely look small on a phone, its labels and tap targets
 stop working. The hero collapses behind a disclosure so the resume content
 comes first, and it does no work at all - no SVG, no timers - until
-expanded.
+expanded. That disclosure is the first row of what is meant to grow into a
+list of expandable pieces, each collapsed until someone wants it.
 
 ## Tech stack
 
