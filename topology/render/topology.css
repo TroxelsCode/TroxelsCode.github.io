@@ -224,6 +224,39 @@
   pointer-events: none;
 }
 
+/*
+ * Host override for the packet dots.
+ *
+ * The reduced-motion block at the bottom of this file hides .topo-packets, and
+ * that stays the DEFAULT - a visitor who asked for less motion gets none
+ * without touching anything, and a host that ships no control never has to
+ * think about it. But a system preference is a default, not a lock: if a host
+ * offers an explicit control, the visitor's explicit choice has to win in BOTH
+ * directions. data-packets on the component root forces the dots on or off
+ * regardless of the media query.
+ *
+ * These deliberately sit OUTSIDE any @media block. They beat the reduced-motion
+ * rule on specificity alone (0,3,0 against 0,2,0), whereas a rule nested inside
+ * @media (prefers-reduced-motion: reduce) could only ever override in the one
+ * direction. Absent attribute = the media query decides, unchanged.
+ *
+ * Scope is the packet dots ONLY, on purpose. The sync-link dash march and the
+ * badge pop stay suppressed under reduced motion whatever this says: the
+ * control the homepage puts on this is labelled for packets, so it must not
+ * quietly re-enable motion the visitor never agreed to.
+ *
+ * "on" is inline rather than block because inline is the initial display value
+ * for an SVG element - block would work in practice, but this restores the
+ * default rather than inventing a new one.
+ */
+.topo-viz[data-packets="on"] .topo-packets {
+  display: inline;
+}
+
+.topo-viz[data-packets="off"] .topo-packets {
+  display: none;
+}
+
 /* ---- gremlin / fixer badges ---- */
 
 .topo-viz .topo-badge {

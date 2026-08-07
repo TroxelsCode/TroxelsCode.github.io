@@ -224,6 +224,76 @@ function wireGremlinToggle(refs) {
   paint();
 }
 
+/* ---- packets ---- */
+
+/*
+ * Whether the packet dots are drawn. The STARTING value is the inverse of the
+ * visitor's reduced-motion preference: someone who asked for less motion gets
+ * them off, everyone else gets them on.
+ *
+ * From the first click the visitor owns it outright, in BOTH directions -
+ * reduced motion on plus this toggle on shows the dots, reduced motion off
+ * plus this toggle off hides them. That is deliberate and it is why the
+ * override lives in topology.css as a specificity win rather than inside the
+ * reduced-motion media block, which could only ever override one way.
+ *
+ * Offering the on direction at all is WCAG-clean: 2.2.2 wants a mechanism to
+ * stop motion, not a ban on ever starting it, and this is that mechanism made
+ * explicit rather than inferred. Scope is the dots only - the sync dash march
+ * and the badge pop stay suppressed under reduced motion regardless, since
+ * this control's label does not cover them.
+ */
+let packetsOn = !prefersReducedMotion();
+
+/*
+ * True once the visitor has actually clicked. watchLayout() re-runs on a
+ * reduced-motion change, and without this the toggle would silently flip out
+ * from under someone who had already set it by hand. Before the first click
+ * there is no choice to preserve, so tracking the system preference is the
+ * right behavior; after it, their choice stands.
+ */
+let packetsChosen = false;
+
+/* Assigned by wirePacketsToggle so a reduced-motion change can refresh the
+   button without the toggle having to be re-wired. No-op until then, and no-op
+   forever if the button is missing from the markup. */
+let paintPacketsToggle = () => {};
+
+/*
+ * Pushes the choice onto every mounted instance. The renderer takes no part in
+ * this - the attribute is read by topology.css alone, which is what keeps the
+ * component ignorant of reduced motion and of who is hosting it. Called from
+ * layout() because a re-mount builds fresh roots that carry no attribute yet.
+ */
+function syncPackets() {
+  for (const layer of layers) {
+    layer.instance.root.setAttribute('data-packets', packetsOn ? 'on' : 'off');
+  }
+}
+
+function wirePacketsToggle(refs) {
+  const btn = refs.packetsToggle;
+  if (btn === null) return;
+  const label = btn.querySelector('.hero-toggle-label');
+
+  const paint = () => {
+    btn.setAttribute('aria-pressed', packetsOn ? 'true' : 'false');
+    /* "shown"/"hidden" rather than "on"/"off": the packets are not the traffic,
+       they are how the traffic is drawn. The teal lines carry the state either
+       way, so nothing is being switched off here except a rendering. */
+    if (label) label.textContent = 'Network packets ' + (packetsOn ? 'shown' : 'hidden');
+  };
+  paintPacketsToggle = paint;
+
+  btn.addEventListener('click', () => {
+    packetsOn = !packetsOn;
+    packetsChosen = true;
+    paint();
+    syncPackets();
+  });
+  paint();
+}
+
 /* ---- mounting ---- */
 
 /*
@@ -289,9 +359,11 @@ function layout(refs) {
   }
 
   /* After the layers are in place and any is-current class has been set, so
-     the pinned rule has something to read. Also carries the visitor's toggle
-     choice across a re-layout, which a fresh mount would otherwise reset. */
+     the pinned rule has something to read. Both of these also carry the
+     visitor's toggle choices across a re-layout, which a fresh mount would
+     otherwise reset - buildAll() hands back untouched instances by design. */
   syncGremlin();
+  syncPackets();
 
   if (!mounted) {
     mounted = true;
@@ -421,6 +493,14 @@ function watchScroll(refs) {
  */
 function watchLayout(refs) {
   const onChange = () => {
+    /* A reduced-motion change re-derives the packet default, but ONLY while the
+       visitor has not chosen for themselves - otherwise a system-level change
+       would yank the toggle out from under a deliberate click. Done before the
+       re-layout below so the syncPackets() inside layout() pushes the new
+       value, and repainted here because the early return below can skip that. */
+    if (!packetsChosen) packetsOn = !prefersReducedMotion();
+    paintPacketsToggle();
+
     /* Going wide, force the disclosure open: the summary is hidden by CSS
        above the breakpoint, so a details left closed would hide the diagram
        with no control left to reopen it. Going narrow deliberately does NOT
@@ -484,13 +564,18 @@ function boot() {
     summary: details ? details.querySelector('summary') : null,
     controls: document.querySelector('.hero-controls'),
     gremlinToggle: document.getElementById('gremlin-toggle'),
+    packetsToggle: document.getElementById('packets-toggle'),
   };
 
-  /* Wired before any mount so the button reflects the starting state even
-     while the diagram is still collapsed. syncGremlin() no-ops over an empty
-     layer list, so an early click cannot break anything - and layout() calls
-     it again once the instances exist. */
+  /* Wired before any mount so the buttons reflect the starting state even
+     while the diagram is still collapsed - which matters more for packets than
+     for the gremlin, since its starting state is derived from the visitor's
+     reduced-motion preference rather than fixed in the markup. syncGremlin()
+     and syncPackets() both no-op over an empty layer list, so an early click
+     cannot break anything, and layout() calls both again once the instances
+     exist. */
   wireGremlinToggle(refs);
+  wirePacketsToggle(refs);
 
   /* Publishes whether the pinned sequence is live. css/style.css keys the
      summary-hiding rule off this, so with the sequence off the collapse

@@ -264,11 +264,12 @@ section:last-of-type {
 
 /*
  * ---- hero controls ----
- * One gremlin toggle governing every tier, sitting directly under the
- * disclosure summary. A real <button>, so focus, keyboard activation and the
- * pressed state are the platform's job rather than ours - worth noting that
- * this is currently the ONLY keyboard-operable part of the diagram, since the
- * nodes themselves are still pointer-only.
+ * Toggles governing every tier at once, sitting directly under the disclosure
+ * summary: simulated failures, and whether the packet dots are drawn. Real
+ * <button>s, so focus, keyboard activation and the pressed state are the
+ * platform's job rather than ours - worth noting that these are currently the
+ * ONLY keyboard-operable parts of the diagram, since the nodes themselves are
+ * still pointer-only.
  *
  * [hidden] in the markup and unhidden by js/hero.js on a successful mount, so
  * a control that cannot do anything is never shown.
@@ -279,6 +280,19 @@ section:last-of-type {
 
 .hero-controls[hidden] {
   display: none;
+}
+
+/*
+ * The buttons share one row and one explanatory note beneath, so the pair
+ * reads as a single control cluster. Wrapping rather than shrinking: the
+ * labels are state text that changes length as they are toggled ("Network
+ * packets shown" -> "hidden"), so a row that had to squeeze them would reflow
+ * on every click. On a narrow phone the two simply stack.
+ */
+.hero-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .hero-toggle {
