@@ -147,10 +147,21 @@ function buildLargeTier() {
     n('isp2', 'ISP-2', '', 'isp', 'mesh', 'wan', 62, 120);
     n('isp3', 'ISP-3', '', 'isp', 'mesh', 'wan', 62, 195);
     n('isp4', 'ISP-4', '', 'isp', 'mesh', 'wan', 62, 270);
-    n('fwa1', 'FW-A1', 'stack A', 'firewall', 'mesh', 'fwa', 250, 45);
-    n('fwa2', 'FW-A2', 'stack A', 'firewall', 'mesh', 'fwa', 250, 120);
-    n('fwb1', 'FW-B1', 'stack B', 'firewall', 'mesh', 'fwb', 250, 195);
-    n('fwb2', 'FW-B2', 'stack B', 'firewall', 'mesh', 'fwb', 250, 270);
+    /*
+     * "cluster" rather than "stack" in the DISPLAY sub-label, deliberately.
+     * The internal vocabulary (node ids, structure.bridges, CLAUDE.md) still
+     * says stack A / stack B - do not chase the rename through the code.
+     * The display term is doing a specific job: this tier resolves as a mesh
+     * so both stacks light at once, and "cluster" is what makes that read as
+     * the intended clustered / ECMP design rather than an HA pair that has
+     * somehow gone active/active. Kept to 9 characters because SVG <text>
+     * neither wraps nor truncates and the portrait node box is only 57px
+     * wide - measure before lengthening.
+     */
+    n('fwa1', 'FW-A1', 'cluster A', 'firewall', 'mesh', 'fwa', 250, 45);
+    n('fwa2', 'FW-A2', 'cluster A', 'firewall', 'mesh', 'fwa', 250, 120);
+    n('fwb1', 'FW-B1', 'cluster B', 'firewall', 'mesh', 'fwb', 250, 195);
+    n('fwb2', 'FW-B2', 'cluster B', 'firewall', 'mesh', 'fwb', 250, 270);
     n('sw1', 'SW-1', '', 'switch', 'mesh', 'core', 455, 85);
     n('sw2', 'SW-2', '', 'switch', 'mesh', 'core', 455, 165);
     n('sw3', 'SW-3', '', 'switch', 'mesh', 'core', 455, 245);
