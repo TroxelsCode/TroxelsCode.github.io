@@ -12,6 +12,7 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 ## Style rules (user directives)
 
 - **No em dashes and no non-ASCII characters anywhere**, in code, comments, or docs. ASCII only: use "->" not arrows, "x" not multiplication signs, plain hyphens for punctuation.
+  - **Carve-out for binary image assets** (added 2026-08-06 with the favicon): `favicon.ico` and `apple-touch-icon.png` are binary and cannot be ASCII. The rule is about code, comments and docs, and about catching accidental PowerShell BOMs - it is not a claim that the repo contains no binary files. Any byte-level ASCII scan must skip `*.png` / `*.ico` / `*.jpg`. `.gitattributes` already marks those `binary` (verified: `git check-attr` reports `text: unset`, and `git diff --numstat` reports `-`/`-`), so the `eol=lf` rule does not mangle them.
 - **Never commit/push unprompted.** After applying a change, ask the user whether to commit and push now or whether they have more changes to batch into the commit. The user tests locally (`python -m http.server 8123`) before approving; wait for that approval.
 
 ## Environment
@@ -23,7 +24,9 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 - **Headless Edge cannot test live resizing at all** (established 2026-08-05, do not re-investigate). With `--virtual-time-budget` there is no rendering lifecycle, so `requestAnimationFrame` callbacks never fire and **neither `window` `resize` nor `MediaQueryList` `change` events are dispatched** - verified by instrumenting an iframe through four width changes across a breakpoint and counting zero of each, while `innerWidth` inside the iframe reported every new width correctly. Longer virtual-time budgets do not help; an rAF-gated wait hangs forever. So resize/rotation behavior can only be verified by loading fresh at each width (which does work - see the iframe measurement workflow below) plus reasoning about the handler. Anything that depends on a live resize event has to be confirmed by the user dragging a real browser window. Note `matchMedia(...).matches` is still *read* correctly at any iframe width, so state that depends on the current match is testable even though the transition is not.
 - **Headless Chromium reports `prefers-reduced-motion: reduce` BY DEFAULT** (established 2026-08-05, cost real debugging time). Any code branch gated on that query takes the reduced-motion path in every headless run, so behavior you cannot reproduce headlessly may simply be the motion-suppressed variant. The symptom that exposed it: a scroll-driven tier sequence whose progress value swept 0.00 -> 1.00 correctly while the tier never changed, because the reduced-motion branch returned early. There is no Chromium flag to turn it off - the fixes are (a) an explicit test-only override in the code under test, as `_tests/scroll-prototype.html` does with `window.__proto.setForceMotion()`, or (b) for a real page you do not want to instrument, a scratch copy that shims `window.matchMedia` (see Commands below). Note this cuts both ways: it makes the reduced-motion path *easy* to verify, and it is why the reduced-motion behavior of the hero is the best-tested branch on the site.
 - **PowerShell 5.1 writes a UTF-8 BOM**, and it will silently violate this repo's ASCII-only rule. `Out-File -Encoding utf8` and `Set-Content -Encoding utf8` both prepend `ef bb bf`; they also write CRLF. This bit a `CLAUDE.md` rewrite done by PowerShell splice on 2026-08-05. **A `Select-String`-based ASCII scan will NOT catch it** because Select-String reads decoded text and the BOM has already been consumed - check the raw bytes instead (`head -c 3 <file> | od -An -tx1`, expect the file's real first characters, e.g. `23 20 43` for a Markdown `# C`). To fix: `tail -c +4 file | tr -d '\r' > tmp && mv tmp file`. Prefer the Write tool over PowerShell for any file this repo will commit; use PowerShell splices only for throwaway scratch copies.
+- **Headless Chromium's `prefers-color-scheme` default is LIGHT** (measured 2026-08-06, `matchMedia("(prefers-color-scheme: dark)").matches === false`). Do not assume it mirrors the `prefers-reduced-motion` default, which IS on - the same probe reported `dark=false reduced=true` in one run. **`--blink-settings=preferredColorScheme=1|2` does nothing** here; it was tried both ways and the rendered output was byte-identical. So there is still no flag that flips the query, and the workarounds below are the only options. A third trick, useful when the thing under test is a self-contained file rather than a page: **copy it and invert the media condition** (`dark` -> `light`). Under the light default the block then fires, which proves the `@media` rule is honored and that its declarations are correct, without needing to force dark at all. That is how the favicon's theme swap was verified.
 - **Testing `prefers-color-scheme: dark` headlessly**: `--force-dark-mode` is Chromium's color-inversion feature, NOT a `prefers-color-scheme` toggle - it does not exercise the site's actual dark-mode CSS. To verify dark-mode rules, build a temporary scratch HTML file that copies the real page and adds an inline `<style>` overriding the light tokens with `!important` (mirroring the dark `@media` block's values), matching the `_scenario-temp.html` pattern below - delete it when done, it's for verification only, never commit it.
+- **`--screenshot=` to a path containing spaces silently fails** (hit 2026-08-06). This repo's own working directory has a space in it ("Professional Website"), and PowerShell's `Start-Process -ArgumentList` splits the argument there, so Edge sees two URLs and dies with `Multiple targets are not supported in headless mode` - the run "succeeds" from the shell's point of view but writes no file. Easiest fix is to screenshot into the scratchpad (no spaces in the path) and `Copy-Item` the result into the repo afterward.
 - **Cross-tool path quirks in this environment**: the scratchpad path handed to the Bash tool uses a Windows 8.3 short name (`SEAN~1.TRO`) for the username segment; this resolves fine for Bash/`cp`/`ls`, but Windows-native Python's `open()` fails on it (`FileNotFoundError`) even via a POSIX-style `/c/...` path - use the long-form path (`/c/Users/Sean.Troxel/AppData/Local/Temp/...`) for anything Python touches, and prefer a real Windows-style backslash path (`C:\Users\...`) when passing a path into a Python `-c` snippet. Also, `file://` URLs to the scratchpad silently 404'd for msedge from a Bash-launched process even though the file existed at that path; serving the scratchpad over `python -m http.server <port>` and using `http://localhost:<port>/...` instead worked reliably - prefer that over `file://` for scratch-page screenshots.
 - **`.gitattributes` pins LF line endings** (`* text=auto eol=lf`, added 2026-08-04) to stop `core.autocrlf`-driven "LF will be replaced by CRLF" warnings on this Windows machine. This is a repo-scoped fix, not a global git config change - the Git Safety Protocol here is never to touch git config, so line-ending consistency is enforced via the repo's own `.gitattributes` instead.
 - `gh` CLI is installed and authenticated as `TroxelsCode`.
@@ -401,6 +404,57 @@ commits output here via a PAT, so Pages redeploys automatically) is a future opt
 worth it if manual sync becomes a real pain point - it adds CI + a cross-repo credential this
 project doesn't currently have.
 
+**Site icons / favicon (added 2026-08-06).** Three served files at the repo root plus two
+unserved raster sources:
+
+| file | role |
+| --- | --- |
+| `favicon.svg` | primary tab icon, themed, the only one visitors normally get |
+| `favicon.ico` | 16 + 32, for the unprompted `/favicon.ico` request |
+| `apple-touch-icon.png` | 180x180, iOS home screen |
+| `_icons/mark-light.svg` | fixed-color raster source for the `.ico` |
+| `_icons/mark-apple.svg` | light-on-accent plate, raster source for the touch icon |
+
+The mark is an "ST" monogram (user choice over a network-motif glyph), drawn as three
+stroked paths in a 32x32 viewBox, cap height 22 (~69% of the canvas), centered.
+
+- **The `<link>` block is ROOT-RELATIVE (`/favicon.svg`), unlike the stylesheet links right
+  next to it.** This is a user site, so the repo root is the domain root and one identical
+  block works from `/` and `/resume/`. Do not "fix" it to match the `../css/style.css`
+  pattern - that is per-page and would break the moment a page moves. Both `<head>`s carry a
+  comment saying so. (A project site served at `/repo/` could not do this.)
+- **Never use `<text>` in the SVG.** A favicon renders outside the page context with no
+  guaranteed font access, so a `font-family` would render differently per machine or not at
+  all. The letterforms are paths for that reason.
+- **Do not write CSS custom property names in an SVG comment.** SVG is XML, `--` is illegal
+  inside an XML comment, and naming a token like the site accent property makes the file
+  malformed - the browser then renders nothing and you get the broken-image gray (`#c0c0c0`).
+  This actually happened while building this; the symptom looks like a rendering or color
+  problem, not a syntax error. `xml.etree.ElementTree.parse()` catches it instantly.
+- **The SVG carries its own `prefers-color-scheme` block** (`#1aa674` light, `#21c489` dark),
+  matching the site accent token, so the tab icon follows the same system-preference decision
+  the rest of the site does. Verified honored by the media-inversion trick in Environment.
+  Treat it as enhancement only: the background is transparent and the mark is designed to read
+  on either background, because a tab strip is not guaranteed to match the OS scheme and
+  Safari's support is unreliable. Confirmed the light token still reads fine on a dark
+  background, which is the fallback case.
+- **`apple-touch-icon.png` is deliberately opaque and full-bleed** (verified colortype 2, no
+  alpha channel). iOS composites transparency onto black and applies its own rounded-corner
+  mask, so the correct input is a plain filled square with no corner radius of its own. It is
+  also inverted relative to the tab icon - light mark on the accent plate reads better at
+  home-screen size.
+- **Regenerating the rasters** (no Node, no npm, no Pillow on this machine): serve the repo
+  root, point headless Edge at a throwaway harness page that `<img>`s the `_icons/` source at
+  the target pixel size, and screenshot with `--default-background-color=00000000` for real
+  alpha. Without that flag Edge composites onto white and you get a white square in the tab.
+  Then build the `.ico` with stdlib `struct`: a 6-byte `ICONDIR`, one 16-byte entry per size,
+  and PNG payloads concatenated after (PNG-in-ICO is fine for every browser target; BMP
+  payloads are only needed for very old Windows software). Delete the harness pages afterward,
+  same discipline as `_scenario-temp.html`.
+- `_icons/` is underscore-prefixed for the same reason `_tests/` is: Jekyll's `EntryFilter`
+  drops it, so the sources stay in the repo but off the live domain. The **served** icons must
+  stay at the root.
+
 **Sticky nav (added 2026-08-05, user request): the header pins to the top on every page.**
 Pure CSS on `.site-header`, so it works on `/resume/` and without JS. The thing to know is
 that it created a sticky **chain**, and every link offsets against the ones above it:
@@ -619,6 +673,12 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - ~~320px fallback taller than the reserved hero box (~63px collapse on a slow module load)~~ **RESOLVED by Phase 2b, re-measured 2026-08-06 - do not re-file.** The bug needed the hero to be *expanded on page load* with the fallback occupying visible space while the module was still arriving. It now ships collapsed at every width with the mount deferred behind the expand click, so the module is already loaded when the mount happens and the fallback never occupies visible space at all: measured `shift=0.0px` on expand at 320px, 375px and 480px, with the fallback already gone 50ms after the click. In the genuine failure cases (module 404s, blocked, parse error) `hero.js` never runs, so nothing collapses the disclosure and the page renders exactly like the no-JS baseline - where the grid row is sized by the fallback (`mountH == fallbackH` at all three widths), so it simply renders at its natural height with no overlap and nothing to collapse. Verified, not reasoned.
 - **Sticky nav + packet changes COMPLETE (2026-08-05, `268aab6` and `30bd9d0`).** The header pins on every page - see the sticky-chain table in the Homepage build section, and note `--site-nav-h` must stay published from `js/main.js` so `/resume/` gets it. Packet dots now ride every active edge and reconcile incrementally instead of being rebuilt; see the two packet paragraphs in Architecture, both marked do-not-revert.
 - **Gremlin toggle COMPLETE (2026-08-05, `b7a6c80`).** One control for all tiers under the disclosure summary. `syncGremlin()` in `js/hero.js` is the single authority on which instances strike.
+- **Favicon COMPLETE (2026-08-06):** `favicon.svg` + `favicon.ico` + `apple-touch-icon.png` at
+  the root, sources under `_icons/`, root-relative `<link>` block in both pages. See "Site
+  icons / favicon" above for the traps (the XML double-hyphen one is the nasty one). Not yet
+  confirmed in a real browser tab - favicons cannot be screenshotted headlessly, and browsers
+  plus the Pages CDN cache them aggressively, so check in a private window rather than
+  assuming a stale icon means it is broken.
 - Known a11y gap, logged not fixed: topology nodes are pointer-only (no `tabindex`, no key handler), so the click-to-break interaction is unavailable to keyboard users. Defensible today because it is a non-essential enhancement and nothing on the page is available *solely* through it. Named fix is in the "Homepage build" section. **The gremlin toggle is now the one keyboard-operable control in the hero**, which slightly raises the floor but does not close this.
 - Not yet user-verified in a real browser: the pinned scroll sequence (`HERO_PINNED_SEQUENCE` was switched off before the user could test it from a non-RDP machine) and the gremlin toggle. Everything else this session was confirmed live. The user tests from a console session, not over RDP, and cannot reach `localhost` from their phone - so mobile verification happens against the deployed site.
 - Spec-literal behavior worth confirming with the user: in bridge mode (and generally in the shared mesh), stack-B firewalls light up as transit because a surviving path exists through them (active-active "every edge on any surviving path"). Matches the spec text; may or may not match intent.

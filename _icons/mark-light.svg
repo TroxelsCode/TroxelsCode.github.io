@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    Raster source for favicon.ico. Not served on the live domain - the
+    underscore directory prefix keeps Jekyll from copying it, same mechanism
+    that keeps _tests/ off troxeltech.com.
+
+    Identical path data to /favicon.svg, but with the accent color HARDCODED to
+    the light value, and no media query. An .ico cannot adapt to the visitor's
+    color scheme, so it is a fixed-color artifact and gets a deterministic
+    fixed-color source rather than depending on whatever scheme the rasterizing
+    browser happened to be in. (Headless Chromium currently reports light, so
+    rasterizing favicon.svg directly would give the same bytes today - but that
+    is an ambient default, not a guarantee, and it is not worth relying on.)
+
+    Do not write CSS custom property names in this comment. SVG is XML and a
+    double hyphen is illegal inside an XML comment - it silently makes the file
+    malformed and the browser renders nothing.
+  -->
+  <g fill="none" stroke="#1aa674" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.5 10 A 3.5 4.5 0 1 0 9 16 A 3.5 4.5 0 1 1 5.5 22"/>
+    <path d="M19 7 L27 7"/>
+    <path d="M23 7 L23 25"/>
+  </g>
+</svg>

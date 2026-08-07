@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!--
+    Raster source for apple-touch-icon.png (180x180). Not served on the live
+    domain - see the note in mark-light.svg about the underscore prefix.
+
+    Full-bleed opaque plate on purpose. iOS composites a transparent home
+    screen icon onto black, and it applies its own rounded-corner mask, so the
+    correct thing to supply is a plain filled square with no corner radius of
+    its own.
+
+    Inverted relative to the tab icon: light mark on the accent plate, which
+    carries better at home-screen size than accent-on-white.
+  -->
+  <rect width="32" height="32" fill="#1aa674"/>
+  <g fill="none" stroke="#fcfcfb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.5 10 A 3.5 4.5 0 1 0 9 16 A 3.5 4.5 0 1 1 5.5 22"/>
+    <path d="M19 7 L27 7"/>
+    <path d="M23 7 L23 25"/>
+  </g>
+</svg>

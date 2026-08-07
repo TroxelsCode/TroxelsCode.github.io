@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="ST">
+  <!--
+    Site favicon: "ST" monogram, drawn as paths.
+
+    Do NOT convert these to <text>. A favicon SVG is rendered outside the page
+    context and has no guaranteed access to the document's font stack, so a
+    font-family here would render differently per machine or not at all.
+
+    Colors track the site accent token in css/style.css, which is #1aa674 in
+    light and #21c489 in dark. NOTE: do not write CSS custom property names in
+    this comment. SVG is XML, and a double hyphen is illegal inside an XML
+    comment, so spelling one out makes the whole file malformed and the browser
+    renders nothing. The background stays transparent on purpose - a
+    browser tab strip is not guaranteed to match the OS color scheme, so the
+    mark has to read on either, and the media query below is an enhancement
+    rather than something the icon depends on. Safari support for it is
+    unreliable and simply falls back to the light value.
+
+    Raster siblings (favicon.ico, apple-touch-icon.png) are generated from
+    _icons/mark-light.svg and _icons/mark-apple.svg - see CLAUDE.md.
+  -->
+  <style>
+    .mark { stroke: #1aa674; }
+    @media (prefers-color-scheme: dark) {
+      .mark { stroke: #21c489; }
+    }
+  </style>
+  <g class="mark" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12.5 10 A 3.5 4.5 0 1 0 9 16 A 3.5 4.5 0 1 1 5.5 22"/>
+    <path d="M19 7 L27 7"/>
+    <path d="M23 7 L23 25"/>
+  </g>
+</svg>
