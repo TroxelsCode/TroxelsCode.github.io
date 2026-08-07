@@ -23,7 +23,16 @@
 #
 # README.md is deliberately NOT excluded - a readme is normal public-facing
 # content for a repo landing page.
+#
+# NEVER add CNAME to this list. GitHub Pages reads it out of the BUILT site to
+# resolve the custom domain, so excluding it would take troxeltech.com down.
+# Verified 2026-08-07 that /CNAME is served (200) while /.gitattributes and
+# /.gitignore already 404, since Jekyll drops dotfiles on its own.
+#
+# scripts/ is local tooling (sync_resume.py). Confirmed no served HTML, CSS or
+# JS references it, so it does not belong in the published site.
 
 exclude:
   - CLAUDE.md
   - network-topology-prototype-spec.md
+  - scripts/
