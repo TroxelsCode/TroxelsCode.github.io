@@ -59,8 +59,8 @@ push. No separate deploy step.
 
 Everything on `main` is publicly served except underscore-prefixed
 directories, which the Pages Jekyll build skips - that is what keeps
-`_tests/` off the live site. Do not add a `.nojekyll` file; it would
-bypass that build and start publishing `_tests/`.
+`_tests/` and `_icons/` off the live site. Do not add a `.nojekyll` file;
+it would bypass that build and start publishing both.
 
 ## Project structure
 
@@ -70,6 +70,13 @@ resume/index.html                   Resume route - content synced in from a sepa
                                      scripts/sync_resume.py; shares site nav/footer chrome
 scripts/sync_resume.py              Splices a generated resume fragment into resume/index.html
 css/, js/                           Site stylesheet and scripts (main.js classic, hero.js module)
+favicon.svg                         Tab icon; carries its own prefers-color-scheme rule so it
+                                     follows light/dark like the rest of the site
+favicon.ico                         16 and 32 fallback, for the /favicon.ico browsers request
+                                     on their own regardless of link tags
+apple-touch-icon.png                180x180 iOS home screen icon
+_icons/                             Raster sources for the two above; underscore-prefixed so
+                                     Jekyll keeps them out of the published site
 network-topology-prototype-spec.md  Build spec for the visualization
 topology/engine/                    Pure failover/reachability engine (no DOM)
 topology/render/                    SVG renderer + component stylesheet
