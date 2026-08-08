@@ -507,16 +507,17 @@ come free, and it degrades to plain visible content with no JS. Points that are 
   `js/hero.js`, the `max-width: 800px` portrait block and the `min-width: 801px` summary block
   in `css/style.css`.
 
-**The summary copy is a marked placeholder** (`index.html`, commented like the hero tagline).
-It is **load-bearing**: on a phone it is the only thing a visitor who never expands the
-diagram will read, so it has to carry the claim in words rather than just label a control.
-The user is workshopping it in a dedicated session - swapping it is a one-line change.
+**The summary copy is finalized** (`index.html`, confirmed 2026-08-08 alongside the hero
+tagline - the user reviewed the original draft and kept it as-is). It is **load-bearing**:
+on a phone it is the only thing a visitor who never expands the diagram will read, so it
+has to carry the claim in words rather than just label a control. Deliberately
+inviting-but-mysterious, meant to drive curiosity and clicks rather than explain up front.
 
 **Phase 1 COMPLETE (2026-08-04): static homepage skeleton.**
 `index.html` / `css/style.css` / `js/main.js` are no longer the placeholder. Built: nav
 (`sean troxel` wordmark + Home/Resume, no Contact/Projects items - see below), header/intro
-banner with a placeholder tagline (`hero-tagline` in `index.html`, marked with a comment -
-still needs real copy), the hero slot (`#hero-mount` / `.hero-mount` in
+banner with the hero tagline (`hero-tagline` in `index.html`, finalized 2026-08-08 - see the
+placeholder-copy resolution in Open items/TODOs), the hero slot (`#hero-mount` / `.hero-mount` in
 `css/style.css`, filled for real in Phase 2a above), stats strip (real figures, both endpoint numbers shown with the ~2,000
 figure primary and the 10,000 figure as a subordinate qualifier), promotion timeline, and
 footer. `/resume/index.html` carries the same nav/footer chrome and, as of 2026-08-04, real
@@ -710,8 +711,9 @@ that it created a sticky **chain**, and every link offsets against the ones abov
   fixed - the resume page now reports `--site-nav-h: 57px` and a 65px scroll-margin.
 - **Both heights are measured, not hardcoded**, via `ResizeObserver` (feature-detected, and the
   load-time measurement stands without it). The nav wraps to two lines on a very narrow screen
-  and the summary copy is still a placeholder that will change length - a stale constant would
-  overlap content in exactly those cases.
+  and the summary copy - finalized 2026-08-08, but still just prose that could change again -
+  wraps to two lines on a narrow phone; a stale constant would overlap content in exactly those
+  cases.
 - **`.hero-pin`'s `height` must subtract BOTH**, not just its `top`, or the pinned tier
   overflows the viewport by the height of the chrome above it.
 - **`#main` carries `scroll-margin-top`** so the skip link does not land under the nav. Add any
@@ -815,11 +817,15 @@ sitting directly under the disclosure summary with a line of explanatory copy.
   because the packets are not the traffic - the teal edge coloring conveys the live paths either
   way, and only the rendering of the dots is being switched. Earlier drafts said "Show network
   traffic" and "Network traffic on/off"; both were rejected for implying the traffic itself stops.
-  The shared note under the buttons carries the same point.
-- **Both buttons share one row (`.hero-toggle-row`, flex with `wrap`) and ONE note beneath**, rather
-  than a note each - two explanations stacked under two controls reads as a settings page instead
-  of a caption. Measured 2026-08-07: side by side down to ~430px, stacked at 375px and 320px with
-  no overflow (a 211px button inside a 265px row).
+  Both notes under the buttons carry the same point.
+- **Both buttons share one row (`.hero-toggle-row`, flex with `wrap`)**. Measured 2026-08-07:
+  side by side down to ~430px, stacked at 375px and 320px with no overflow (a 211px button
+  inside a 265px row).
+- **REVERSED 2026-08-08 (user request): the note is now two paragraphs, one per toggle,
+  not one shared note.** The original decision below is kept for the record, but no longer
+  holds - do not "fix" the split back to one paragraph citing this text.
+  ~~ONE note beneath both, rather than a note each - two explanations stacked under two
+  controls reads as a settings page instead of a caption.~~
 - **FULLY user-confirmed on the live site 2026-08-07, on a reduced-motion machine - the whole
   cycle, not just one direction.** Page loads with the packets correctly hidden (the system
   preference honored as the default), the first click makes them appear **and animate**, and a
@@ -909,8 +915,8 @@ all, satisfying the preference without removing anything.
   runs ~2400px, so backing out should always be one tap away. It needs an opaque background or
   the diagram scrolls through it. `js/hero.js` measures it and publishes `--hero-summary-h`,
   which `.hero-pin` and the sticky status bars offset themselves by so the two sticky elements
-  never collide. Measured rather than hardcoded because the summary copy is still a
-  placeholder and wraps to two lines on a narrow phone.
+  never collide. Measured rather than hardcoded because the summary copy (finalized 2026-08-08)
+  wraps to two lines on a narrow phone - being finalized doesn't make it a fixed length.
 - **`.topo-status` is `position: sticky` in stacked mode** - this closes the previously-logged
   open item. Pure CSS, no renderer change, works because `topology-render.js` appends the
   status bar as the FIRST child of `.topo-viz`, before the SVG. Confirmed no ancestor carries
@@ -949,12 +955,14 @@ not worth doing while the flag is off, and not worth deleting either, since the 
 to stay flippable:
 
 - **`CAPTIONS` is LIVE, not dormant - correcting an error made earlier in this file.** An
-  earlier pass claimed captions only render when pinned. They do not: `.hero-layer::after` in
-  `css/style.css` uses `content: attr(data-caption)` in **stacked** mode, which is every width
-  today, so all three captions are on the production page beneath their tiers. Verify before
-  assuming otherwise. As of 2026-08-07 the medium and large captions are finished copy naming
-  real mechanisms (see the redundancy-model note in Architecture); only the small caption is
-  still placeholder-grade, and it has no mechanism to name by design.
+  earlier pass claimed captions only render when pinned. They do not: `.hero-layer::before`
+  (was `::after` until 2026-08-08, see below) in `css/style.css` uses `content: attr(data-caption)`
+  in **stacked** mode, which is every width today, so all three captions are on the production
+  page above their tiers. Verify before assuming otherwise. All three captions are finished
+  copy: medium and large were finalized 2026-08-07 naming real mechanisms (see the
+  redundancy-model note in Architecture); the small caption was finalized 2026-08-08 despite
+  naming no mechanism - that absence is the point of that tier, and the caption says so as a
+  direct judgment on the design rather than a neutral description.
 - *(dormant)* `--hero-step: 620px` pacing was chosen, not tuned against real scrolling. Worth a
   pass, but only if the pin comes back - nothing reads the value while the flag is off.
 - **Still genuinely open**: large-tier density and the dimmed treatment for unreachable nodes,
@@ -1052,8 +1060,8 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
 5. **Defer all real work until the first expand.** No DOM building, no timers, no network while
    collapsed. The homepage currently builds zero SVG and starts zero timers on load.
 6. **Write the summary as real copy, not a control label.** It is the only thing a visitor who
-   never expands will read - on a phone especially. See the placeholder-copy item below; the
-   topology summary is the template the rest will follow.
+   never expands will read - on a phone especially. See the finalized-copy note in Open
+   items/TODOs below; the topology summary is the template the rest will follow.
 7. **Open with an `.exhibit-intro` block: a description, then the interaction directions.**
    Above the controls, above the exhibit. See the subsection above for the markup and for why
    only the directions half is JS-gated.
@@ -1118,9 +1126,24 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
   below the diagram to the top of the exhibit, and was generalized into an `.exhibit-intro`
   (description + directions) that every future exhibit reuses. First piece of the shared shell
   to carry the `exhibit-*` prefix. See "The exhibit intro block" subsection for the markup, the
-  visibility split and the verification. The description copy is a draft written in that
-  session - worth workshopping alongside the summary.
-- **Placeholder copy, still open**: the disclosure summary (`index.html`, load-bearing - on a phone it is the only thing a visitor who never expands will read, and as of 2026-08-07 it is also the **template** every future exhibit summary will follow, which raises the stakes on getting it right), the hero tagline (`hero-tagline` in `index.html`), and the **small-tier caption only** in the `CAPTIONS` map. All marked with comments at their definition sites. The user is workshopping the summary separately. *(The medium and large captions came off this list on 2026-08-07 - they are now finished copy naming VRRP, ECMP and clustering. Note captions render on the live page in stacked mode; an earlier claim in this file that they were pinned-only was wrong.)*
+  visibility split and the verification. The description copy was reworded and re-colored on
+  2026-08-08 (see the resolution below) - no longer first-draft text, though like any copy it
+  can still be revisited.
+- **Placeholder copy: RESOLVED 2026-08-08.** All three items are finalized: the disclosure
+  summary (kept exactly as originally drafted - load-bearing, since on a phone it is the only
+  thing a visitor who never expands will read, and it is also the **template** every future
+  exhibit summary will follow), the hero tagline (now "An instinct for how systems work,
+  hard-won and applied to infrastructure that holds up under pressure" - workshopped through
+  several drafts before landing here), and the small-tier caption (kept as originally drafted).
+  All three had their "placeholder, not finalized" comments removed at their definition sites
+  in `index.html` and `js/hero.js`. *(The medium and large captions came off this list on
+  2026-08-07 - they are now finished copy naming VRRP, ECMP and clustering.)* Two more copy/
+  layout changes landed in the same session: the exhibit description was reworded ("Three
+  types of networks" instead of "Three versions of the same network") and re-colored from
+  stark white to the same muted tone as the tagline and directions; and each tier's caption
+  now renders **above** its diagram via `.hero-layer::before` rather than below via `::after`
+  (see the CAPTIONS bullet above - this also reverses the toggle-note split noted under the
+  packets toggle above). Committed as `152917c`.
 - ~~320px fallback taller than the reserved hero box (~63px collapse on a slow module load)~~ **RESOLVED by Phase 2b, re-measured 2026-08-06 - do not re-file.** The bug needed the hero to be *expanded on page load* with the fallback occupying visible space while the module was still arriving. It now ships collapsed at every width with the mount deferred behind the expand click, so the module is already loaded when the mount happens and the fallback never occupies visible space at all: measured `shift=0.0px` on expand at 320px, 375px and 480px, with the fallback already gone 50ms after the click. In the genuine failure cases (module 404s, blocked, parse error) `hero.js` never runs, so nothing collapses the disclosure and the page renders exactly like the no-JS baseline - where the grid row is sized by the fallback (`mountH == fallbackH` at all three widths), so it simply renders at its natural height with no overlap and nothing to collapse. Verified, not reasoned.
 - **Sticky nav + packet changes COMPLETE (2026-08-05, `268aab6` and `30bd9d0`).** The header pins on every page - see the sticky-chain table in the Homepage build section, and note `--site-nav-h` must stay published from `js/main.js` so `/resume/` gets it. Packet dots now ride every active edge and reconcile incrementally instead of being rebuilt; see the two packet paragraphs in Architecture, both marked do-not-revert.
 - **Gremlin toggle COMPLETE (2026-08-05, `b7a6c80`).** One control for all tiers under the disclosure summary. `syncGremlin()` in `js/hero.js` is the single authority on which instances strike.

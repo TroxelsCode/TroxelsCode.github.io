@@ -59,7 +59,8 @@ const TIER_ORDER = ['small', 'medium', 'large'];
    summary owns it from the first click onward - see syncGremlin(). */
 const HERO_GREMLIN = true;
 
-/* Shown under the pinned stage, or beneath each tier in stacked mode - which
+/* Shown under the pinned stage, or above each tier in stacked mode (changed
+   from below/::after to above/::before 2026-08-08, user request) - which
    is every width today, so these ARE on the live page via the
    content: attr(data-caption) rule in css/style.css.
 

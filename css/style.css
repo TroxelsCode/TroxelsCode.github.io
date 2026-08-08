@@ -490,6 +490,11 @@ section:last-of-type {
   margin-top: 16px;
 }
 
+/* Muted rather than the default --site-text white (changed 2026-08-08, user
+   request): pure white read as stark and inconsistent sitting between the
+   muted hero tagline above and the muted .exhibit-directions below. Font and
+   size are deliberately kept sans-serif/15px rather than also matching
+   .exhibit-directions' mono/13px - this is lead prose, not a hint. */
 .exhibit-description {
   max-width: 68ch;
   font-size: 15px;
