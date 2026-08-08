@@ -65,7 +65,7 @@ const HERO_GREMLIN = true;
 
    The medium and large captions deliberately name the real mechanisms (VRRP,
    ECMP, clustering) rather than describing the picture. They are the only
-   place the large tier explains WHY both firewall stacks carry traffic at
+   place the large tier explains WHY both firewall clusters carry traffic at
    once: it is a clustered, ECMP-routed design, not an HA pair behaving oddly.
    See the redundancy-model note in CLAUDE.md before rewording them.
 
@@ -73,7 +73,7 @@ const HERO_GREMLIN = true;
    which is the whole point of that tier. */
 const CAPTIONS = {
   small: 'One uplink, one firewall, one switch. Every box is a single point of failure.',
-  medium: 'A VRRP standby and a second path turn the same failure into a failover.',
+  medium: 'A VRRP backup and a second path turn the same failure into a failover.',
   large: 'Two sites, clustered firewalls, ECMP uplinks, multi-group VRRP. Every path carries traffic, so damage is absorbed.',
 };
 

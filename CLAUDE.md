@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Employer or client specifics** - client names, real hostnames, internal IP addressing, the topology or security controls of any REAL network, vendor or contract terms, anything under NDA. The network diagrams this site is built around are deliberately generic and illustrative; keep them that way, and never "improve" them with details from a live environment.
 - **Private circumstances the user has not chosen to publish** - health, employment negotiations, personal routines, anything about their household or location.
 
-**If a future session needs private context to do good work, it does not go here.** Keep it in a file *outside* the repository and pull it in with an `@path` import line in this file, so no `git add` can publish it by accident. A gitignored file inside the repo is weaker protection: this project has already seen one session sweep another session's stray working-tree changes into a commit.
+**If a future session needs private context to do good work, it does not go here.** Keep it in a file *outside* the repository and pull it in with an `@path` import line in this file, so no `git add` can publish it by accident. A gitignored file inside the repo is weaker protection - a broad `git add` can still be talked into staging it, and nothing about the filename warns you at review time.
 
 **When in doubt, ask the user before writing it down.** Something merely awkward in public is a judgment call. Something containing PII, credentials, or client data is not, and once pushed the only remedy is rewriting history and force-pushing, which cannot recall existing clones, forks, or caches.
 
@@ -64,7 +64,7 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 - **`.gitattributes` pins LF line endings** (`* text=auto eol=lf`, added 2026-08-04) to stop `core.autocrlf`-driven "LF will be replaced by CRLF" warnings on this Windows machine. This is a repo-scoped fix, not a global git config change - the Git Safety Protocol here is never to touch git config, so line-ending consistency is enforced via the repo's own `.gitattributes` instead.
 - `gh` CLI is installed and authenticated as `TroxelsCode`.
 - Git identity for this repo is set locally (not globally) to the GitHub noreply address (`203574397+TroxelsCode@users.noreply.github.com`) so the user's real email stays out of public commit history.
-- **The user runs multiple Claude sessions against this repo at once, and they commit concurrently.** On 2026-08-06 a git health check read `HEAD` as `8c359e1` with `CLAUDE.md`/`README.md` dirty, and moments later the same check read `469c95d` with a clean tree - another session had committed in between, and the first snapshot was already stale when it printed. So: re-read `HEAD` and `git status` right before drawing any conclusion, do not trust a snapshot taken earlier in the turn, and check `.git/index.lock` plus `MERGE_HEAD`/`REBASE_HEAD` before assuming the tree is idle. Also expect edits to land in files this session is holding in context - re-read before an edit that depends on surrounding lines. Conflicts have not happened yet because the sessions have touched different areas, but nothing prevents it.
+- **The `gitStatus` block in your context is a snapshot from session start, not live state.** Re-read `HEAD` and `git status` right before drawing any conclusion from them, and never commit on the strength of a status printed earlier in the turn.
 - **Custom domain setup gotcha (2026-08-04):** pushing a `CNAME` file to the repo root does NOT by itself register the custom domain with GitHub Pages, contrary to the usual assumption that Pages auto-detects it on push - the Pages API still showed `cname: null` after the push and merge. Had to explicitly `PUT` `repos/<owner>/<repo>/pages` with `-F cname=<domain>` via `gh api`. After that, `https_certificate.state` goes `new` -> (wait, no fixed timing - took under 10 min this time) -> `approved`; only once `approved` will `-F https_enforced=true` succeed (it 404s with "The certificate does not exist yet" before that). Check status anytime with `gh api repos/<owner>/<repo>/pages`.
 
 ## Commands
@@ -109,14 +109,23 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
   - **Consequence: a malformed Liquid delimiter in any root `.md` can fail the build**, and a backtick code span does **not** protect it - Liquid runs over the raw bytes before Markdown ever sees them. Write such patterns as character classes (`grep -cE '[{][{]' *.md`) rather than spelling them out. Note the precise hazard: a *well-formed* expression over an undefined variable renders empty and is harmless; what raises is an unclosed delimiter or an unknown tag name. Only the harmless direction was tested - proving the fatal one would mean deliberately breaking the live deploy.
   - When a build fails, this is now a legitimate suspect, but still check `duration` first: `duration: 0` means the job never ran and the cause is GitHub-side, whereas a Liquid error has a nonzero duration and a specific message.
 - **Do not confirm a deploy by polling the build's `commit` field - it misattributes.** When two pushes land close together, the build that actually compiles your tree can be stamped with the PREVIOUS commit SHA, so a poll loop waiting for your SHA to appear times out while the deploy has in fact succeeded (hit 2026-08-06: `469c95d` never appeared, yet its content was live). **Verify by content instead**: fetch a page from `https://troxeltech.com/` and grep for a string your commit introduced. **Do not use `CLAUDE.md` as the probe** - it used to be served and is now excluded (see Deploy below), so it 404s. `README.md` is the doc-only probe now; for anything else, grep `index.html` or `/resume/`.
-- **Deploy**: push to `main`; GitHub Pages auto-builds from the branch root (legacy Pages build, no Actions workflow). Everything on `main` is publicly served **except underscore-prefixed directories**, which Jekyll's `EntryFilter` skips unless they are one of its known dirs (`_posts`, `_layouts`, ...) or are listed in an `include:` key. That is the only thing keeping `_tests/` off the live domain - it is not merely unlinked, it is absent from the built site. **Root `.md` files are published TWICE by default, as both `.md` and `.html`** - underscore *directories* are excluded, root files are not. Measured 2026-08-07 before the fix: `/CLAUDE.md` (byte-identical to the local file) and `/CLAUDE.html` (rendered, 130KB against an 82KB source) both returned 200, and the spec was exposed the same way. **RESOLVED 2026-08-07 (user decision): `_config.yml` now excludes `CLAUDE.md`, `network-topology-prototype-spec.md` and `scripts/`**, which removes both outputs per entry. (`scripts/sync_resume.py` is local tooling - nothing served references it.) **Never add `CNAME` to that exclude list**: Pages reads it out of the BUILT site to resolve the custom domain, so excluding it would take `troxeltech.com` down. Dotfiles like `.gitattributes` and `.gitignore` already 404 without help. `README.md` is deliberately still served (a readme is normal public content); `/README.html` is 404 either way. Do NOT move or rename `CLAUDE.md` - it has to stay at the repo root for Claude Code to find it, which is why an exclude is the right tool. Note the exclusion only affects the built site: the repo is public, so both files remain readable on github.com including in history. **Never add a `.nojekyll` file**: it bypasses the Jekyll build entirely and would start publishing `_tests/`. Same caveat if this ever migrates to an Actions-based Pages workflow - `actions/upload-pages-artifact` uploads the whole tree unless a Jekyll build runs first. (The files stay browsable on github.com either way; the repo is public. The goal is "not on the live domain", not "secret".)
+- **Deploy**: push to `main`; GitHub Pages auto-builds from the branch root (legacy Pages build, no Actions workflow). Everything on `main` is publicly served **except underscore-prefixed directories**, which Jekyll's `EntryFilter` skips unless they are one of its known dirs (`_posts`, `_layouts`, ...) or are listed in an `include:` key. That is the only thing keeping `_tests/` off the live domain - it is not merely unlinked, it is absent from the built site. **Root `.md` files are published TWICE by default, as both `.md` and `.html`** - underscore *directories* are excluded, root files are not. Measured 2026-08-07 before the fix: `/CLAUDE.md` (byte-identical to the local file) and `/CLAUDE.html` (rendered, 130KB against an 82KB source) both returned 200, and the build spec was exposed the same way. **RESOLVED 2026-08-07 (user decision): `_config.yml` now excludes `CLAUDE.md` and `scripts/`**, which removes both outputs per entry. (`network-topology-prototype-spec.md` was a third entry until that file was deleted on 2026-08-08; its exclude went with it. **Any new root `.md` needs its own entry** - the list is not a pattern.) (`scripts/sync_resume.py` is local tooling - nothing served references it.) **Never add `CNAME` to that exclude list**: Pages reads it out of the BUILT site to resolve the custom domain, so excluding it would take `troxeltech.com` down. Dotfiles like `.gitattributes` and `.gitignore` already 404 without help. `README.md` is deliberately still served (a readme is normal public content); `/README.html` is 404 either way. Do NOT move or rename `CLAUDE.md` - it has to stay at the repo root for Claude Code to find it, which is why an exclude is the right tool. Note the exclusion only affects the built site: the repo is public, so both files remain readable on github.com including in history. **Never add a `.nojekyll` file**: it bypasses the Jekyll build entirely and would start publishing `_tests/`. Same caveat if this ever migrates to an Actions-based Pages workflow - `actions/upload-pages-artifact` uploads the whole tree unless a Jekyll build runs first. (The files stay browsable on github.com either way; the repo is public. The goal is "not on the live domain", not "secret".)
 
 ## Architecture
 
 Root `index.html` / `css/style.css` / `js/main.js` / `js/hero.js` are the real homepage (see
 "Homepage build" below for what's built vs. deferred). `main.js` is a classic script,
 `hero.js` an ES module - that split is deliberate and load-bearing, see Phase 2a below. The
-topology visualization prototype is spec'd in [network-topology-prototype-spec.md](network-topology-prototype-spec.md) (read it before touching the component). The spec is the baseline, but the code has user-approved amendments the spec does not reflect: dual site bridges (spec says a single stack-A-to-stack-A link), gremlin mode (not in the spec at all), and the server naming below. **The spec also still describes a `/harness/index.html` preview page with a tier switcher (its sections 6 and 301) - that page no longer exists**, deleted 2026-08-04 when the hero went live; ignore those references, and note the spec predates this repo's ASCII-only rule so it still contains em dashes. Where code and spec disagree, the code + this file win.
+topology visualization's original build spec (`network-topology-prototype-spec.md`) was
+**retired and deleted on 2026-08-08** - everything below is now the only source of truth for
+the component, alongside the code itself. It was removed rather than archived because it had
+drifted from actively-useful into actively-wrong: it mandated the packet throttle that was
+deliberately ripped out on 2026-08-05, described a single stack-A-to-stack-A bridge where the
+code has two, listed a `/harness/index.html` deliverable deleted on 2026-08-04, knew nothing
+about gremlin mode or the portrait layouts, and predated this repo's ASCII-only rule. Its
+still-valuable parts were migrated here first - see "Component contract" and "Design rulings"
+below, which exist specifically to hold them. Do not go looking for it in git history to
+settle a question; if it is not written down here, it is not a live constraint.
 
 - `topology/engine/topology-engine.js` - pure state computation (pairwise failover, mesh reachability, site bridge fallback, status rollup). **Zero DOM code; keep it that way.** Redundancy is dispatched per class (`single`/`pair`/`mesh` + site-level bridge); do NOT unify into one generic shortest-path pass - that produces the documented both-pair-members-light bug.
 - `topology/render/topology-render.js` - SVG renderer + click interaction. Consumes engine output; contains no failover logic. Mount API: `TopologyViz.mount(containerEl, tierConfig, options)` returns `{ root, update, reset, destroy, startGremlin, stopGremlin, gremlinRunning }`. Injects its own stylesheet link (resolved via `import.meta.url`) once per document. "Gremlin mode" (`options.gremlin = { enabled, breakMin, breakMax, fixMin, fixMax }`) is ambient auto-play: random node breaks with per-strike randomized repair timers, SVG badge popouts (purple imp with pointy ears and an evil grin while down - deliberately NOT a red devil, user is sensitive to religious readings - and a teal check on repair). Pacing merges defaults < tier config `gremlin` block < mount options; tier configs scale pacing with network size (small slowest, large busiest, fix/break ratio ~0.6). Gremlin only toggles the same downSet a click uses; the engine stays pure and failover stays instant. The mount hides the component root until its injected stylesheet loads (prevents a black-fill first paint / mid-transition screenshots). **Gremlin victim selection is viewport-biased via an `IntersectionObserver`** (added 2026-08-05 for the portrait layouts): the portrait large tier renders ~1190px tall on a phone, so uniform-random strikes would mostly break nodes scrolled off screen, and the visitor would watch a status bar change with no visible cause. Node groups are observed at `threshold: 0.5`, and a strike picks from the on-screen pool with probability `GREMLIN_VISIBLE_BIAS` (0.8), falling back to the full pool otherwise. The 20% leak is deliberate, not a rounding-off: it keeps off-screen parts of the network live, so scrolling reveals damage that happened while you were looking elsewhere. Feature-detected and wrapped in try/catch - if `IntersectionObserver` is missing or throws, the visible set stays empty and selection degrades to the original uniform-random behavior. `destroy()` disconnects the observer.
@@ -125,20 +134,136 @@ topology visualization prototype is spec'd in [network-topology-prototype-spec.m
 - `js/hero.js` - the component's only host. ES module. Mounts **all three tiers**, one per `.hero-layer` inside `#hero-mount`. Picks landscape or portrait tier data from a `matchMedia` width query; picks pinned-vs-stacked layout from the `HERO_PINNED_SEQUENCE` flag (**currently false**, so always stacked), width, or `prefers-reduced-motion`; re-lays-out on either query crossing; owns the gremlin toggle via `syncGremlin()`; and defers mounting entirely while the `<details>` disclosure is collapsed, which is now every width. See "Homepage build" and "Phase 2b" below.
 - `_tests/engine-tests.html` - browser-run engine assertions (24 scenario tests). The repo's only test suite, so keep it working; the underscore prefix on the directory is what keeps it off the live domain (see Deploy above). The former `harness/index.html` preview page was deleted on 2026-08-04 when the hero went live - it rendered all three tiers at once and is fully superseded by the real homepage.
 
-Large-tier bridges: TWO stack-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches stack redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
+### Component contract (migrated from the retired build spec, 2026-08-08)
 
-**Redundancy model per tier, and why the large tier lights both firewall stacks (RESOLVED 2026-08-07 - this closes a long-standing open question).** The two tiers deliberately model *different* real-world HA designs, and the difference is not an inconsistency:
+These were the spec's "structural constraints", and they are the reason the component could be
+dropped into a real hero with no rework. All still hold. The harness-page constraint is the
+only one that died, along with the harness.
 
-- **Medium is an active/standby pair, and is already textbook.** `fw-a` is `sub: 'primary'`, `fw-b` is `sub: 'standby'`, joined by a `sync` edge. `pair-fabric` in the engine resolves one side and **keeps the standby's links dark even though the standby is healthy** (see the comment at the mesh pass). That is what an HA pair actually does.
-- **Large is a CLUSTERED, ECMP-routed design, not an HA pair behaving oddly.** It uses `mesh-fabric`, which resolves ISPs, every firewall from both stacks, and the shared switch core in one reachability pass, so every edge on a surviving path lights. The old open item asked whether stack-B firewalls lighting as transit was intended. **It is** - the user's decision was to keep the engine model and make the labeling say so.
+1. **Engine and renderer are physically separate files, and the boundary is not negotiable.**
+   The engine is pure functions over plain data with zero DOM code; the renderer holds zero
+   failover logic. Do not blur this for convenience.
+2. **The component sizes to its container**, never a fixed canvas - percentage width plus
+   viewBox scaling, embedded at a width it cannot know in advance. (Corollary learned later,
+   see the hero notes: cap **width**, never `max-height` - the SVG is width-driven, so a
+   height cap makes it overflow instead of scale.)
+3. **Every visual token is one of the component's own `--topo-*` custom properties**, with
+   defaults in its own stylesheet. No hex values in engine or renderer logic. A host rethemes
+   by overriding properties and never touches internals.
+4. **No global namespace pollution and no host dependencies.** ES module, scoped styles, no
+   backend calls, no routing assumptions, and **no persisted state between loads** - state
+   resets to the tier default on reload. Mountable in a single call.
+5. **No draggable nodes.** Fixed layout position per tier; considered and dropped from scope.
 
-The reasoning, so nobody re-opens it: for a *pair*, active/standby is the enterprise default - you must size each unit for 100% of load anyway, so active/active buys no dependable capacity, and it invites the asymmetric routing that stateful inspection hates. But at the scale the large tier depicts (two sites, four ISPs, dual firewall stacks, meshed core, site bridges), both-boxes-carrying is genuinely normal, and it is achieved by clustering, per-context or per-VLAN splits, or ECMP. The large tier is at exactly that scale, so the mesh model is the *more* accurate one. There is also a presentation argument: darkening stack B would remove a large fraction of the tier's lit surface and work directly against the "traffic keeps flowing along the other paths" point that the packet-throttle removal was made to strengthen.
+**Data model** (the shape `tiers.js` produces and the engine consumes):
+
+```text
+Node = { id, label, sub, class, redundancy, group, x, y }
+       class:      'isp'|'firewall'|'switch'|'server'|'workstation'
+       redundancy: 'single'|'pair'|'mesh'
+       sub:        short subtitle, e.g. 'primary', 'backup', 'cluster A'
+Edge = { a, b, kind, bow?, label? }
+       kind:       'primary'|'backup'|'mesh'|'sync'|'bridge'
+```
+
+`downSet` is a Set of node ids currently toggled offline. **Node ids match their rendered
+labels** (`isp1` -> ISP-1); `group` is vestigial - nothing reads it.
+
+### Design rulings (migrated from the retired build spec, 2026-08-08)
+
+Rationale that is not recoverable from the code, and that has been re-litigated before.
+
+- **Status rollup is per sink class, and generalizes to any number of them - never hardcode
+  two.** A site's "sink classes" are the leaf groups whose reachability decides whether the
+  business function works (medium has three: the server pair, WS-1, WS-2). All reachable is
+  green, some is amber ("services affected"), none is red ("business down"). Global rollup
+  across the two large-tier sites: both green is green, **either one non-green is amber**,
+  both red is red. One site fully dark while the other covers is a real degraded event worth
+  surfacing, not a silent non-issue.
+- **A site riding the bridge reads AMBER, not green.** Its own four ISPs being dead is a real
+  degraded state even though the bridge masks the impact downstream.
+- **Local upstream is always preferred, and the bridge check is deliberately NOT recursive.**
+  `resolveSiteUpstream` tests the donor site's LOCAL-only reachability, never the donor's own
+  bridge fallback - otherwise two sites that both lose local upstream could circularly rescue
+  each other. There is a test for this (`both sites dark = no circular rescue`).
+- **The site link is a dedicated point-to-point bridge (fixed wireless/optical), NOT a VPN,
+  and the reason is the whole point.** A VPN tunnel rides the internet, so it would depend on
+  exactly the ISP connectivity it is supposed to survive the loss of. The bridge is a
+  physically independent medium. Do not "modernize" this into a VPN.
+- **`pair` members get a dashed sync line whether or not a literal cable exists**, as a
+  consistent visual for a logical relationship. Applied to the firewall pair and the server
+  pair; the ISP pair is excluded, because there is no ISP-to-ISP sync to draw.
+- **The workstation groups are single-homed on purpose, and the asymmetry with the server
+  pair is intended.** A real workstation is single-NIC, so when its one switch dies that group
+  goes down even though the mesh keeps everything else up. That is a correct distinction being
+  demonstrated, not a gap to fix.
+- **Failover is instant, with no simulated timeout.** A click recomputes and repaints
+  immediately. The cosmetic dash marches on sync and standby-bridge links must never gate or
+  delay a state change. A timeout-based keepalive/VRRP simulation was explicitly deferred as a
+  possible future "engineer mode" - it is still not built.
+
+Large-tier bridges: TWO cluster-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches cluster redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
+
+**Redundancy model per tier, and why the large tier lights both firewall clusters (RESOLVED 2026-08-07 - this closes a long-standing open question).** The two tiers deliberately model *different* real-world HA designs, and the difference is not an inconsistency:
+
+- **Medium is an active/standby pair, and is already textbook.** `fw-a` is `sub: 'primary'`, `fw-b` is `sub: 'backup'` (it read `standby` until 2026-08-08 - see the label pass below), joined by a `sync` edge. `pair-fabric` in the engine resolves one side and **keeps the standby's links dark even though the standby is healthy** (see the comment at the mesh pass). That is what an HA pair actually does.
+- **Large is a CLUSTERED, ECMP-routed design, not an HA pair behaving oddly.** It uses `mesh-fabric`, which resolves ISPs, every firewall from both clusters, and the shared switch core in one reachability pass, so every edge on a surviving path lights. The old open item asked whether cluster-B firewalls lighting as transit was intended. **It is** - the user's decision was to keep the engine model and make the labeling say so.
+
+The reasoning, so nobody re-opens it: for a *pair*, active/standby is the enterprise default - you must size each unit for 100% of load anyway, so active/active buys no dependable capacity, and it invites the asymmetric routing that stateful inspection hates. But at the scale the large tier depicts (two sites, four ISPs, dual firewall clusters, meshed core, site bridges), both-boxes-carrying is genuinely normal, and it is achieved by clustering, per-context or per-VLAN splits, or ECMP. The large tier is at exactly that scale, so the mesh model is the *more* accurate one. There is also a presentation argument: darkening cluster B would remove a large fraction of the tier's lit surface and work directly against the "traffic keeps flowing along the other paths" point that the packet-throttle removal was made to strengthen.
 
 **How this is expressed to the visitor** (the actual change, 2026-08-07):
 
-- Large-tier firewall sub-labels read **`cluster A` / `cluster B`** rather than `stack A` / `stack B`. **The DISPLAY term changed; the internal vocabulary did not.** Node ids, `structure.bridges`, and this file still say stack - do not chase the rename through the code.
+- Large-tier firewall sub-labels read **`cluster A` / `cluster B`**. "stack" was the earlier word for the same thing and, as of the 2026-08-08 consistency pass, survives nowhere - code comments, tests and this file all say cluster. The node ids stay `fwa1`..`fwb2` because A/B is the group letter, exactly what the labels FW-A1..FW-B2 show.
 - `CAPTIONS` in `js/hero.js` names the mechanisms outright: medium cites a VRRP standby, large cites clustered firewalls, ECMP uplinks and multi-group VRRP. This is deliberate portfolio surface - the user built a fully active/active VRRP + ECMP MikroTik cluster and wants that knowledge visible. Do not flatten these back into describing the picture.
-- Sub-label length is constrained: SVG `<text>` neither wraps nor truncates, and the portrait large node box is 64 viewBox units. Measured 2026-08-07: `cluster A` renders 36.5u against that 64u box, and is actually *narrower* than the existing `off SW-2` (37.4u) because the sub-label font is not monospace. Tightest label on the tier still has 23.6px of slack at a 319px SVG width. **Measure before lengthening any sub-label.**
+- Sub-label length is constrained: SVG `<text>` neither wraps nor truncates, and the portrait large node box is 64 viewBox units. Measured 2026-08-07: `cluster A` renders 36.5u against that 64u box, and is actually *narrower* than the then-existing `off SW-2` (37.4u) because the sub-label font is not monospace. Re-measured 2026-08-08 after the label pass below: the tightest sub-label on the whole site is now **`secondary` at 41.2u**, leaving 22.8u / 20.2px of slack at a 319px SVG width, and `cluster A` is second. **Measure before lengthening any sub-label.**
+
+**Naming consistency pass, 2026-08-08 (user-directed).** One deliberate sweep so that a node's
+id, its rendered label, the engine's vocabulary and the site's prose all agree. **The governing
+rule from here on: a node's id matches its rendered label** (`isp1` -> ISP-1, `fw2` -> FW-2),
+so a box on screen can be found in `tiers.js` by reading it. Keep new nodes to that rule.
+
+Labels and sub-labels:
+
+| tier | was | now | why |
+| --- | --- | --- | --- |
+| small | Workstations `aggregate` | no sub-label | the node label is descriptive enough on its own |
+| medium | `WAN-A` / `WAN-B` | `ISP-1` / `ISP-2` | consistent with the ISP-n naming the large tier already uses |
+| medium | `FW-A` / `FW-B` | `FW-1` / `FW-2` | same numbering consistency |
+| medium | fw2 `standby` | `backup` | matches the ISP pair's primary/backup wording |
+| medium + large | srv2 `standby` | `secondary` | ditto, and it is now the tightest sub-label on the site |
+| medium + large | WS-n `off SW-n` | no sub-label | the drawn edge already shows which switch each group hangs off |
+
+Ids and vocabulary:
+
+- **Medium node ids renamed to match**: `wan-a`/`wan-b` -> `isp1`/`isp2`, `fw-a`/`fw-b` ->
+  `fw1`/`fw2`, `srv-a`/`srv-b` -> `srv1`/`srv2`. Edges, `structure`, the portrait `coords` and
+  `bows` maps, and the engine tests all moved with them. Large-tier ids were already
+  label-matching and did not change.
+- **Engine key `wanPair` -> `ispPair`** (plus the `activeWan`/`isUpWan` locals). The vestigial
+  `group: 'wan'` became `'isp'` - nothing reads `group`, so that was free.
+- **"stack" is gone; the firewall groups are "clusters" everywhere** - sub-label, code
+  comments, test names and this file.
+- **"standby" -> "backup" in the prose too**: the medium caption in `js/hero.js`, the exhibit
+  description in `index.html`, and `README.md`. VRRP's own role names are Master and Backup, so
+  "a VRRP backup" is if anything more precise than what it replaced.
+
+Two things deliberately did NOT change, and both are correct:
+
+- **The engine's `role` value stays `'active'`/`'standby'`.** It is one generic term produced
+  by `resolvePair()` for every pair kind at once, whose sub-labels now differ (`backup` for
+  ISPs and firewalls, `secondary` for servers) - no single display word is right for all of
+  them. Nothing renders it as text. There is a note at the `computeState` docblock saying so.
+- **The medium tier is still genuinely active/standby.** The relabel changed words, not
+  behavior: `pair-fabric` still keeps the backup member's links dark, and the test
+  `medium: backup side does NOT light` still enforces it. Do not read "backup" as a claim that
+  medium went active/active - that is the large tier, which says `cluster A`/`cluster B`.
+
+Verified 2026-08-08: engine tests 24/24; every sub-label measured at 319px portrait and 460px
+landscape across all three tiers; and a throwaway probe confirmed every portrait `coords` key
+still moves its node, the four bow overrides still land, no edge or `structure` entry names a
+missing node, and the landscape bows were not mutated. **That probe matters because a stale key
+in those maps fails SILENTLY** - the node simply keeps its landscape position, or an edge keeps
+a bow tuned for the other orientation. Re-run an equivalent check after any future id rename.
 
 **Two dash marches, not one: sync links AND standby site links** (the bridge march added
 2026-08-07 at user request - they noticed the site links sat static while the HA sync links
@@ -153,7 +278,7 @@ crawled). Both are the same two-part pattern, a class from the renderer plus a k
 - **The `bridge-standby` condition carries the extra "not active" term** because an active
   bridge is drawn solid (`stroke-dasharray: none`) with packet dots on it, so there would be
   no dash left to march. Verified across four states on the large tier: healthy (both links
-  standby, marching), site 1 riding the bridges (both active and solid), site 2 stack A down
+  standby, marching), site 1 riding the bridges (both active and solid), site 2 cluster A down
   (link A dead and dim, link B still active), and reset.
 - **The keyframe distance must be a whole number of dash periods** (`2 + 6 = 8`, so `-24` is
   three) or the loop visibly jumps at the wrap. 24 units over 2.4s is also the same 10
@@ -999,6 +1124,17 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - **Sticky nav + packet changes COMPLETE (2026-08-05, `268aab6` and `30bd9d0`).** The header pins on every page - see the sticky-chain table in the Homepage build section, and note `--site-nav-h` must stay published from `js/main.js` so `/resume/` gets it. Packet dots now ride every active edge and reconcile incrementally instead of being rebuilt; see the two packet paragraphs in Architecture, both marked do-not-revert.
 - **Gremlin toggle COMPLETE (2026-08-05, `b7a6c80`).** One control for all tiers under the disclosure summary. `syncGremlin()` in `js/hero.js` is the single authority on which instances strike.
 - **Packets toggle COMPLETE (2026-08-07), beside the gremlin toggle.** `Network packets shown` / `hidden`, defaulting to the inverse of the visitor's `prefers-reduced-motion` setting and overriding it in both directions once clicked. Built as a `data-packets` attribute on the component root read by `topology.css` alone, so the renderer stays ignorant of motion preferences. See "Packets toggle" under Phase 2b for the reasoning, the `packetsChosen` guard, the deliberately packets-only scope, and the headless verification; and the `topology.css` bullet in Architecture for why the CSS rules sit outside any media block. **Deployed (`80fbdb3`, built in 28.6s) and FULLY user-confirmed on the live site the same day, on a reduced-motion machine**: loads hidden, one click makes the packets appear and animate, a second click hides them completely. That is the complete cycle including the reduced-motion override, so this needs no further real-browser verification. All three changed assets were also checked as actually served, not just the HTML.
+- **Naming consistency pass COMPLETE (2026-08-08), and the build spec is DELETED.** Node ids
+  now match their rendered labels, the engine's `wanPair` key became `ispPair`, "stack" became
+  "cluster" everywhere, and "standby" became "backup" in the captions/README/exhibit copy. See
+  the "Naming consistency pass" note in Architecture for the full table, for the two things
+  that deliberately did not change (the engine's `role` enum, and medium still being genuinely
+  active/standby), and for the silent-failure trap in the portrait `coords`/`bows` maps that
+  any future rename must re-probe. `network-topology-prototype-spec.md` was retired in the same
+  pass: its still-live content became the "Component contract" and "Design rulings" sections
+  above, and its `_config.yml` exclude was removed with it. It was deleted rather than archived
+  because it had gone actively wrong - it still mandated the packet throttle that was removed
+  on 2026-08-05. **Do not resurrect it from git history to settle an argument.**
 - **Standby site links now dash-march (2026-08-07), large tier only.** User request: the site
   bridges sat static while the HA sync links crawled. `bridge-standby` class from the renderer
   plus a `topo-bridge-march` keyframe, mirroring `sync-live`. See the two-dash-marches table in
@@ -1020,6 +1156,6 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
   re-check in a private window rather than assuming a stale icon means something is broken.
 - Known a11y gap, logged not fixed: topology nodes are pointer-only (no `tabindex`, no key handler), so the click-to-break interaction is unavailable to keyboard users. Defensible today because it is a non-essential enhancement and nothing on the page is available *solely* through it. Named fix is in the "Homepage build" section. **The gremlin toggle is now the one keyboard-operable control in the hero**, which slightly raises the floor but does not close this.
 - **Verification status of the hero work - everything shipping is now user-confirmed live.** Confirmed in a real browser: the stacked layout at desktop and at a ~492px window, the packet-reroute fix (the user reported the asymmetric-disturbance bug from the live site and confirmed the fix resolved it), and **the gremlin toggle (confirmed 2026-08-07, working as expected)**. The only unwatched piece is the pinned scroll sequence, and that is **dormant rather than open**: `HERO_PINNED_SEQUENCE` is off permanently, so nothing renders it: re-verify only if the flag is ever flipped back on. **The user works over RDP much of the time and will not change RDP animation settings, so any `prefers-reduced-motion` behavior has to be checked from their console session**; they also cannot reach `localhost` from their phone, so mobile verification happens against the deployed site. **Useful consequence of the packets toggle (2026-08-07): the reduced-motion machine is no longer a dead end for checking MOTION.** Toggling packets on there overrides the preference for the dots, so packet animation can now be confirmed by the user without touching any OS or RDP setting - which is exactly how the reduced-motion override got verified end to end. That only covers the packet dots, though; **both dash marches (sync links and, as of 2026-08-07, standby site links) and the badge pop** have no such override by design, so those need a motion-allowed session. The standby site-link march was confirmed that way on 2026-08-07, which shows the console session is a workable route when something genuinely cannot be checked any other way.
-- ~~Spec-literal behavior worth confirming: stack-B firewalls lighting as transit in bridge mode and the shared mesh~~ **RESOLVED 2026-08-07 - confirmed as intended, do not re-file.** The user chose to keep the engine model and make the labeling state it: the large tier is a clustered, ECMP-routed design, so both stacks carrying traffic is correct at that scale. Medium remains an active/standby pair with the standby's links dark. Firewall sub-labels now read `cluster A` / `cluster B`, and the captions name VRRP, ECMP and clustering outright. Full reasoning, including why active/standby is still the enterprise default for a *pair*, is in the redundancy-model note in the Architecture section.
-- Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation) noted in spec as out of scope this phase.
+- ~~Spec-literal behavior worth confirming: cluster-B firewalls lighting as transit in bridge mode and the shared mesh~~ **RESOLVED 2026-08-07 - confirmed as intended, do not re-file.** The user chose to keep the engine model and make the labeling state it: the large tier is a clustered, ECMP-routed design, so both clusters carrying traffic is correct at that scale. Medium remains an active/backup pair with the backup's links dark. Firewall sub-labels now read `cluster A` / `cluster B`, and the captions name VRRP, ECMP and clustering outright. Full reasoning, including why active/standby is still the enterprise default for a *pair*, is in the redundancy-model note in the Architecture section.
+- Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation), deferred since the prototype phase and still not built. See the failover-timing ruling under "Design rulings".
 - No **custom** CI/Actions workflow; Pages uses the legacy branch-based build. This is load-bearing for `_tests/` and `_icons/` staying off the live domain - see Deploy above before changing it. **Correction learned 2026-08-06: "no Actions workflow" does not mean Actions is uninvolved.** The legacy deploy still executes as a GitHub-managed workflow named `pages-build-deployment`, which is why an Actions outage took the deploy down even though this repo owns no workflow file. It also means `gh run list --workflow="pages-build-deployment"` works here at all. Do **not** treat that listing as authoritative though - it and the Pages API each proved wrong at least once on 2026-08-06/07, in opposite directions; fetch the served file to settle it. See Environment.

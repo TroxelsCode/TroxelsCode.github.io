@@ -65,69 +65,74 @@
 
     // ---- medium tier: pair vs mesh semantics ----
 
-    t('medium: baseline green, WAN-A active, WAN-B standby', () => {
+    /* Node ids match the rendered labels (isp1 -> ISP-1). The engine's own
+       `role` value stays 'active'/'standby' - it is one generic term for
+       every pair kind, while the diagram's sub-labels differ per kind
+       (backup for ISPs and firewalls, secondary for servers). */
+
+    t('medium: baseline green, ISP-1 active, ISP-2 backup', () => {
       const s = st('medium');
       return s.global === 'ok' &&
-             node(s, 'wan-a').role === 'active' &&
-             node(s, 'wan-b').role === 'standby';
+             node(s, 'isp1').role === 'active' &&
+             node(s, 'isp2').role === 'standby';
     });
 
-    t('medium: standby side does NOT light (the pair-vs-Dijkstra bug)', () => {
+    t('medium: backup side does NOT light (the pair-vs-Dijkstra bug)', () => {
       const s = st('medium');
-      return active(s, 'wan-a', 'fw-a') &&
-             !active(s, 'wan-b', 'fw-b') &&
-             !active(s, 'fw-b', 'sw1') &&
-             !active(s, 'fw-b', 'sw2');
+      return active(s, 'isp1', 'fw1') &&
+             !active(s, 'isp2', 'fw2') &&
+             !active(s, 'fw2', 'sw1') &&
+             !active(s, 'fw2', 'sw2');
     });
 
     t('medium: mesh side lights active-active (both switch links)', () => {
       const s = st('medium');
-      return active(s, 'fw-a', 'sw1') && active(s, 'fw-a', 'sw2') &&
+      return active(s, 'fw1', 'sw1') && active(s, 'fw1', 'sw2') &&
              active(s, 'sw1', 'sw2');
     });
 
-    t('medium: WAN-A down fails over instantly, still green', () => {
-      const s = st('medium', ['wan-a']);
+    t('medium: ISP-1 down fails over instantly, still green', () => {
+      const s = st('medium', ['isp1']);
       return s.global === 'ok' &&
-             node(s, 'wan-b').role === 'active' &&
-             active(s, 'wan-b', 'fw-a') &&
-             !active(s, 'wan-a', 'fw-a');
+             node(s, 'isp2').role === 'active' &&
+             active(s, 'isp2', 'fw1') &&
+             !active(s, 'isp1', 'fw1');
     });
 
-    t('medium: FW-A down promotes FW-B, its links light, still green', () => {
-      const s = st('medium', ['fw-a']);
+    t('medium: FW-1 down promotes FW-2, its links light, still green', () => {
+      const s = st('medium', ['fw1']);
       return s.global === 'ok' &&
-             node(s, 'fw-b').role === 'active' &&
-             active(s, 'fw-b', 'sw1') && !active(s, 'fw-a', 'sw1');
+             node(s, 'fw2').role === 'active' &&
+             active(s, 'fw2', 'sw1') && !active(s, 'fw1', 'sw1');
     });
 
-    t('medium: SW-1 down = WS-1 lost (amber) but servers fail to SRV-1-B', () => {
+    t('medium: SW-1 down = WS-1 lost (amber) but servers fail to SRV-2', () => {
       const s = st('medium', ['sw1']);
       return s.global === 'warn' &&
              !sink(s, 'ws1') && sink(s, 'ws2') && sink(s, 'servers') &&
-             node(s, 'srv-b').role === 'active' &&
-             active(s, 'sw2', 'srv-b');
+             node(s, 'srv2').role === 'active' &&
+             active(s, 'sw2', 'srv2');
     });
 
     t('medium: server pair member down alone stays green', () => {
-      const s = st('medium', ['srv-a']);
+      const s = st('medium', ['srv1']);
       return s.global === 'ok' && sink(s, 'servers') &&
-             node(s, 'srv-b').role === 'active';
+             node(s, 'srv2').role === 'active';
     });
 
-    t('medium: both WANs down is red with no active edges', () => {
-      const s = st('medium', ['wan-a', 'wan-b']);
+    t('medium: both ISPs down is red with no active edges', () => {
+      const s = st('medium', ['isp1', 'isp2']);
       return s.global === 'danger' && s.activeEdgeIds.size === 0;
     });
 
     t('medium: all three sink classes down is red', () => {
-      return st('medium', ['srv-a', 'srv-b', 'ws1', 'ws2']).global === 'danger';
+      return st('medium', ['srv1', 'srv2', 'ws1', 'ws2']).global === 'danger';
     });
 
     t('medium: pair up only if its upstream chain is intact', () => {
-      // FW-B healthy but both WANs dead: FW-B must not count as up.
-      const s = st('medium', ['wan-a', 'wan-b']);
-      return node(s, 'fw-b').role === null && !node(s, 'fw-b').reachable;
+      // FW-2 healthy but both ISPs dead: FW-2 must not count as up.
+      const s = st('medium', ['isp1', 'isp2']);
+      return node(s, 'fw2').role === null && !node(s, 'fw2').reachable;
     });
 
     // ---- large tier: shared mesh + site bridge ----
@@ -139,7 +144,7 @@
              !active(s, 's1-fwa2', 's2-fwa1') && !active(s, 's1-fwb2', 's2-fwb1');
     });
 
-    t('large: entire stack A down is absorbed by shared mesh, no bridge', () => {
+    t('large: entire cluster A down is absorbed by shared mesh, no bridge', () => {
       const s = st('large', ['s1-fwa1', 's1-fwa2']);
       return site(s, 's1').status === 'ok' && !site(s, 's1').viaBridge &&
              !active(s, 's1-fwa2', 's2-fwa1') && s.global === 'ok';
@@ -163,7 +168,7 @@
              site(s, 's2').status === 'ok' && s.global === 'warn';
     });
 
-    t('large: ISPs + stack A dead: stack B bridge alone carries the site', () => {
+    t('large: ISPs + cluster A dead: cluster B bridge alone carries the site', () => {
       const s = st('large', ['s1-isp1', 's1-isp2', 's1-isp3', 's1-isp4',
                              's1-fwa1', 's1-fwa2']);
       return site(s, 's1').viaBridge === true &&
@@ -174,7 +179,7 @@
              s.global === 'warn';
     });
 
-    t('large: ISPs + both stacks dead: no bridge can land, site red', () => {
+    t('large: ISPs + both clusters dead: no bridge can land, site red', () => {
       const s = st('large', ['s1-isp1', 's1-isp2', 's1-isp3', 's1-isp4',
                              's1-fwa1', 's1-fwa2', 's1-fwb1', 's1-fwb2']);
       return site(s, 's1').status === 'danger' &&

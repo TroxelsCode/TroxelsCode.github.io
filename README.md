@@ -16,7 +16,7 @@ offline and watch the status roll up, and watch packets reroute along
 whatever paths survive.
 
 It runs three networks in order - a small one with no redundancy, a medium
-one with a VRRP standby and a second path, and a large two-site design with
+one with a VRRP backup and a second path, and a large two-site design with
 clustered firewalls, ECMP uplinks and a meshed core - so the same failure
 gets progressively less interesting as the design improves. Each diagram
 says which mechanism is doing the work, because the point is the design and
@@ -80,7 +80,6 @@ favicon.ico                         16 and 32 fallback, for the /favicon.ico bro
 apple-touch-icon.png                180x180 iOS home screen icon
 _icons/                             Raster sources for the two above; underscore-prefixed so
                                      Jekyll keeps them out of the published site
-network-topology-prototype-spec.md  Build spec for the visualization
 topology/engine/                    Pure failover/reachability engine (no DOM)
 topology/render/                    SVG renderer + component stylesheet
 topology/tiers/                     Small/medium/large network configs, each with a wide

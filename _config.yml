@@ -34,5 +34,4 @@
 
 exclude:
   - CLAUDE.md
-  - network-topology-prototype-spec.md
   - scripts/

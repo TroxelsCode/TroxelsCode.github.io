@@ -144,6 +144,13 @@ export function rollupGlobal(siteStatuses) {
  * Returns:
  * {
  *   nodes: Map<id, { down, reachable, role }>,   role: 'active'|'standby'|null
+ *
+ * `role` stays 'active'/'standby' on purpose, and deliberately does NOT
+ * track the node sub-labels the tiers render. It is the generic outcome of
+ * resolvePair() and applies to every pair kind at once - ISP, firewall and
+ * server - whose sub-labels now read "backup", "backup" and "secondary"
+ * respectively. No single display word is correct for all three, so the
+ * engine keeps its own neutral term. Nothing renders this value as text.
  *   activeEdgeIds: Set<edgeKey>,
  *   sinks: [{ id, label, siteId, reachable }],
  *   sites: [{ id, label, status, viaBridge }],
@@ -211,23 +218,23 @@ export function computeState(config, downSet) {
       // Chain edges activate later, only if at least one sink is served.
       work.pendingChain = f.chain;
     } else if (f.kind === 'pair-fabric') {
-      // WAN pair (roots) then firewall pair, then mesh into the switches.
-      const wp = f.wanPair;
-      const isUpWan = (id) => nodeUp(id);
-      const activeWan = resolvePair(wp.primary, wp.backup, isUpWan);
-      for (const id of [wp.primary, wp.backup]) {
-        const up = isUpWan(id);
+      // ISP pair (roots) then firewall pair, then mesh into the switches.
+      const ip = f.ispPair;
+      const isUpIsp = (id) => nodeUp(id);
+      const activeIsp = resolvePair(ip.primary, ip.backup, isUpIsp);
+      for (const id of [ip.primary, ip.backup]) {
+        const up = isUpIsp(id);
         setNode(id, {
           reachable: up,
-          role: !up ? null : (id === activeWan ? 'active' : 'standby'),
+          role: !up ? null : (id === activeIsp ? 'active' : 'standby'),
         });
       }
 
       const fp = f.fwPair;
       // A pair member is only up if its own upstream chain is intact:
-      // both firewalls are dual-homed to both WANs, so the chain is
-      // intact as long as any WAN survives.
-      const isUpFw = (id) => nodeUp(id) && activeWan !== null;
+      // both firewalls are dual-homed to both ISPs, so the chain is
+      // intact as long as any ISP survives.
+      const isUpFw = (id) => nodeUp(id) && activeIsp !== null;
       const activeFw = resolvePair(fp.primary, fp.backup, isUpFw);
       for (const id of [fp.primary, fp.backup]) {
         const up = isUpFw(id);
@@ -256,13 +263,13 @@ export function computeState(config, downSet) {
       for (const id of pass.activeEdgeIds) work.fabricActive.add(id);
 
       // Upstream segment lights only when it feeds a live fabric.
-      if (activeWan !== null && activeFw !== null && pass.reachable) {
-        const upstreamEdge = lookupEdge(activeWan, activeFw);
+      if (activeIsp !== null && activeFw !== null && pass.reachable) {
+        const upstreamEdge = lookupEdge(activeIsp, activeFw);
         if (upstreamEdge) work.fabricActive.add(upstreamEdge);
       }
       work.localReachable = pass.reachable;
     } else if (f.kind === 'mesh-fabric') {
-      // Whole local fabric (ISPs, all firewalls from every stack, and
+      // Whole local fabric (ISPs, all firewalls from every cluster, and
       // the shared switch mesh) resolved in one reachability pass.
       const meshEdges = fabricEdgesFor(site);
       const pass = meshActiveEdges(f.isps, f.switches, meshEdges, nodeUp);
@@ -280,7 +287,7 @@ export function computeState(config, downSet) {
    * Phase 2: bridge resolution for mesh-fabric sites without local
    * upstream. Local is always preferred; the bridges only activate when
    * a site's own ISP tier has zero surviving path into its own fabric.
-   * With multiple bridges (one per stack pairing), every usable bridge
+   * With multiple bridges (one per cluster pairing), every usable bridge
    * carries at once (active/active, consistent with the mesh rule).
    */
   const bridges = config.structure.bridges || [];
@@ -291,8 +298,8 @@ export function computeState(config, downSet) {
     let usable = work.localReachable;
 
     if (!work.localReachable && bridges.length > 0) {
-      // A bridge is a physically independent stack-to-stack link:
-      // usable only while at least one firewall of its paired stack is
+      // A bridge is a physically independent cluster-to-cluster link:
+      // usable only while at least one firewall of its paired cluster is
       // up at BOTH ends, and only while the donor site still has its
       // own local upstream (checked local-only, never recursively, so
       // two dark sites cannot rescue each other).

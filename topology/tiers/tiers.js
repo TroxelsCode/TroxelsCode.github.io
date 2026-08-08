@@ -21,11 +21,11 @@ export const tiers = {
     // Gremlin pacing scales with network size (fix/break ratio ~0.6).
     gremlin: { breakMin: 3000, breakMax: 7500, fixMin: 1800, fixMax: 4500 },
     nodes: [
-      { id: 'isp', label: 'ISP', sub: 'uplink', class: 'isp', redundancy: 'single', group: 'wan', x: 115, y: 150 },
+      { id: 'isp', label: 'ISP', sub: 'uplink', class: 'isp', redundancy: 'single', group: 'isp', x: 115, y: 150 },
       { id: 'fw', label: 'Firewall', sub: '', class: 'firewall', redundancy: 'single', group: 'fw', x: 350, y: 150 },
       { id: 'sw', label: 'Switch', sub: '', class: 'switch', redundancy: 'single', group: 'core', x: 585, y: 150 },
       { id: 'srv', label: 'Server', sub: '', class: 'server', redundancy: 'single', group: 'srv', x: 845, y: 92 },
-      { id: 'ws', label: 'Workstations', sub: 'aggregate', class: 'workstation', redundancy: 'single', group: 'ws', x: 845, y: 208 },
+      { id: 'ws', label: 'Workstations', sub: '', class: 'workstation', redundancy: 'single', group: 'ws', x: 845, y: 208 },
     ],
     edges: [
       { a: 'isp', b: 'fw', kind: 'primary' },
@@ -56,33 +56,44 @@ export const tiers = {
     nodeSize: { w: 124, h: 52, label: 15, sub: 11 },
     gremlin: { breakMin: 2200, breakMax: 5500, fixMin: 1300, fixMax: 3300 },
     nodes: [
-      { id: 'wan-a', label: 'WAN-A', sub: 'primary', class: 'isp', redundancy: 'pair', group: 'wan', x: 105, y: 125 },
-      { id: 'wan-b', label: 'WAN-B', sub: 'backup', class: 'isp', redundancy: 'pair', group: 'wan', x: 105, y: 250 },
-      { id: 'fw-a', label: 'FW-A', sub: 'primary', class: 'firewall', redundancy: 'pair', group: 'fw', x: 330, y: 125 },
-      { id: 'fw-b', label: 'FW-B', sub: 'standby', class: 'firewall', redundancy: 'pair', group: 'fw', x: 330, y: 250 },
+      /*
+       * Ids match the rendered labels one-for-one (isp1 -> ISP-1, fw2 -> FW-2)
+       * and match the large tier's isp1..isp4 / sw1..sw3 scheme, so a node can
+       * be found in this file by reading its box on screen. They used to be
+       * wan-a / fw-b style; renamed 2026-08-08 along with the labels.
+       *
+       * The one place id and label still diverge is deliberate: the large
+       * tier's firewall SUB-labels read "cluster A/B" while its ids are
+       * fwa1..fwb2, because a sub-label is prose about the design rather than
+       * a name for the box. Node labels themselves always match their id.
+       */
+      { id: 'isp1', label: 'ISP-1', sub: 'primary', class: 'isp', redundancy: 'pair', group: 'isp', x: 105, y: 125 },
+      { id: 'isp2', label: 'ISP-2', sub: 'backup', class: 'isp', redundancy: 'pair', group: 'isp', x: 105, y: 250 },
+      { id: 'fw1', label: 'FW-1', sub: 'primary', class: 'firewall', redundancy: 'pair', group: 'fw', x: 330, y: 125 },
+      { id: 'fw2', label: 'FW-2', sub: 'backup', class: 'firewall', redundancy: 'pair', group: 'fw', x: 330, y: 250 },
       { id: 'sw1', label: 'SW-1', sub: '', class: 'switch', redundancy: 'mesh', group: 'core', x: 560, y: 125 },
       { id: 'sw2', label: 'SW-2', sub: '', class: 'switch', redundancy: 'mesh', group: 'core', x: 560, y: 250 },
-      { id: 'srv-a', label: 'SRV-1', sub: 'primary', class: 'server', redundancy: 'pair', group: 'srv', x: 830, y: 58 },
-      { id: 'ws1', label: 'WS-1', sub: 'off SW-1', class: 'workstation', redundancy: 'single', group: 'ws1', x: 830, y: 145 },
-      { id: 'srv-b', label: 'SRV-2', sub: 'standby', class: 'server', redundancy: 'pair', group: 'srv', x: 830, y: 232 },
-      { id: 'ws2', label: 'WS-2', sub: 'off SW-2', class: 'workstation', redundancy: 'single', group: 'ws2', x: 830, y: 319 },
+      { id: 'srv1', label: 'SRV-1', sub: 'primary', class: 'server', redundancy: 'pair', group: 'srv', x: 830, y: 58 },
+      { id: 'ws1', label: 'WS-1', sub: '', class: 'workstation', redundancy: 'single', group: 'ws1', x: 830, y: 145 },
+      { id: 'srv2', label: 'SRV-2', sub: 'secondary', class: 'server', redundancy: 'pair', group: 'srv', x: 830, y: 232 },
+      { id: 'ws2', label: 'WS-2', sub: '', class: 'workstation', redundancy: 'single', group: 'ws2', x: 830, y: 319 },
     ],
     edges: [
-      { a: 'wan-a', b: 'fw-a', kind: 'primary' },
-      { a: 'wan-a', b: 'fw-b', kind: 'backup' },
-      { a: 'wan-b', b: 'fw-a', kind: 'backup' },
-      { a: 'wan-b', b: 'fw-b', kind: 'primary' },
-      { a: 'fw-a', b: 'sw1', kind: 'mesh' },
-      { a: 'fw-a', b: 'sw2', kind: 'mesh' },
-      { a: 'fw-b', b: 'sw1', kind: 'mesh' },
-      { a: 'fw-b', b: 'sw2', kind: 'mesh' },
+      { a: 'isp1', b: 'fw1', kind: 'primary' },
+      { a: 'isp1', b: 'fw2', kind: 'backup' },
+      { a: 'isp2', b: 'fw1', kind: 'backup' },
+      { a: 'isp2', b: 'fw2', kind: 'primary' },
+      { a: 'fw1', b: 'sw1', kind: 'mesh' },
+      { a: 'fw1', b: 'sw2', kind: 'mesh' },
+      { a: 'fw2', b: 'sw1', kind: 'mesh' },
+      { a: 'fw2', b: 'sw2', kind: 'mesh' },
       { a: 'sw1', b: 'sw2', kind: 'mesh' },
-      { a: 'sw1', b: 'srv-a', kind: 'primary' },
+      { a: 'sw1', b: 'srv1', kind: 'primary' },
       { a: 'sw1', b: 'ws1', kind: 'primary' },
-      { a: 'sw2', b: 'srv-b', kind: 'primary' },
+      { a: 'sw2', b: 'srv2', kind: 'primary' },
       { a: 'sw2', b: 'ws2', kind: 'primary' },
-      { a: 'fw-a', b: 'fw-b', kind: 'sync', bow: -34 },
-      { a: 'srv-a', b: 'srv-b', kind: 'sync', bow: 150 },
+      { a: 'fw1', b: 'fw2', kind: 'sync', bow: -34 },
+      { a: 'srv1', b: 'srv2', kind: 'sync', bow: 150 },
     ],
     structure: {
       sites: [
@@ -91,17 +102,17 @@ export const tiers = {
           label: null,
           fabric: {
             kind: 'pair-fabric',
-            wanPair: { primary: 'wan-a', backup: 'wan-b' },
-            fwPair: { primary: 'fw-a', backup: 'fw-b' },
-            isps: ['wan-a', 'wan-b'],
-            fws: ['fw-a', 'fw-b'],
+            ispPair: { primary: 'isp1', backup: 'isp2' },
+            fwPair: { primary: 'fw1', backup: 'fw2' },
+            isps: ['isp1', 'isp2'],
+            fws: ['fw1', 'fw2'],
             switches: ['sw1', 'sw2'],
           },
           sinks: [
             {
               id: 'servers', label: 'Servers', kind: 'pair',
-              primary: { node: 'srv-a', via: 'sw1' },
-              backup: { node: 'srv-b', via: 'sw2' },
+              primary: { node: 'srv1', via: 'sw1' },
+              backup: { node: 'srv2', via: 'sw2' },
             },
             { id: 'ws1', label: 'WS-1', kind: 'single', node: 'ws1', via: 'sw1' },
             { id: 'ws2', label: 'WS-2', kind: 'single', node: 'ws2', via: 'sw2' },
@@ -118,7 +129,7 @@ export const tiers = {
 /*
  * The large tier is two structurally identical sites, so the node and
  * edge lists are generated per site rather than written out twice.
- * Per site: 4 ISPs, two firewall stacks of 2, a shared 3-switch core
+ * Per site: 4 ISPs, two firewall clusters of 2, a shared 3-switch core
  * mesh, a server pair, and one workstation group per switch.
  */
 function buildLargeTier() {
@@ -143,20 +154,22 @@ function buildLargeTier() {
       edges.push(edge);
     };
 
-    n('isp1', 'ISP-1', '', 'isp', 'mesh', 'wan', 62, 45);
-    n('isp2', 'ISP-2', '', 'isp', 'mesh', 'wan', 62, 120);
-    n('isp3', 'ISP-3', '', 'isp', 'mesh', 'wan', 62, 195);
-    n('isp4', 'ISP-4', '', 'isp', 'mesh', 'wan', 62, 270);
+    n('isp1', 'ISP-1', '', 'isp', 'mesh', 'isp', 62, 45);
+    n('isp2', 'ISP-2', '', 'isp', 'mesh', 'isp', 62, 120);
+    n('isp3', 'ISP-3', '', 'isp', 'mesh', 'isp', 62, 195);
+    n('isp4', 'ISP-4', '', 'isp', 'mesh', 'isp', 62, 270);
     /*
-     * "cluster" rather than "stack" in the DISPLAY sub-label, deliberately.
-     * The internal vocabulary (node ids, structure.bridges, CLAUDE.md) still
-     * says stack A / stack B - do not chase the rename through the code.
-     * The display term is doing a specific job: this tier resolves as a mesh
-     * so both stacks light at once, and "cluster" is what makes that read as
-     * the intended clustered / ECMP design rather than an HA pair that has
-     * somehow gone active/active. Kept to 9 characters because SVG <text>
-     * neither wraps nor truncates and the portrait node box is only 57px
-     * wide - measure before lengthening.
+     * "cluster A/B" is the term everywhere now - sub-label, comments, docs.
+     * It is doing a specific job: this tier resolves as a mesh so both
+     * groups light at once, and "cluster" is what makes that read as the
+     * intended clustered / ECMP design rather than an HA pair that has
+     * somehow gone active/active. ("stack" was the old word for it and
+     * survives nowhere.) The ids stay fwa1..fwb2 because A/B is the group
+     * letter, which is exactly what the labels FW-A1..FW-B2 show.
+     *
+     * Kept to 9 characters because SVG <text> neither wraps nor truncates
+     * and the portrait node box is only 57px wide - measure before
+     * lengthening.
      */
     n('fwa1', 'FW-A1', 'cluster A', 'firewall', 'mesh', 'fwa', 250, 45);
     n('fwa2', 'FW-A2', 'cluster A', 'firewall', 'mesh', 'fwa', 250, 120);
@@ -166,10 +179,10 @@ function buildLargeTier() {
     n('sw2', 'SW-2', '', 'switch', 'mesh', 'core', 455, 165);
     n('sw3', 'SW-3', '', 'switch', 'mesh', 'core', 455, 245);
     n('srv-a', 'SRV-' + num + '-A', 'primary', 'server', 'pair', 'srv', 665, 42);
-    n('srv-b', 'SRV-' + num + '-B', 'standby', 'server', 'pair', 'srv', 665, 288);
-    n('ws1', 'WS-1', 'off SW-1', 'workstation', 'single', 'ws1', 885, 85);
-    n('ws2', 'WS-2', 'off SW-2', 'workstation', 'single', 'ws2', 885, 165);
-    n('ws3', 'WS-3', 'off SW-3', 'workstation', 'single', 'ws3', 885, 245);
+    n('srv-b', 'SRV-' + num + '-B', 'secondary', 'server', 'pair', 'srv', 665, 288);
+    n('ws1', 'WS-1', '', 'workstation', 'single', 'ws1', 885, 85);
+    n('ws2', 'WS-2', '', 'workstation', 'single', 'ws2', 885, 165);
+    n('ws3', 'WS-3', '', 'workstation', 'single', 'ws3', 885, 245);
 
     e('isp1', 'fwa1', 'primary');
     e('isp1', 'fwa2', 'backup');
@@ -223,11 +236,11 @@ function buildLargeTier() {
   /*
    * Site-to-site bridges: dedicated point-to-point links (fixed
    * wireless/optical), physically independent of any ISP, paired
-   * stack-to-stack: stack A to stack A, and stack B to stack B, so the
-   * bridge tier has the same redundancy as the stacks themselves. Each
-   * drawn edge anchors on one firewall per stack, but the engine treats
-   * the endpoints as the whole stack: a bridge is usable while at least
-   * one firewall of its stack is up at both ends. When a site falls
+   * cluster-to-cluster: cluster A to cluster A, and cluster B to cluster B,
+   * so the bridge tier has the same redundancy as the clusters themselves.
+   * Each drawn edge anchors on one firewall per cluster, but the engine
+   * treats the endpoints as the whole cluster: a bridge is usable while at
+   * least one firewall of its cluster is up at both ends. When a site falls
    * back to the bridges, every usable bridge carries (active/active).
    */
   edges.push({ a: 's1-fwa2', b: 's2-fwa1', kind: 'bridge', bow: -170, label: 'site link A' });
@@ -314,7 +327,7 @@ function largePortraitCoords() {
    * site bridges land on s1-fwa2/s2-fwa1 and s1-fwb2/s2-fwb1, so putting
    * each of those on the OUTERMOST column of its own site turns both site
    * links into straight vertical runs down the left and right margins
-   * instead of long diagonals dragged across the whole diagram. Stack
+   * instead of long diagonals dragged across the whole diagram. Cluster
    * members are interchangeable - which one sits outboard is a drawing
    * decision with no structural meaning - so this costs nothing.
    */
@@ -360,24 +373,24 @@ const portraitLayouts = {
   },
 
   /* Two columns, which reads BETTER than the landscape version: the whole
-     lesson of this tier is "two of everything", and in portrait the WAN,
+     lesson of this tier is "two of everything", and in portrait the ISP,
      firewall and switch pairs become literal left/right symmetry. */
   medium: {
     viewBox: { w: 340, h: 580 },
     nodeSize: { w: 112, h: 52, label: 15, sub: 11 },
     coords: {
-      'wan-a': [104, 52], 'wan-b': [236, 52],
-      'fw-a': [104, 172], 'fw-b': [236, 172],
+      isp1: [104, 52], isp2: [236, 52],
+      fw1: [104, 172], fw2: [236, 172],
       sw1: [104, 292], sw2: [236, 292],
-      'srv-a': [104, 412], 'srv-b': [236, 412],
+      srv1: [104, 412], srv2: [236, 412],
       ws1: [104, 522], ws2: [236, 522],
     },
     bows: {
       /* Both sync links are short horizontal hops between adjacent boxes
          here, so the landscape bows would arc them absurdly. The dashed
          stroke already carries the "logical, not a cable" signal. */
-      'fw-a--fw-b': 0,
-      'srv-a--srv-b': 0,
+      'fw1--fw2': 0,
+      'srv1--srv2': 0,
       /* Each switch's workstation sits directly below that switch's server,
          so a straight link would run through the server box. These arc the
          link around the OUTSIDE of the column: the curve's extreme is
