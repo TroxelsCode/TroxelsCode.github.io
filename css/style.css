@@ -494,6 +494,7 @@ section:last-of-type {
   max-width: 68ch;
   font-size: 15px;
   line-height: 1.6;
+  color: var(--site-muted);
 }
 
 /* 13px rather than the 12px this line used when it sat under the diagram as a
@@ -693,11 +694,13 @@ section:last-of-type {
 }
 
 /* Each stacked tier carries its own caption; the shared one is for the
-   pinned stage only. */
-.hero-scroll[data-hero-mode="stacked"] .hero-layer::after {
+   pinned stage only. ::before rather than ::after (changed 2026-08-08, user
+   request): the caption reads as the setup for the diagram, so it should
+   land before a visitor meets the graphic, not after. */
+.hero-scroll[data-hero-mode="stacked"] .hero-layer::before {
   content: attr(data-caption);
   display: block;
-  margin-top: 10px;
+  margin-bottom: 10px;
   font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.5;

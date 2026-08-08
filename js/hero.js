@@ -69,8 +69,9 @@ const HERO_GREMLIN = true;
    once: it is a clustered, ECMP-routed design, not an HA pair behaving oddly.
    See the redundancy-model note in CLAUDE.md before rewording them.
 
-   The small caption is still placeholder-grade - it has no mechanism to name,
-   which is the whole point of that tier. */
+   The small caption is finalized (2026-08-08) despite naming no mechanism -
+   that absence is the point of that tier, and the caption says so as a
+   direct judgment on the design rather than a neutral description. */
 const CAPTIONS = {
   small: 'One uplink, one firewall, one switch. Every box is a single point of failure.',
   medium: 'A VRRP backup and a second path turn the same failure into a failover.',

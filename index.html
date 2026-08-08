@@ -31,8 +31,7 @@
       <div class="hero-intro">
         <h1>Sean Troxel</h1>
         <p class="hero-title">Chief Technology Officer</p>
-        <!-- placeholder tagline copy, not finalized -->
-        <p class="hero-tagline">I build resilient infrastructure and lead the teams that keep it running.</p>
+        <p class="hero-tagline">An instinct for how systems work, hard-won and applied to infrastructure that holds up under pressure.</p>
       </div>
       <!-- Ships OPEN on purpose, and js/hero.js collapses it on narrow
            screens rather than the reverse. Shipping it closed and opening
@@ -40,10 +39,13 @@
            collapsed summary. The summary is hidden by CSS above the
            breakpoint, so this reads as a plain container on a desktop. -->
       <details id="hero-disclosure" class="hero-disclosure" open>
-        <!-- placeholder summary copy, not finalized. Load-bearing: on a
-             phone this is the ONLY thing a visitor who never expands the
-             diagram will read, so it has to carry the claim in words
-             rather than just label a control. -->
+        <!-- Finalized copy (2026-08-08). Load-bearing: on a phone this is
+             the ONLY thing a visitor who never expands the diagram will
+             read, so it has to carry the claim in words rather than just
+             label a control. Deliberately inviting-but-mysterious, meant
+             to drive curiosity and clicks rather than explain up front -
+             this is also the template future exhibit summaries will
+             follow. -->
         <summary class="hero-disclosure-summary">See what one missing piece costs a network</summary>
         <!-- Exhibit intro, and it sits FIRST on purpose: what the piece is
              and how to work it have to be readable before the visitor meets
@@ -67,7 +69,7 @@
                                      below. -->
         <div class="exhibit-intro">
           <!-- draft copy, workshop alongside the summary above -->
-          <p class="exhibit-description">Three versions of the same network, each with more redundancy
+          <p class="exhibit-description">Three types of networks, each with more redundancy
             than the last: a single path from the internet to the desks, then a firewall pair with a
             backup ready to take over, then a two-site design with clustered firewalls and multiple
             uplinks. Reachability is computed live for each one, so a failure shows you exactly which
@@ -104,7 +106,8 @@
             </button>
           </div>
           <p class="hero-toggle-note">Simulated failures knock nodes offline at random; turn them off to inspect
-            the diagrams undisturbed. Packets are the moving dots - the teal lines mark the live paths either
+            the diagrams undisturbed.</p>
+          <p class="hero-toggle-note">Packets are the moving dots - the teal lines mark the live paths either
             way, so hiding the dots costs no information. They start hidden if your system asks for reduced
             motion.</p>
         </div>
