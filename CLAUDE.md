@@ -200,8 +200,9 @@ Rationale that is not recoverable from the code, and that has been re-litigated 
   demonstrated, not a gap to fix.
 - **Failover is instant, with no simulated timeout.** A click recomputes and repaints
   immediately. The cosmetic dash marches on sync and standby-bridge links must never gate or
-  delay a state change. A timeout-based keepalive/VRRP simulation was explicitly deferred as a
-  possible future "engineer mode" - it is still not built.
+  delay a state change. A timeout-based keepalive/VRRP simulation ("engineer mode") was
+  considered and **withdrawn from consideration by the user on 2026-08-08** - not merely
+  deferred. See the Open items list for the closure note; do not resurface it as a candidate.
 
 Large-tier bridges: TWO cluster-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches cluster redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
 
@@ -734,10 +735,13 @@ versions of this file said the user intended to revisit it, and that is no longe
 
 **The gated pin code is retained deliberately - do not delete it as dead code.** The user
 explicitly wants the pinned/scrollytelling implementation kept present and non-functional so
-the option can be revisited without rediscovering it. That covers the `HERO_PINNED_SEQUENCE`
-flag and everything it gates, the `.hero-scroll[data-hero-mode="pinned"]` CSS block, and
-`_tests/scroll-prototype.html`. A future "simplify" or dead-code pass must leave all three
-alone. Everything below is still live code, just switched off.
+the option remains technically available without rediscovering it. That covers the
+`HERO_PINNED_SEQUENCE` flag and everything it gates, the `.hero-scroll[data-hero-mode="pinned"]`
+CSS block, and `_tests/scroll-prototype.html`. A future "simplify" or dead-code pass must leave
+all three alone. Everything below is still live code, just switched off. **CLOSED FOR
+CONSIDERATION 2026-08-08**: retaining the code is not an invitation to keep raising "revisit the
+pin?" - the user is aware it exists and has decided against reviving it; do not surface it in
+future TODO summaries unless the user explicitly reopens the topic.
 
 **What the site does today:** every screen size behaves the way narrow screens already did.
 No sticky pin, no cross-fade, no scroll driver. All three tiers render at full size in a plain
@@ -950,9 +954,11 @@ scratch pages. It is the only place the driver can be exercised synchronously, a
 
 **Still open inside Phase 2b:**
 
-One of these went DORMANT on 2026-08-07 when the stacked presentation was made permanent. It is
-not worth doing while the flag is off, and not worth deleting either, since the flag is meant
-to stay flippable:
+One of these went DORMANT on 2026-08-07 when the stacked presentation was made permanent, and
+was formally CLOSED FOR CONSIDERATION on 2026-08-08 - the user is aware the pinned code still
+exists, has decided not to revive it, and does not want it raised again as an open item. It is
+not worth doing while the flag is off, and not worth deleting either since the code is meant to
+stay in the tree, but do not present it as a pending decision:
 
 - **`CAPTIONS` is LIVE, not dormant - correcting an error made earlier in this file.** An
   earlier pass claimed captions only render when pinned. They do not: `.hero-layer::before`
@@ -963,8 +969,10 @@ to stay flippable:
   redundancy-model note in Architecture); the small caption was finalized 2026-08-08 despite
   naming no mechanism - that absence is the point of that tier, and the caption says so as a
   direct judgment on the design rather than a neutral description.
-- *(dormant)* `--hero-step: 620px` pacing was chosen, not tuned against real scrolling. Worth a
-  pass, but only if the pin comes back - nothing reads the value while the flag is off.
+- *(closed for consideration, not deleted)* `--hero-step: 620px` pacing was chosen, not tuned
+  against real scrolling. Nothing reads the value while the flag is off, and per the 2026-08-08
+  closure this is not to be raised as a pass worth doing unless the user explicitly reopens the
+  pin.
 - **Still genuinely open**: large-tier density and the dimmed treatment for unreachable nodes,
   unresolved from the prototype phase. Unaffected by the flag, since large is reachable either
   way - it is simply the third row of the stack now.
@@ -1120,7 +1128,7 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. Resume cross-repo pipeline COMPLETE and committed (7b9ffad, 2026-08-04): sync tooling built, first real resume content synced in and styled - see "Resume page + cross-repo pipeline" above.
 - Phase 2a COMPLETE (2026-08-04): hero went live on the homepage, small tier + gremlin, harness retired - see "Homepage build" above for the details and the traps. *(Historical: the single-tier `HERO_TIER` mount it describes was replaced by the three-tier mount in Phase 2b below.)*
 - **Mobile treatment COMPLETE (2026-08-05)**: portrait layouts for all three tiers, viewport-biased gremlin, live re-orientation on resize/rotation, and the `<details>` collapse with lazy mounting. All three tiers have portrait variants; large gets no landscape fallback by explicit user decision. See "Mobile treatment" under Homepage build for the geometry and the traps. *(The collapse was narrow-screens-only when built; it now applies at every width - see Phase 2b below.)*
-- **Phase 2b (scrollytelling) BUILT then SWITCHED OFF, 2026-08-05. Presentation DECIDED 2026-08-07 - this is no longer an open question.** All three tiers mount; `HERO_TIER` is gone. The pinned sequence works and shipped, but the user decided the presentation was not what they wanted - `HERO_PINNED_SEQUENCE = false` in `js/hero.js`. Every width uses the plain stacked scroll behind a collapsed-by-default disclosure, and on 2026-08-07 the user confirmed they want to keep exactly that. **The gated pin code stays in the tree on purpose** so the option can be revisited without rebuilding it; do not delete it in a cleanup pass. See the "Phase 2b" section above for the flag, the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
+- **Phase 2b (scrollytelling) BUILT then SWITCHED OFF, 2026-08-05. Presentation DECIDED 2026-08-07. CLOSED FOR CONSIDERATION 2026-08-08 - do not list this as an open item in future TODO scans.** All three tiers mount; `HERO_TIER` is gone. The pinned sequence works and shipped, but the user decided the presentation was not what they wanted - `HERO_PINNED_SEQUENCE = false` in `js/hero.js`. Every width uses the plain stacked scroll behind a collapsed-by-default disclosure, and on 2026-08-07 the user confirmed they want to keep exactly that. On 2026-08-08 the user went further: they are aware the pinned code exists and have decided against reviving it for now, and explicitly do not want it resurfaced as a pending decision. **The gated pin code stays in the tree** (that part of the instruction is unchanged - do not delete it in a cleanup pass), but its presence is no longer a reason to raise "revisit the pin?" as an open TODO. Treat it purely as historical/architectural context unless the user explicitly reopens it. See the "Phase 2b" section above for the flag, the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
 - **Expandable exhibit list: direction set 2026-08-07, nothing to build yet.** The disclosure is the first row of a growing list of collapsed-by-default interactive pieces; future additions become rows rather than new presentations. No code changes were needed to adopt this - it is a decision about where future work goes. See the "Expandable exhibit list" section above for the six invariants a new exhibit must honor, the shared-vs-specific boundary, the `exhibit` naming decision (user-approved 2026-08-07), and the two cosmetic constraints that bite once a SECOND row exists (doubled borders between adjacent rows, and the 32px summary margin spacing rows apart). **Sticky handoff between stacked summaries needs no work at all** - measured 2026-08-07, the browser already gives exactly the wanted behavior because each summary is constrained by its own `<details>`.
 - **Exhibit intro block BUILT (2026-08-07)**, at user request: the click instruction moved from
   below the diagram to the top of the exhibit, and was generalized into an `.exhibit-intro`
@@ -1181,5 +1189,5 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - Known a11y gap, logged not fixed: topology nodes are pointer-only (no `tabindex`, no key handler), so the click-to-break interaction is unavailable to keyboard users. Defensible today because it is a non-essential enhancement and nothing on the page is available *solely* through it. Named fix is in the "Homepage build" section. **The gremlin toggle is now the one keyboard-operable control in the hero**, which slightly raises the floor but does not close this.
 - **Verification status of the hero work - everything shipping is now user-confirmed live.** Confirmed in a real browser: the stacked layout at desktop and at a ~492px window, the packet-reroute fix (the user reported the asymmetric-disturbance bug from the live site and confirmed the fix resolved it), and **the gremlin toggle (confirmed 2026-08-07, working as expected)**. The only unwatched piece is the pinned scroll sequence, and that is **dormant rather than open**: `HERO_PINNED_SEQUENCE` is off permanently, so nothing renders it: re-verify only if the flag is ever flipped back on. **The user works over RDP much of the time and will not change RDP animation settings, so any `prefers-reduced-motion` behavior has to be checked from their console session**; they also cannot reach `localhost` from their phone, so mobile verification happens against the deployed site. **Useful consequence of the packets toggle (2026-08-07): the reduced-motion machine is no longer a dead end for checking MOTION.** Toggling packets on there overrides the preference for the dots, so packet animation can now be confirmed by the user without touching any OS or RDP setting - which is exactly how the reduced-motion override got verified end to end. That only covers the packet dots, though; **both dash marches (sync links and, as of 2026-08-07, standby site links) and the badge pop** have no such override by design, so those need a motion-allowed session. The standby site-link march was confirmed that way on 2026-08-07, which shows the console session is a workable route when something genuinely cannot be checked any other way.
 - ~~Spec-literal behavior worth confirming: cluster-B firewalls lighting as transit in bridge mode and the shared mesh~~ **RESOLVED 2026-08-07 - confirmed as intended, do not re-file.** The user chose to keep the engine model and make the labeling state it: the large tier is a clustered, ECMP-routed design, so both clusters carrying traffic is correct at that scale. Medium remains an active/backup pair with the backup's links dark. Firewall sub-labels now read `cluster A` / `cluster B`, and the captions name VRRP, ECMP and clustering outright. Full reasoning, including why active/standby is still the enterprise default for a *pair*, is in the redundancy-model note in the Architecture section.
-- Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation), deferred since the prototype phase and still not built. See the failover-timing ruling under "Design rulings".
+- ~~Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation)~~ **CLOSED, NOT BUILT - user decision 2026-08-08: no longer in consideration.** This was on the open list since the prototype phase as a deferred idea; the user has now decided against it outright rather than continuing to defer it. Nothing was ever built, so there is no code to keep. Do not resurface this in future TODO scans. See the failover-timing ruling under "Design rulings" for the (now historical) reasoning it was weighed against.
 - No **custom** CI/Actions workflow; Pages uses the legacy branch-based build. This is load-bearing for `_tests/` and `_icons/` staying off the live domain - see Deploy above before changing it. **Correction learned 2026-08-06: "no Actions workflow" does not mean Actions is uninvolved.** The legacy deploy still executes as a GitHub-managed workflow named `pages-build-deployment`, which is why an Actions outage took the deploy down even though this repo owns no workflow file. It also means `gh run list --workflow="pages-build-deployment"` works here at all. Do **not** treat that listing as authoritative though - it and the Pages API each proved wrong at least once on 2026-08-06/07, in opposite directions; fetch the served file to settle it. See Environment.
