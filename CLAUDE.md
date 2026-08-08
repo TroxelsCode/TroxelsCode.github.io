@@ -206,6 +206,32 @@ Rationale that is not recoverable from the code, and that has been re-litigated 
 
 Large-tier bridges: TWO cluster-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches cluster redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
 
+**Bridge dim/standby bug FIXED 2026-08-08: renderer must use cluster-wide fwIds, not the two
+literal drawn endpoints.** Each bridge edge is drawn anchored on one firewall per cluster (e.g.
+site link A is `s1-fwa2 -- s2-fwa1`), but the comment above the bridge edges in `tiers.js` (and
+`resolveSiteUpstream`'s own `anyUp(thisEnd.fwIds)` check) has always treated a bridge as usable
+while ANY firewall in its cluster is up at both ends - the engine's `activeEdgeIds` computation
+already honored this. The renderer's `is-dead` and `bridge-standby` toggles in
+`topology-render.js` did not: they read `state.nodes.get(ev.a)` / `get(ev.b)`, the specific two
+drawn-endpoint nodes, so toggling off just `s1-fwa2` (leaving its cluster mate `s1-fwa1` up)
+dimmed the link even though the bridge was still fully usable via the mate - a real visual bug
+the user caught by comparing the two firewalls per cluster/site side. **Other edge kinds do not
+have this problem and were left untouched** - a bridge is the only edge whose drawn endpoint is
+a stand-in for a redundant group rather than the literal thing being tested.
+
+Fix: `topology-render.js` now builds a `bridgeEnds` map (`edgeId -> { aFwIds, bFwIds }`) from
+`config.structure.bridges` at mount time, and in `update()`, for `ev.kind === 'bridge'`,
+substitutes cluster-aggregate `{ down, reachable }` (`down` = ALL of the cluster's fwIds down,
+`reachable` = ANY of them reachable) in place of the two literal node states before the
+existing is-dead/bridge-standby checks run. Small and medium tiers have `bridges: []`, so
+`bridgeEnds` is empty there and nothing changes for them. Verified with a scratch scenario probe
+(`_tests/_scenario-temp.html`, deleted after): with site 1's ISPs all down (forcing both bridges
+active), toggling off `s1-fwa2` alone left bridge A `is-active` (previously would have gone
+`is-dead`); toggling off `s1-fwa1` as well (the WHOLE of cluster A at site 1) correctly flipped
+bridge A to `is-dead` while bridge B stayed `is-active`, unaffected. Engine tests unaffected
+(24/24) since this is a renderer-only change - the engine's own bridge-activation logic was
+already correct.
+
 **Redundancy model per tier, and why the large tier lights both firewall clusters (RESOLVED 2026-08-07 - this closes a long-standing open question).** The two tiers deliberately model *different* real-world HA designs, and the difference is not an inconsistency:
 
 - **Medium is an active/standby pair, and is already textbook.** `fw-a` is `sub: 'primary'`, `fw-b` is `sub: 'backup'` (it read `standby` until 2026-08-08 - see the label pass below), joined by a `sync` edge. `pair-fabric` in the engine resolves one side and **keeps the standby's links dark even though the standby is healthy** (see the comment at the mesh pass). That is what an HA pair actually does.
@@ -282,6 +308,11 @@ crawled). Both are the same two-part pattern, a class from the renderer plus a k
   no dash left to march. Verified across four states on the large tier: healthy (both links
   standby, marching), site 1 riding the bridges (both active and solid), site 2 cluster A down
   (link A dead and dim, link B still active), and reset.
+- **"both ends" in the table row means the bridge's whole cluster at each end, not the two
+  literal nodes the edge is drawn between** - see the "Bridge dim/standby bug FIXED
+  2026-08-08" note under "Large-tier bridges" above for the renderer fix that made this true.
+  Before that fix, `is-dead`/`bridge-standby` read the two literal drawn-endpoint nodes only,
+  so a bridge could half-dim while its cluster mate kept it genuinely usable.
 - **The keyframe distance must be a whole number of dash periods** (`2 + 6 = 8`, so `-24` is
   three) or the loop visibly jumps at the wrap. 24 units over 2.4s is also the same 10
   units/sec the sync march runs at, deliberately, so the two heartbeats read as one mechanism
@@ -973,9 +1004,12 @@ stay in the tree, but do not present it as a pending decision:
   against real scrolling. Nothing reads the value while the flag is off, and per the 2026-08-08
   closure this is not to be raised as a pass worth doing unless the user explicitly reopens the
   pin.
-- **Still genuinely open**: large-tier density and the dimmed treatment for unreachable nodes,
-  unresolved from the prototype phase. Unaffected by the flag, since large is reachable either
-  way - it is simply the third row of the stack now.
+- ~~Large-tier density and the dimmed treatment for unreachable nodes~~ **RECONSIDERED
+  2026-08-08, left as-is with no change needed.** This sat open since the prototype phase with
+  no concrete complaint attached. Re-examined against the current code (`is-unreachable` at
+  opacity 0.4, dead edges at opacity 0.35, both applied uniformly across all three tiers - see
+  `topology.css`) and the user judged density and dimming both fine as they stand at large-tier
+  scale. Do not re-file this as open; revisit only if the user raises a concrete complaint.
 - Gremlin idea, not built: the fixer could also repair visitor-caused breakage.
 
 See the mount API docs in the Architecture section above (`TopologyViz.mount`) for the
@@ -1191,3 +1225,20 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
 - ~~Spec-literal behavior worth confirming: cluster-B firewalls lighting as transit in bridge mode and the shared mesh~~ **RESOLVED 2026-08-07 - confirmed as intended, do not re-file.** The user chose to keep the engine model and make the labeling state it: the large tier is a clustered, ECMP-routed design, so both clusters carrying traffic is correct at that scale. Medium remains an active/backup pair with the backup's links dark. Firewall sub-labels now read `cluster A` / `cluster B`, and the captions name VRRP, ECMP and clustering outright. Full reasoning, including why active/standby is still the enterprise default for a *pair*, is in the redundancy-model note in the Architecture section.
 - ~~Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation)~~ **CLOSED, NOT BUILT - user decision 2026-08-08: no longer in consideration.** This was on the open list since the prototype phase as a deferred idea; the user has now decided against it outright rather than continuing to defer it. Nothing was ever built, so there is no code to keep. Do not resurface this in future TODO scans. See the failover-timing ruling under "Design rulings" for the (now historical) reasoning it was weighed against.
 - No **custom** CI/Actions workflow; Pages uses the legacy branch-based build. This is load-bearing for `_tests/` and `_icons/` staying off the live domain - see Deploy above before changing it. **Correction learned 2026-08-06: "no Actions workflow" does not mean Actions is uninvolved.** The legacy deploy still executes as a GitHub-managed workflow named `pages-build-deployment`, which is why an Actions outage took the deploy down even though this repo owns no workflow file. It also means `gh run list --workflow="pages-build-deployment"` works here at all. Do **not** treat that listing as authoritative though - it and the Pages API each proved wrong at least once on 2026-08-06/07, in opposite directions; fetch the served file to settle it. See Environment.
+- ~~Large-tier density and the dimmed treatment for unreachable nodes~~ **RECONSIDERED
+  2026-08-08, left as-is, no change needed.** Sat open since the prototype phase with no
+  concrete complaint attached; re-examined against the current code and the user judged both
+  fine at large-tier scale. See the "Still genuinely open" bullet (now struck through) under
+  Phase 2b above. Do not re-file unless a concrete complaint comes up.
+- **Bridge dim/standby bug FIXED 2026-08-08, NOT YET COMMITTED.** User caught that a large-tier
+  site link dimmed when its literal drawn-endpoint firewall went down, even though the other
+  firewall in that same cluster (and thus the bridge itself) was still fully usable - and that
+  toggling the *other* firewall in the pair (the non-drawn one) correctly left it undimmed,
+  which was the tell that the renderer was checking the wrong two nodes. Fixed in
+  `topology-render.js` by resolving `is-dead`/`bridge-standby` against the whole cluster's
+  `fwIds` (from `structure.bridges`) instead of the two literal edge endpoints - see the
+  "Bridge dim/standby bug FIXED" note under "Large-tier bridges" in Architecture for the full
+  mechanism and the scratch-probe verification (four scenarios on the large tier, engine tests
+  unaffected at 24/24 since this is renderer-only). Small/medium tiers have `bridges: []` and
+  are untouched. **This is sitting as an uncommitted local change** - the user has not yet said
+  whether to commit now or batch it with more changes; do not assume it is live.

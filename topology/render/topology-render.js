@@ -177,6 +177,24 @@ export const TopologyViz = {
     svg.appendChild(gPackets);
     svg.appendChild(gBadges);
 
+    /*
+     * Bridge edges anchor visually on one firewall per cluster, but the
+     * engine (see the comment in tiers.js above the bridge edges) treats
+     * a bridge as usable while ANY firewall of its cluster is up at both
+     * ends - activeEdgeIds already respects this. The dead/standby checks
+     * below must use the same cluster-wide view, or a bridge whose drawn
+     * endpoint happens to be the down one dims/stops marching even though
+     * its cluster mate keeps the link genuinely alive.
+     */
+    const bridgeEnds = new Map();
+    for (const bridge of (config.structure.bridges || [])) {
+      const id = edgeKey(bridge.edge.a, bridge.edge.b);
+      const endFor = (nodeId) => bridge.ends.find((end) => end.fwIds.includes(nodeId));
+      const endA = endFor(bridge.edge.a);
+      const endB = endFor(bridge.edge.b);
+      if (endA && endB) bridgeEnds.set(id, { aFwIds: endA.fwIds, bFwIds: endB.fwIds });
+    }
+
     // ---- edges ----
     const edgeViews = [];
     config.edges.forEach((edge, i) => {
@@ -397,8 +415,19 @@ export const TopologyViz = {
       }
 
       for (const ev of edgeViews) {
-        const sa = state.nodes.get(ev.a);
-        const sb = state.nodes.get(ev.b);
+        let sa = state.nodes.get(ev.a);
+        let sb = state.nodes.get(ev.b);
+        const bridge = ev.kind === 'bridge' ? bridgeEnds.get(ev.id) : null;
+        if (bridge) {
+          // Cluster-wide, not the two literal drawn endpoints - see the
+          // comment above bridgeEnds.
+          const clusterState = (fwIds) => ({
+            down: fwIds.every((id) => state.nodes.get(id).down),
+            reachable: fwIds.some((id) => state.nodes.get(id).reachable),
+          });
+          sa = clusterState(bridge.aFwIds);
+          sb = clusterState(bridge.bFwIds);
+        }
         ev.el.classList.toggle('is-active', state.activeEdgeIds.has(ev.id));
         ev.el.classList.toggle('is-dead', sa.down || sb.down);
         if (ev.kind === 'sync') {
