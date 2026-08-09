@@ -4,8 +4,11 @@ Exhibit #2 for troxeltech.com. A boids/flocking simulation in which a botnet swa
 handful of defended nodes, and three tiers demonstrate what defense sophistication is
 actually worth.
 
-**Status: DESIGN COMPLETE, NOTHING BUILT.** Everything below was settled in a design
-session on 2026-08-08. No code exists yet.
+**Status: PHASES 1-4 BUILT AND COMMITTED on the branch `swarm-exhibit` (2026-08-09).
+Nothing pushed, nothing live.** The design below was settled on 2026-08-08; the build
+followed on 2026-08-09 and stopped deliberately before Phase 5. Sections marked RESOLVED
+are decisions; the tunables table and all copy are still provisional pending the user
+seeing it run.
 
 ## About this document
 
@@ -564,7 +567,13 @@ above, and interactivity is benched (so the exhibit is observational and ships n
 `.exhibit-directions`). The remaining open questions are naming and copy, which can be
 settled inside the phases that need them.
 
-**Phase 1 - engine.** `swarm-engine.js`: pure, DOM-free, deterministic under an injected
+**Phase 1 - engine. DONE 2026-08-09 (`a3169e3`).** 27 tests pass. One result reshaped a
+test rather than the code: population does not rank cleanly across tiers, because the
+unprotected tier carries a SMALL live swarm - it keeps detonating and taking twenty
+attackers with it - so "smallest swarm wins" would rank it above the layered tier. The
+suite asserts the true statement instead.
+
+Original scope: `swarm-engine.js`: pure, DOM-free, deterministic under an injected
 seeded RNG. Boid state machine, flocking, targeting and lock, capacity occupancy, overwhelm
 and repair, repulsion, tarpit and hold expiry, pressure-driven spawn. Plus
 `_tests/swarm-tests.html` following the existing `TESTS: N/N PASS` pattern - and this suite
@@ -574,7 +583,13 @@ which overwhelms more often than tier 3 over a fixed seed and step count; popula
 exceeds the ceiling; a destroyed node's acquired boids all die; a locked boid never
 switches targets; capacity is always exactly `acquiredCount * cost`.
 
-**Phase 2 - renderer.** `swarm-render.js` plus `swarm.css`. Canvas 2D, `devicePixelRatio`
+**Phase 2 - renderer. DONE 2026-08-09 (`ee43092`).** Three things changed only after
+looking at real output: acquisition radii were filled discs and dominated the field, nodes
+were a vertical column that stacked all three radii in a line, and the swarm equilibrated
+near 45 boids and read as scattered individuals rather than a swarm. Chrome now scales
+inversely with canvas width, since at 496px labels rendered at 7px.
+
+Original scope: `swarm-render.js` plus `swarm.css`. Canvas 2D, `devicePixelRatio`
 handling, token reading via `getComputedStyle`, rAF loop passing `dt` to the engine,
 mount-time pre-seed stepping, `IntersectionObserver` gating composed with the play/pause
 state so a tier steps only when playing and visible, and `mount()` returning
@@ -583,12 +598,21 @@ screenshot, per the headless Edge workflow in `CLAUDE.md`. **Headless Chromium r
 `prefers-reduced-motion: reduce` by default**, so the paused branch is the easy one to
 verify here and the playing branch needs the `matchMedia` shim documented in `CLAUDE.md`.
 
-**Phase 3 - tier configs and tuning.** `swarm/tiers/tiers.js`. Defense parameters per tier;
+**Phase 3 - tier configs and tuning. DONE 2026-08-09 (`a015d1a`), but the tuning half is
+provisional.** The measured behavior is monotonic and the thesis holds; whether it LOOKS
+right is the user's call. Tier 3's repulsion is byte-identical to tier 2's so the only
+variable between them is the tarpit.
+
+Original scope: `swarm/tiers/tiers.js`. Defense parameters per tier;
 everything else shared by reference so the tiers provably cannot diverge on anything but
 defense. Then the real work: tuning the table above until the three tiers tell the story at
 a glance. Expect this phase to be longer than it looks.
 
-**Phase 4 - exhibit shell.** Extract the shared `exhibit-*` shell from the topology
+**Phase 4 - exhibit shell. DONE 2026-08-09 (`133d80c`).** Both cosmetic problems this
+file predicted were real and both fell to one declaration. Exhibit #1 was explicitly
+re-verified and is unregressed.
+
+Original scope: Extract the shared `exhibit-*` shell from the topology
 exhibit's `hero-*` implementation, add the second disclosure row to `index.html` directly
 below the topology row, wire up `js/swarm.js`, drop in the placeholder copy above, and fix
 the doubled-border and row-spacing issues that appear once two rows are adjacent. Honor all
