@@ -1019,7 +1019,16 @@ stay in the tree, but do not present it as a pending decision:
   opacity 0.4, dead edges at opacity 0.35, both applied uniformly across all three tiers - see
   `topology.css`) and the user judged density and dimming both fine as they stand at large-tier
   scale. Do not re-file this as open; revisit only if the user raises a concrete complaint.
-- Gremlin idea, not built: the fixer could also repair visitor-caused breakage.
+- ~~Gremlin idea, not built: the fixer could also repair visitor-caused breakage.~~
+  **RECONSIDERED 2026-08-08, will not be built, left as-is.** The fixer repairing damage the
+  visitor caused by clicking (not just gremlin-caused breaks) was weighed and rejected: it
+  reads as the tool fighting the visitor rather than helping them. If someone clicks a node to
+  test a scenario or deliberately cause an outage, having the fixer silently "helpfully" revert
+  that click a few seconds later is just annoying, not a feature - there's no reliable way to
+  distinguish "curious click" from "intentional break I want to observe," and guessing wrong
+  undermines the one form of visitor agency the exhibit already offers (see "No draggable
+  nodes" and "Failover is instant" under Design rulings - clicking is the interaction). Do not
+  re-file this as an open item unless the user explicitly reopens it.
 
 See the mount API docs in the Architecture section above (`TopologyViz.mount`) for the
 component's existing interface.
