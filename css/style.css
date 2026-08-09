@@ -927,6 +927,95 @@ section:last-of-type {
   color: var(--site-accent);
 }
 
+/*
+ * ---- exhibit list ----
+ *
+ * Generic shell, added with exhibit #2 (2026-08-09). Everything the two
+ * rows share visually already lives on .hero-disclosure /
+ * .hero-disclosure-summary, which the swarm exhibit reuses verbatim - those
+ * ARE the shared shell, they just have not been renamed and deliberately
+ * will not be (see CLAUDE.md). This class carries only what is specific to
+ * being a row in a LIST rather than a lone strip.
+ *
+ * CLAUDE.md flagged two cosmetic problems that would appear the moment a
+ * second row existed, and both are fixed here in one declaration. The
+ * summary carries border-top AND border-bottom plus margin-top: 32px, so
+ * two rows in sequence would sit 32px apart instead of forming a continuous
+ * list, and their facing borders would render as a 2px line. Pulling every
+ * row after the first up by 1px collapses the two 1px borders into one and
+ * closes the gap. The list look was the intent: the user liked how the
+ * single bordered strip read and wants future pieces to populate the same
+ * list downward.
+ *
+ * Robust in every open/closed combination, since it does not care what is
+ * between the two summaries - only that one row follows another.
+ */
+.exhibit-disclosure + .exhibit-disclosure > .hero-disclosure-summary,
+.hero-disclosure + .exhibit-disclosure > .hero-disclosure-summary {
+  margin-top: -1px;
+}
+
+/*
+ * ---- exhibit #2: botnet swarm ----
+ *
+ * Only layout lives here. Every COLOR the exhibit uses is a --swarm-*
+ * custom property in swarm/render/swarm.css, read out by the canvas
+ * renderer; the site never overrides one, exactly as it never overrides a
+ * --topo-* property, because both components already follow system color
+ * scheme the same way this site does.
+ *
+ * No height reservation, unlike .hero-mount. The topology component needed
+ * one because its SVG height is a width-driven ratio plus fixed chrome; the
+ * canvas here declares its own aspect ratio and the scoreboard above it is
+ * ordinary flow content, so the row simply sizes itself. Do not add an
+ * aspect-ratio or a min-height to .swarm-stack - see the long derivation in
+ * the .hero-mount comment above for what that costs.
+ */
+.swarm-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  margin-top: 16px;
+}
+
+/* Caption above its own tier, matching the stacked topology layers. The
+   ::before ordering is deliberate and was a user decision on 2026-08-08:
+   the caption is the setup for the graphic, so it lands before the visitor
+   meets it, not after. */
+.swarm-layer[data-caption]::before {
+  content: attr(data-caption);
+  display: block;
+  margin-bottom: 10px;
+  max-width: 68ch;
+  margin-inline: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--site-muted);
+  text-align: center;
+}
+
+/* Mirrors .hero-mount-fallback exactly. A real element rather than
+   <noscript>, removed by js/swarm.js only after all three tiers mount. */
+.swarm-mount-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  border: 1px dashed var(--site-border);
+  border-radius: 10px;
+  background: var(--site-surface);
+}
+
+.swarm-mount-fallback p {
+  max-width: 52ch;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  color: var(--site-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;

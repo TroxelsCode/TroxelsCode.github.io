@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Swarm long-run analysis</title>
+  <style>body{font-family:ui-monospace,Consolas,monospace;font-size:13px;padding:16px}</style>
+</head>
+<body>
+<pre id="out">running</pre>
+<script type="module">
+/* Long-run tuning harness. KEPT rather than deleted like the usual
+   scratch page, for the same reason _tests/scroll-prototype.html is
+   kept: it is the only place the simulation's slow behavior can be
+   looked at, and swarm-tests.html deliberately cannot serve that role -
+   its runs are 50 simulated seconds, which is short enough that a tier
+   has only a handful of outages and any per-node split looks plausible.
+   That blind spot is exactly how the starved-node bug survived.
+
+   Answers three things the 50-second test window could not:
+   does the tier ordering hold over long runs, is srv2 starved by the
+   layout, and does tier 2's repulsion resynchronize the swarm into
+   bursts that kill it. */
+import { makeRng, createState, step, capacityOf } from '../swarm/engine/swarm-engine.js';
+import { TIERS, SHARED } from '../swarm/tiers/tiers.js';
+
+const lines = [];
+const say = (s) => lines.push(s);
+
+const STEPS_PER_SEC = 60;
+const MARKS = [50, 100, 200, 400, 800];
+const SEEDS = [2, 3, 5];
+
+say('OUTAGES PER TIER, CUMULATIVE, AVERAGED OVER ' + SEEDS.length + ' SEEDS');
+say('(the test suite only ever looked at the 50s column)');
+say('');
+say('tier            ' + MARKS.map((m) => (m + 's').padStart(9)).join(''));
+
+const popAt = {};
+const perNode = {};
+for (const tier of TIERS) {
+  const cum = MARKS.map(() => 0);
+  const pops = MARKS.map(() => 0);
+  const nodeTally = [0, 0, 0];
+  for (const seed of SEEDS) {
+    const rng = makeRng(seed);
+    const state = createState(tier);
+    let mi = 0;
+    const total = MARKS[MARKS.length - 1] * STEPS_PER_SEC;
+    for (let i = 1; i <= total; i++) {
+      step(state, rng);
+      if (mi < MARKS.length && i === MARKS[mi] * STEPS_PER_SEC) {
+        cum[mi] += state.nodes.reduce((s, n) => s + n.overwhelmed, 0);
+        pops[mi] += state.boids.length;
+        mi++;
+      }
+    }
+    state.nodes.forEach((n, k) => { nodeTally[k] += n.overwhelmed; });
+  }
+  perNode[tier.id] = nodeTally.map((v) => (v / SEEDS.length).toFixed(1));
+  popAt[tier.id] = pops.map((v) => Math.round(v / SEEDS.length));
+  say(tier.id.padEnd(16) +
+      cum.map((v) => (v / SEEDS.length).toFixed(1).padStart(9)).join(''));
+}
+
+say('');
+say('LIVE POPULATION at the same marks (ceiling ' + SHARED.populationCeiling + ')');
+say('tier            ' + MARKS.map((m) => (m + 's').padStart(9)).join(''));
+for (const tier of TIERS) {
+  say(tier.id.padEnd(16) + popAt[tier.id].map((v) => String(v).padStart(9)).join(''));
+}
+
+say('');
+say('OUTAGES BY NODE over 800s (srv2 is the triangle apex, the odd node out)');
+say('tier               srv1     srv2     srv3');
+for (const tier of TIERS) {
+  say(tier.id.padEnd(16) + perNode[tier.id].map((v) => v.padStart(9)).join(''));
+}
+
+/* Does repulsion resynchronize the swarm? Measure the spatial spread of
+   the boids that were scattered, at the moment their immunity expires -
+   a tight clump means the defense is handing the node a coordinated
+   burst a couple of seconds later. */
+say('');
+say('TIER 2 REPULSION AFTERMATH: spread of the scattered group when immunity lifts');
+{
+  const rng = makeRng(5);
+  const tier = TIERS.find((t) => t.id === 'ratelimited');
+  const state = createState(tier);
+  const pending = [];
+  const spreads = [];
+  for (let i = 0; i < 800 * STEPS_PER_SEC; i++) {
+    const before = new Map(state.boids.map((b) => [b.id, b.mode]));
+    step(state, rng);
+    const scattered = state.boids.filter(
+      (b) => before.get(b.id) === 'acquired' && b.mode === 'roaming'
+    );
+    if (scattered.length >= 5) {
+      pending.push({ at: scattered[0].reacquireAt, ids: scattered.map((b) => b.id) });
+    }
+    for (let p = pending.length - 1; p >= 0; p--) {
+      if (state.t < pending[p].at) continue;
+      const group = state.boids.filter((b) => pending[p].ids.includes(b.id));
+      if (group.length >= 3) {
+        const cx = group.reduce((s, b) => s + b.x, 0) / group.length;
+        const cy = group.reduce((s, b) => s + b.y, 0) / group.length;
+        const rms = Math.sqrt(
+          group.reduce((s, b) => s + (b.x - cx) ** 2 + (b.y - cy) ** 2, 0) / group.length
+        );
+        spreads.push(rms);
+      }
+      pending.splice(p, 1);
+    }
+  }
+  const avg = spreads.reduce((a, b) => a + b, 0) / (spreads.length || 1);
+  say('  scatter events sampled: ' + spreads.length);
+  say('  mean RMS spread at reacquire: ' + avg.toFixed(1) + ' units');
+  say('  (acquisition radius is ' + SHARED.acquisition.baseRadius +
+      '; a spread well under that means they arrive together)');
+}
+
+document.getElementById('out').textContent = lines.join('\n');
+document.title = 'ANALYSIS DONE';
+</script>
+</body>
+</html>
