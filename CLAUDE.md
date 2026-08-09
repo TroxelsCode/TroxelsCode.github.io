@@ -992,13 +992,9 @@ scratch pages. It is the only place the driver can be exercised synchronously, a
 `_tests/` so it stays off the live domain. Its `window.__proto` hook must never be copied into
 `js/hero.js`.
 
-**Still open inside Phase 2b:**
-
-One of these went DORMANT on 2026-08-07 when the stacked presentation was made permanent, and
-was formally CLOSED FOR CONSIDERATION on 2026-08-08 - the user is aware the pinned code still
-exists, has decided not to revive it, and does not want it raised again as an open item. It is
-not worth doing while the flag is off, and not worth deleting either since the code is meant to
-stay in the tree, but do not present it as a pending decision:
+**Formerly "still open inside Phase 2b" - all four items below are now closed, none remain
+open.** Kept for the reasoning and the do-not-re-file notes on each, not because anything here
+is pending:
 
 - **`CAPTIONS` is LIVE, not dormant - correcting an error made earlier in this file.** An
   earlier pass claimed captions only render when pinned. They do not: `.hero-layer::before`
