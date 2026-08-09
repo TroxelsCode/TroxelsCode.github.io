@@ -373,22 +373,132 @@
       return totals(s, 'overwhelmed') >= 3;
     });
 
-    /* Layout regression guard. The spawners once sat level with srv1 and
-     * srv3, which launched the swarm down those two lanes and left srv2
-     * taking under 2% of the layered tier's outages - a third of the
-     * exhibit rendered decorative, and invisible from the short runs the
-     * rest of this suite does. Runs long enough for the counts to mean
-     * something, since at 50 simulated seconds a tier has only a handful
-     * of outages total and any split looks plausible. */
-    t('no target node is starved by the field layout', () => {
-      const tally = [0, 0, 0];
-      for (const seed of [2, 3, 5]) {
-        const s = run('unprotected', 12000, seed);
-        s.nodes.forEach((n, k) => { tally[k] += n.overwhelmed; });
-      }
-      const total = tally.reduce((a, b) => a + b, 0);
-      if (total < 30) return false;
-      return tally.every((v) => v / total >= 0.2);
+    /* Layout regression guard, and the reason the field geometry is
+     * derived rather than hand-placed. The spawners once sat level with
+     * srv1 and srv3, which launched the swarm down those two lanes and
+     * left srv2 taking under 2% of the layered tier's outages - a third
+     * of the exhibit rendered decorative, and invisible from the short
+     * runs the rest of this suite does.
+     *
+     * THIS RUNS ON ALL THREE TIERS, which the original version did not,
+     * BUT THE BAR IS NOT THE SAME ON ALL THREE, and the asymmetry is the
+     * point rather than a fudge to make a failing test pass.
+     *
+     * On tiers 1 and 2 an outage tracks arrival VOLUME, so an even split
+     * is a fair test of the layout and both clear 20% with room (measured
+     * 29-33%). On tier 3 an outage needs roughly twenty arrivals inside
+     * the 1.15s identification dwell, which makes it a TAIL statistic
+     * rather than a volume one, and tails amplify any residual asymmetry
+     * geometrically. Measured on the committed layout with arrival volume
+     * held equal at 33/34/33, the ladder up to an outage reads:
+     *
+     *   attackers reached    >=5    >=10   >=15   >=20 (outage)
+     *   srv1                 239     77      8       1
+     *   srv2 (apex)          271    125     36      14
+     *   srv3                 248     94     11       4
+     *
+     * A 13% edge at five attackers is 14x by twenty. Five different
+     * geometries, including the pre-triangle layout, all land between 13%
+     * and 18% on this tier. So a 20% bar there is not measuring the
+     * layout, it is measuring how sharply the tarpit converts a small
+     * arrival edge into a rare event - which is a property of the physics
+     * and arguably the tier working as designed.
+     *
+     * Tier 3 therefore gets a floor set to catch the failure that
+     * actually matters: the ORIGINAL bug had srv2 under 2% and visibly
+     * never going down while its neighbours died repeatedly. 5% plus
+     * "every node goes down at least once" catches a regression to that
+     * without failing on tail noise.
+     *
+     * Budgets differ per tier because outage RATES differ by an order of
+     * magnitude and a share is meaningless below a few dozen events. Each
+     * is sized to clear the 30-event floor asserted below. */
+    const starvation = {
+      unprotected: { steps: 12000, seeds: [2, 3, 5], floor: 0.2 },
+      ratelimited: { steps: 12000, seeds: [2, 3, 5], floor: 0.2 },
+      layered: { steps: 24000, seeds: [2, 3, 5, 7, 11, 13], floor: 0.05 }
+    };
+    for (const tier of TIERS) {
+      const cfg = starvation[tier.id];
+      t('no target node is starved by the field layout: ' + tier.id +
+        ' (floor ' + (cfg.floor * 100) + '%)', () => {
+        const tally = [0, 0, 0];
+        const everDown = [false, false, false];
+        for (const seed of cfg.seeds) {
+          const s = run(tier.id, cfg.steps, seed);
+          s.nodes.forEach((n, k) => {
+            tally[k] += n.overwhelmed;
+            if (n.overwhelmed > 0) everDown[k] = true;
+          });
+        }
+        const total = tally.reduce((a, b) => a + b, 0);
+        if (total < 30) return false;
+        return everDown.every(Boolean) && tally.every((v) => v / total >= cfg.floor);
+      });
+    }
+
+    // ---- field geometry invariants ----
+
+    /* These assert the shape buildLayout() is supposed to produce, so a
+     * later edit to LAYOUT cannot quietly break a property the comment in
+     * tiers.js claims. See that comment for why each one matters. */
+
+    t('geometry: the three servers form an equilateral triangle', () => {
+      const [a, b, c] = SHARED.nodes;
+      const d = (p, q) => Math.hypot(p.x - q.x, p.y - q.y);
+      const sides = [d(a, b), d(b, c), d(a, c)];
+      return Math.max(...sides) - Math.min(...sides) < 0.001;
+    });
+
+    /* The binding constraint. A spawner inside a node's grown ring would
+     * feed that node essentially every boid it emits. Checked against the
+     * hard cap rather than the ~158 a node actually reaches before dying,
+     * so there is margin. */
+    t('geometry: no spawner sits inside any node grown acquisition ring', () => {
+      const limit = SHARED.acquisition.maxRadius + 14; // 14 = spawn jitter
+      return SHARED.nodes.every((n) =>
+        SHARED.spawners.every((s) => Math.hypot(n.x - s.x, n.y - s.y) > limit));
+    });
+
+    /* Straddling the centerline buys equal wall clearance for the apex
+     * row and the base row. Centroid-at-center would not. */
+    t('geometry: apex and base rows are equally clear of their walls', () => {
+      const clear = SHARED.nodes.map((n) =>
+        Math.min(n.y, SHARED.field.h - n.y));
+      return Math.max(...clear) - Math.min(...clear) < 0.001;
+    });
+
+    /* The invariant that actually guarantees srv1 and srv3 are equivalent,
+     * and the only exact symmetry a two-spawner three-server arrangement
+     * can have. Deliberately NOT asserting equal focal sums: the spawner
+     * drop gives those up on purpose, see the comment in tiers.js. */
+    t('geometry: the layout is mirror-symmetric about the vertical axis', () => {
+      const mid = SHARED.field.w / 2;
+      const [a, , c] = SHARED.nodes;
+      const [s1, s2] = SHARED.spawners;
+      return Math.abs((mid - a.x) - (c.x - mid)) < 0.001 &&
+             Math.abs(a.y - c.y) < 0.001 &&
+             Math.abs((mid - s1.x) - (s2.x - mid)) < 0.001 &&
+             Math.abs(s1.y - s2.y) < 0.001;
+    });
+
+    /* The spawner axis sits between the centerline and the base row. Past
+     * the base row it recreates the original bug, where spawners level
+     * with a node row launched the swarm straight down those lanes. */
+    t('geometry: the spawner axis stays between the centerline and the base row', () => {
+      const baseY = SHARED.nodes[0].y;
+      const spawnerY = SHARED.spawners[0].y;
+      const cy = SHARED.field.h / 2;
+      return spawnerY > cy && spawnerY < baseY;
+    });
+
+    /* srv2 is the odd node out and is deliberately NOT at index 0, since
+     * runAcquisition breaks on the first ring it finds and so favours the
+     * earlier index wherever two rings overlap. */
+    t('geometry: srv2 is the apex and is not first in config order', () => {
+      return SHARED.nodes[1].id === 'srv2' &&
+             SHARED.nodes[1].x === SHARED.field.w / 2 &&
+             SHARED.nodes[0].y === SHARED.nodes[2].y;
     });
 
     /* The honesty guarantee. If a tier could quietly get a gentler

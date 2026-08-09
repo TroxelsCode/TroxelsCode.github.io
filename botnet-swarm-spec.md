@@ -618,7 +618,11 @@ Why the suite missed it: every test runs 50 simulated seconds, where a tier has 
 handful of outages total and any per-node split looks plausible. `_tests/swarm-analysis.html`
 was built to cover exactly that blind spot and is kept for the same reason
 `_tests/scroll-prototype.html` is kept. There is now also a regression test asserting no
-node takes under 20% of its tier's outages.
+node is starved, run on all three tiers with a per-tier floor - see "Field layout
+rearranged" below for why the floor is deliberately not the same number on every tier.
+
+The layout described above is also no longer the current one. It was replaced on
+2026-08-09 by the triangle arrangement, again see below.
 
 **A third hypothesis was tested and rejected**, recorded so it does not get re-raised: the
 idea that repulsion bunches the swarm into synchronized bursts that return together and
@@ -626,6 +630,73 @@ instantly re-overwhelm the node. Measured across 274 scatter events, the scatter
 RMS spread when its immunity lifts is 193.7 units against a 76-unit acquisition radius.
 They disperse well before they can reacquire. Tier 2's higher outage count is unremoved
 attackers accumulating (population ~107 against tier 1's ~61), not resynchronized ones.
+
+## Field layout rearranged (2026-08-09, branch `swarm-layout-triangle`)
+
+Two spawners outside left and right, three servers inside as an equilateral triangle with
+a horizontal base. Coordinates are **derived**, not hand-placed: `LAYOUT` plus
+`buildLayout()` in `swarm/tiers/tiers.js`, with six invariants asserted in the suite so a
+later edit cannot silently break a property the comments claim. Read the long comment in
+that file first; what follows is only the part that is not recoverable from it.
+
+**An ellipse with the spawners at its foci was considered and is geometrically
+impossible here.** The appeal was equal focal-sum distance for all three servers. The
+blocker is that no spawner may sit inside a node's grown acquisition ring, or that node
+locks essentially every boid the spawner emits. A wide ellipse puts its foci close to its
+vertices: at a=380, b=180 the nearest server-to-focus distance is 90 units against a
+practical grown radius of about 158. Solving the constraint properly collapses the
+ellipse into a near-circle of radius about 156 with the foci 70 apart, which is not an
+ellipse arrangement in any meaningful sense. Do not re-raise it.
+
+**The triangle inverted the starved-node problem before it fixed anything.** With
+spawners on the horizontal centerline the apex went from starved to dominant, taking 71%
+of the layered tier's outages while the base pair took 15% each. Cause is **catchment**:
+the apex is the only node above the spawner axis while srv1 and srv3 share everything
+below it. Sliding the spawner axis down toward the base row hands that flux back, and
+tier 1's split responds monotonically (30/39/31 at drop 0, through to 33/34/33 at drop
+100). Committed at drop 75, which is inside the noise floor while keeping the spawners
+visibly clear of the base row. **Do not push the drop much further** - level with a node
+row is the original bug this file already documents.
+
+**THE FINDING WORTH KEEPING, and it generalizes past this exhibit.** Equalizing arrival
+volume does **not** equalize tier 3's outage split. At drop 100, with tier 1 at a
+near-perfect 33/34/33, the layered tier was still 14/67/19. Counting how often each node
+climbed each rung toward the 20 attackers that kill it, with volume already equal:
+
+| attackers reached | >=5 | >=10 | >=15 | >=20 (outage) |
+| --- | --- | --- | --- | --- |
+| srv1 | 239 | 77 | 8 | 1 |
+| srv2 (apex) | 271 | 125 | 36 | 14 |
+| srv3 | 248 | 94 | 11 | 4 |
+
+A 13% edge at five attackers is 62% at ten, 4.5x at fifteen and 14x at the outage. **A
+metric defined by a rare threshold crossing amplifies small asymmetries geometrically, so
+it cannot be used to measure fairness of the thing that produced them.** Tier 1's ladder
+over the same run is flat (104/106/107, outages 105/104/106) because an outage there
+tracks volume directly. Five geometries including the pre-triangle layout all land
+between 13% and 18% min share on tier 3.
+
+**Consequence: the starvation bar is now per-tier** - 20% on tiers 1 and 2 where it
+honestly measures the layout and both clear it at 29-33%, and 5% plus "every node goes
+down at least once" on tier 3. The 5% is not a fudge to make a red test green: the
+original bug had srv2 under 2% and visibly never going down, which is exactly what that
+floor still catches. User decision, 2026-08-09.
+
+**What the move bought, beyond the layout being principled:**
+
+- **Tier separation is markedly stronger.** 216 / 107 / 13.7 outages over 800s against
+  177 / 71 / 23 before, so no-defense to layered went from 7.7x to 15.8x.
+- **The acquisition tie-break is now provably irrelevant, which closes it without an
+  engine change.** `runAcquisition` breaks on the first ring in config order, so the
+  earlier array index wins wherever two rings overlap. Minimum server separation went
+  from 198 to 280 and contested acquisitions went from 0.20% to 0.00%. srv2 is
+  deliberately kept at index 1 rather than 0 regardless.
+
+**Still open from this pass**, neither touched because both are tuning rather than
+layout: the tier totals moved a lot (unprotected +22%, rate limited +51%, layered -40%),
+and the pre-seed opening frame is authored content that this invalidates - tier 1
+currently opens with two of three nodes already OFFLINE, which may or may not be the
+wanted first impression.
 
 ## Where a future session should start
 
@@ -640,9 +711,12 @@ open, roughly in the order it is likely to matter.
    twice on purpose, and tier 1 avoiding a chain of pronouns). The scoreboard labels
    (`held` / `stopped` / `outages`), the online/offline status text and the canvas
    `aria-label` were reviewed in the same pass and approved unchanged.
-2. **Tier 3's srv2 still lags** its neighbours (3.7 outages against 10.3 and 9.0 over
-   800s). Much better than the 0.7 it started at, but the middle position still costs it
-   something at low attack volume. May not be worth fixing.
+2. ~~Tier 3's srv2 still lags its neighbours~~ **ADDRESSED 2026-08-09 on the branch
+   `swarm-layout-triangle`. See "Field layout rearranged" below.** The field was
+   rearranged and, more usefully, the item turned out to be partly a wrong question:
+   tier 3's per-node split is a tail statistic rather than a layout property, and no
+   geometry tried reaches an even split there. The suite's starvation bar is now
+   per-tier as a result.
 3. **Every tuning constant is provisional.** See the tunables table above. They are all in
    `SHARED` and the per-tier `defense` blocks in `swarm/tiers/tiers.js`, deliberately in
    one place per tier so a tuning pass is cheap.
