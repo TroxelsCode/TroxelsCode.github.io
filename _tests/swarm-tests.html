@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swarm engine tests</title>
+  <style>
+    /* THROWAWAY test scaffolding - not part of the deliverable. */
+    :root { color-scheme: light dark; }
+    body {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 14px;
+      padding: 20px;
+    }
+    li { margin: 3px 0; }
+    .pass { color: #0ca30c; }
+    .fail { color: #d03b3b; font-weight: bold; }
+    #summary { font-size: 18px; margin-bottom: 14px; }
+    #stats { white-space: pre; margin-top: 20px; opacity: 0.75; }
+  </style>
+</head>
+<body>
+  <div id="summary">running...</div>
+  <ol id="results"></ol>
+  <div id="stats"></div>
+
+  <script type="module">
+    import {
+      makeRng, createState, step, advance, summarize,
+      capacityOf, acquisitionRadiusOf, tierById, SHARED, TIERS
+    } from '../swarm/engine/swarm-engine.js';
+
+    /* Every run in this file is seeded, so every assertion below is
+     * reproducible. If one of these starts failing after a tuning pass,
+     * it is telling you the tuning changed behavior, not that the test
+     * is flaky - there is no nondeterminism to blame. */
+    const run = (tierId, steps, seed) => {
+      const rng = makeRng(seed === undefined ? 1 : seed);
+      const state = createState(tierById(tierId));
+      advance(state, rng, steps);
+      return state;
+    };
+
+    const totals = (state, key) =>
+      state.nodes.reduce((sum, n) => sum + n[key], 0);
+
+    const tests = [];
+    const t = (name, fn) => tests.push({ name, fn });
+
+    // ---- determinism, the property everything else depends on ----
+
+    t('determinism: same seed and step count gives identical state', () => {
+      const a = JSON.stringify(summarize(run('layered', 900, 42)));
+      const b = JSON.stringify(summarize(run('layered', 900, 42)));
+      return a === b;
+    });
+
+    t('determinism: different seeds diverge (rng is actually consumed)', () => {
+      const a = JSON.stringify(summarize(run('layered', 900, 42)));
+      const b = JSON.stringify(summarize(run('layered', 900, 43)));
+      return a !== b;
+    });
+
+    // ---- structural invariants ----
+
+    t('population never exceeds the ceiling', () => {
+      const rng = makeRng(7);
+      const state = createState(tierById('unprotected'));
+      for (let i = 0; i < 2400; i++) {
+        step(state, rng);
+        if (state.boids.length > SHARED.populationCeiling) return false;
+      }
+      return true;
+    });
+
+    t('capacity is exactly attackers times per-boid cost', () => {
+      const rng = makeRng(11);
+      const state = createState(tierById('ratelimited'));
+      for (let i = 0; i < 1500; i++) {
+        step(state, rng);
+        for (const n of state.nodes) {
+          const expected = n.attackers * SHARED.perBoidCost;
+          if (Math.abs(capacityOf(n, SHARED) - expected) > 1e-9) return false;
+        }
+      }
+      return true;
+    });
+
+    t('attacker counts match the boids actually locked on', () => {
+      const rng = makeRng(13);
+      const state = createState(tierById('layered'));
+      for (let i = 0; i < 1500; i++) {
+        step(state, rng);
+        const tally = new Map(state.nodes.map((n) => [n.id, 0]));
+        for (const b of state.boids) {
+          if (b.mode === 'acquired') tally.set(b.targetId, tally.get(b.targetId) + 1);
+        }
+        for (const n of state.nodes) {
+          if (n.attackers !== tally.get(n.id)) return false;
+        }
+      }
+      return true;
+    });
+
+    t('a locked boid never switches directly to another target', () => {
+      const rng = makeRng(17);
+      const state = createState(tierById('ratelimited'));
+      let prev = new Map();
+      for (let i = 0; i < 2000; i++) {
+        step(state, rng);
+        const next = new Map();
+        for (const b of state.boids) {
+          const was = prev.get(b.id);
+          if (was && b.targetId && was !== b.targetId) return false;
+          next.set(b.id, b.targetId);
+        }
+        prev = next;
+      }
+      return true;
+    });
+
+    t('boids stay inside the field and never go NaN', () => {
+      const rng = makeRng(19);
+      const state = createState(tierById('unprotected'));
+      for (let i = 0; i < 1800; i++) {
+        step(state, rng);
+        for (const b of state.boids) {
+          if (!Number.isFinite(b.x) || !Number.isFinite(b.y)) return false;
+          if (!Number.isFinite(b.vx) || !Number.isFinite(b.vy)) return false;
+          if (b.x < 0 || b.x > SHARED.field.w) return false;
+          if (b.y < 0 || b.y > SHARED.field.h) return false;
+        }
+      }
+      return true;
+    });
+
+    // ---- targeting and the pile-on ----
+
+    t('acquisition radius grows sub-linearly and is capped', () => {
+      const n = { attackers: 0 };
+      const r0 = acquisitionRadiusOf(n, SHARED);
+      n.attackers = 5;
+      const r5 = acquisitionRadiusOf(n, SHARED);
+      n.attackers = 10;
+      const r10 = acquisitionRadiusOf(n, SHARED);
+      n.attackers = 100000;
+      const rMax = acquisitionRadiusOf(n, SHARED);
+      const grew = r5 > r0 && r10 > r5;
+      const subLinear = (r10 - r5) < (r5 - r0);
+      return grew && subLinear && rMax <= SHARED.acquisition.maxRadius;
+    });
+
+    t('a down node acquires no new attackers', () => {
+      const rng = makeRng(23);
+      const state = createState(tierById('unprotected'));
+      for (let i = 0; i < 3000; i++) {
+        step(state, rng);
+        for (const n of state.nodes) {
+          if (n.status === 'down' && n.attackers !== 0) return false;
+        }
+      }
+      return true;
+    });
+
+    // ---- removal paths ----
+
+    t('overwhelm destroys exactly the attackers on that node', () => {
+      const rng = makeRng(29);
+      const state = createState(tierById('unprotected'));
+      let observed = 0;
+      for (let i = 0; i < 3000; i++) {
+        const before = state.nodes.map((n) => ({
+          id: n.id, status: n.status, attackers: n.attackers
+        }));
+        const popBefore = state.boids.length;
+        step(state, rng);
+        for (let k = 0; k < state.nodes.length; k++) {
+          const n = state.nodes[k];
+          if (before[k].status === 'up' && n.status === 'down') {
+            observed++;
+            /* The node had a full table, so at least 1/perBoidCost
+             * attackers must have gone with it. Spawning in the same
+             * tick can offset the count, so assert the floor. */
+            const expected = Math.round(1 / SHARED.perBoidCost);
+            if (popBefore - state.boids.length < expected - 2) return false;
+          }
+        }
+      }
+      return observed > 0;
+    });
+
+    t('repulsion scatters without removing anyone from the field', () => {
+      const rng = makeRng(31);
+      const state = createState(tierById('ratelimited'));
+      let sawScatter = false;
+      for (let i = 0; i < 3000; i++) {
+        const popBefore = state.boids.length;
+        const anyDownBefore = state.nodes.some((n) => n.status === 'down');
+        step(state, rng);
+        const flashed = state.nodes.some((n) => n.repulseFlash === 1);
+        if (flashed) {
+          sawScatter = true;
+          const anyDown = state.nodes.some((n) => n.status === 'down');
+          /* Population may only fall on a death, never on a scatter. */
+          if (!anyDown && !anyDownBefore && state.boids.length < popBefore) return false;
+        }
+      }
+      return sawScatter;
+    });
+
+    t('a scattered boid cannot relock in the same instant', () => {
+      const rng = makeRng(37);
+      const state = createState(tierById('ratelimited'));
+      for (let i = 0; i < 2500; i++) {
+        step(state, rng);
+        for (const b of state.boids) {
+          if (b.mode === 'acquired' && state.t < b.reacquireAt) return false;
+        }
+      }
+      return true;
+    });
+
+    t('held slots consume no capacity', () => {
+      const rng = makeRng(41);
+      const state = createState(tierById('layered'));
+      let sawHeld = false;
+      for (let i = 0; i < 2500; i++) {
+        step(state, rng);
+        for (const n of state.nodes) {
+          if (n.held.length > 0) sawHeld = true;
+          if (capacityOf(n, SHARED) !== n.attackers * SHARED.perBoidCost) return false;
+        }
+      }
+      return sawHeld;
+    });
+
+    t('held slots convert to neutralized, and neutralized never decreases', () => {
+      const rng = makeRng(43);
+      const state = createState(tierById('layered'));
+      let prev = state.nodes.map(() => 0);
+      for (let i = 0; i < 3000; i++) {
+        step(state, rng);
+        for (let k = 0; k < state.nodes.length; k++) {
+          if (state.nodes[k].neutralized < prev[k]) return false;
+          prev[k] = state.nodes[k].neutralized;
+        }
+      }
+      return totals(state, 'neutralized') > 0;
+    });
+
+    t('a downed node is repaired and returns to service', () => {
+      const rng = makeRng(47);
+      const state = createState(tierById('unprotected'));
+      let sawDown = false;
+      let sawRecovery = false;
+      for (let i = 0; i < 3000; i++) {
+        const wasDown = state.nodes.map((n) => n.status === 'down');
+        step(state, rng);
+        state.nodes.forEach((n, k) => {
+          if (n.status === 'down') sawDown = true;
+          if (wasDown[k] && n.status === 'up') sawRecovery = true;
+        });
+      }
+      return sawDown && sawRecovery;
+    });
+
+    // ---- spawning is pressure-driven, with no clock ----
+
+    t('spawn rate falls as the field fills', () => {
+      const rngA = makeRng(53);
+      const empty = createState(tierById('unprotected'));
+      advance(empty, rngA, 60);
+      const early = empty.boids.length;
+
+      const rngB = makeRng(53);
+      const full = createState(tierById('unprotected'));
+      advance(full, rngB, 1200);
+      const beforeLate = full.boids.length;
+      advance(full, rngB, 60);
+      const lateGrowth = full.boids.length - beforeLate;
+
+      return early > lateGrowth;
+    });
+
+    // ---- the exhibit's actual thesis ----
+
+    t('tier 1 has no tarpit, so it neutralizes nothing', () => {
+      const s = run('unprotected', 3000, 61);
+      return totals(s, 'neutralized') === 0 &&
+             s.nodes.every((n) => n.held.length === 0);
+    });
+
+    t('tier 2 has no tarpit either, so it also neutralizes nothing', () => {
+      const s = run('ratelimited', 3000, 61);
+      return totals(s, 'neutralized') === 0 &&
+             s.nodes.every((n) => n.held.length === 0);
+    });
+
+    t('tier 3 is the only tier whose defense removes attackers', () => {
+      const s = run('layered', 3000, 61);
+      return totals(s, 'neutralized') > 0;
+    });
+
+    t('THESIS: outages fall as defense improves (t1 > t2 > t3)', () => {
+      const seeds = [2, 3, 5, 7, 11];
+      let one = 0, two = 0, three = 0;
+      for (const seed of seeds) {
+        one += totals(run('unprotected', 3000, seed), 'overwhelmed');
+        two += totals(run('ratelimited', 3000, seed), 'overwhelmed');
+        three += totals(run('layered', 3000, seed), 'overwhelmed');
+      }
+      return one > two && two > three;
+    });
+
+    t('THESIS: mean node load falls as defense improves', () => {
+      const meanLoad = (tierId, seed) => {
+        const rng = makeRng(seed);
+        const state = createState(tierById(tierId));
+        let sum = 0;
+        let n = 0;
+        for (let i = 0; i < 3000; i++) {
+          step(state, rng);
+          for (const node of state.nodes) {
+            sum += capacityOf(node, SHARED);
+            n++;
+          }
+        }
+        return sum / n;
+      };
+      const one = meanLoad('unprotected', 3);
+      const two = meanLoad('ratelimited', 3);
+      const three = meanLoad('layered', 3);
+      return one > two && two > three;
+    });
+
+    /* Population does NOT rank cleanly across the tiers, and the reason
+     * is the most interesting thing the simulation produced. The
+     * unprotected tier carries a SMALL live swarm because it keeps
+     * detonating and killing twenty attackers at a time, so a naive
+     * "smallest swarm wins" reading has tier 1 beating tier 3. The two
+     * assertions below encode what is actually true instead: rate
+     * limiting is the tier that accumulates, because scattering removes
+     * nobody, and tier 1's low count is bought with its own corpses. */
+    t('THESIS: rate limiting accumulates the largest live swarm', () => {
+      const seeds = [2, 3, 5, 7, 11];
+      let one = 0, two = 0, three = 0;
+      for (const seed of seeds) {
+        one += run('unprotected', 3000, seed).boids.length;
+        two += run('ratelimited', 3000, seed).boids.length;
+        three += run('layered', 3000, seed).boids.length;
+      }
+      return two > one && two > three;
+    });
+
+    t('THESIS: tier 1 buys its small swarm with its own outages', () => {
+      const seeds = [2, 3, 5, 7, 11];
+      let one = 0, three = 0;
+      for (const seed of seeds) {
+        one += run('unprotected', 3000, seed).destroyed;
+        three += run('layered', 3000, seed).destroyed;
+      }
+      /* Boids "destroyed" are successful attackers, not defended-against
+       * ones. Tier 1 producing far more of them is the whole point. */
+      return one > three * 5;
+    });
+
+    t('tier 1 is genuinely overwhelmed repeatedly, not just once', () => {
+      const s = run('unprotected', 3000, 67);
+      return totals(s, 'overwhelmed') >= 3;
+    });
+
+    t('every tier keeps the attack identical (shared config is by reference)', () => {
+      return TIERS.every((tier) => {
+        const s = createState(tier);
+        return s.shared === SHARED &&
+               s.nodes.length === SHARED.nodes.length &&
+               s.spawners.length === SHARED.spawners.length;
+      });
+    });
+
+    // ---- run ----
+
+    const list = document.getElementById('results');
+    let passed = 0;
+    for (const test of tests) {
+      let ok = false;
+      let err = null;
+      try {
+        ok = test.fn() === true;
+      } catch (e) {
+        err = e;
+      }
+      if (ok) passed += 1;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = (ok ? 'PASS ' : 'FAIL ') + test.name + (err ? ' [' + err.message + ']' : '');
+      list.appendChild(li);
+    }
+    const summary = passed + '/' + tests.length + (passed === tests.length ? ' PASS' : ' SOME FAILED');
+    document.getElementById('summary').textContent = summary;
+    document.title = 'TESTS: ' + summary;
+
+    /* Tuning readout. Not assertions - this is the table to look at when
+     * deciding whether the three tiers actually tell the story. */
+    const lines = ['tier          outages  neutralized  killed  pop  meanCap  peakCap'];
+    for (const tier of TIERS) {
+      let outages = 0, neut = 0, killed = 0, pop = 0, cap = 0, samples = 0, peak = 0;
+      for (const seed of [2, 3, 5, 7, 11]) {
+        const rng = makeRng(seed);
+        const state = createState(tier);
+        for (let i = 0; i < 3000; i++) {
+          step(state, rng);
+          for (const n of state.nodes) {
+            const c = capacityOf(n, SHARED);
+            cap += c;
+            samples++;
+            if (c > peak) peak = c;
+          }
+        }
+        outages += totals(state, 'overwhelmed');
+        neut += totals(state, 'neutralized');
+        killed += state.destroyed;
+        pop += state.boids.length;
+      }
+      lines.push(
+        tier.id.padEnd(14) +
+        String(outages).padEnd(9) +
+        String(neut).padEnd(13) +
+        String(killed).padEnd(8) +
+        String(Math.round(pop / 5)).padEnd(5) +
+        (cap / samples).toFixed(3).padEnd(9) +
+        peak.toFixed(2)
+      );
+    }
+    document.getElementById('stats').textContent = lines.join('\n');
+  </script>
+</body>
+</html>
