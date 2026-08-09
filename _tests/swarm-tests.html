@@ -27,8 +27,9 @@
   <script type="module">
     import {
       makeRng, createState, step, advance, summarize,
-      capacityOf, acquisitionRadiusOf, tierById, SHARED, TIERS
+      capacityOf, acquisitionRadiusOf
     } from '../swarm/engine/swarm-engine.js';
+    import { tierById, SHARED, TIERS } from '../swarm/tiers/tiers.js';
 
     /* Every run in this file is seeded, so every assertion below is
      * reproducible. If one of these starts failing after a tuning pass,
@@ -372,13 +373,29 @@
       return totals(s, 'overwhelmed') >= 3;
     });
 
-    t('every tier keeps the attack identical (shared config is by reference)', () => {
+    /* The honesty guarantee. If a tier could quietly get a gentler
+     * attack, every comparison above would be meaningless, so this
+     * asserts identity rather than equality - one object, three
+     * references. */
+    t('every tier keeps the attack identical (one shared object by reference)', () => {
       return TIERS.every((tier) => {
         const s = createState(tier);
-        return s.shared === SHARED &&
+        return tier.shared === SHARED && s.shared === SHARED &&
                s.nodes.length === SHARED.nodes.length &&
                s.spawners.length === SHARED.spawners.length;
       });
+    });
+
+    t('tier 3 is exactly tier 2 plus a tarpit (repulsion is identical)', () => {
+      const two = tierById('ratelimited').defense;
+      const three = tierById('layered').defense;
+      return JSON.stringify(two.repulsion) === JSON.stringify(three.repulsion) &&
+             two.tarpit === null && three.tarpit !== null;
+    });
+
+    t('tier 1 has no defense of any kind', () => {
+      const one = tierById('unprotected').defense;
+      return one.repulsion === null && one.tarpit === null;
     });
 
     // ---- run ----
