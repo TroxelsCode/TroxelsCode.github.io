@@ -1230,15 +1230,15 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
   concrete complaint attached; re-examined against the current code and the user judged both
   fine at large-tier scale. See the "Still genuinely open" bullet (now struck through) under
   Phase 2b above. Do not re-file unless a concrete complaint comes up.
-- **Bridge dim/standby bug FIXED 2026-08-08, NOT YET COMMITTED.** User caught that a large-tier
-  site link dimmed when its literal drawn-endpoint firewall went down, even though the other
-  firewall in that same cluster (and thus the bridge itself) was still fully usable - and that
-  toggling the *other* firewall in the pair (the non-drawn one) correctly left it undimmed,
-  which was the tell that the renderer was checking the wrong two nodes. Fixed in
-  `topology-render.js` by resolving `is-dead`/`bridge-standby` against the whole cluster's
-  `fwIds` (from `structure.bridges`) instead of the two literal edge endpoints - see the
-  "Bridge dim/standby bug FIXED" note under "Large-tier bridges" in Architecture for the full
-  mechanism and the scratch-probe verification (four scenarios on the large tier, engine tests
-  unaffected at 24/24 since this is renderer-only). Small/medium tiers have `bridges: []` and
-  are untouched. **This is sitting as an uncommitted local change** - the user has not yet said
-  whether to commit now or batch it with more changes; do not assume it is live.
+- **Bridge dim/standby bug FIXED and COMMITTED 2026-08-08 (`546cb4f`), deployed and live.** User
+  caught that a large-tier site link dimmed when its literal drawn-endpoint firewall went down,
+  even though the other firewall in that same cluster (and thus the bridge itself) was still
+  fully usable - and that toggling the *other* firewall in the pair (the non-drawn one)
+  correctly left it undimmed, which was the tell that the renderer was checking the wrong two
+  nodes. Fixed in `topology-render.js` by resolving `is-dead`/`bridge-standby` against the whole
+  cluster's `fwIds` (from `structure.bridges`) instead of the two literal edge endpoints - see
+  the "Bridge dim/standby bug FIXED" note under "Large-tier bridges" in Architecture for the
+  full mechanism and the scratch-probe verification (four scenarios on the large tier, engine
+  tests unaffected at 24/24 since this is renderer-only). Small/medium tiers have `bridges: []`
+  and are untouched. Build confirmed (`546cb4f built dur=30808` via the Pages API) - fully
+  closed, do not re-file.
