@@ -4,11 +4,15 @@ Exhibit #2 for troxeltech.com. A boids/flocking simulation in which a botnet swa
 handful of defended nodes, and three tiers demonstrate what defense sophistication is
 actually worth.
 
-**Status: PHASES 1-4 BUILT AND COMMITTED on the branch `swarm-exhibit` (2026-08-09).
-Nothing pushed, nothing live.** The design below was settled on 2026-08-08; the build
-followed on 2026-08-09 and stopped deliberately before Phase 5. Sections marked RESOLVED
-are decisions; the tunables table and all copy are still provisional pending the user
-seeing it run.
+**Status: BASELINE ACCEPTED 2026-08-09. Phases 1-4 are built and committed on the branch
+`swarm-exhibit`. Nothing is pushed and nothing is live.** The user reviewed it running,
+found two real bugs (both fixed, see below), re-checked, and accepted this as the baseline
+to build on. Further tuning is to be done in separate focused sessions rather than
+extending this one.
+
+**Do not treat "baseline accepted" as "finished".** All copy is still placeholder, every
+tuning constant is provisional, and Phase 5 has not started. See "Where a future session
+should start" at the end of this file.
 
 ## About this document
 
@@ -528,10 +532,76 @@ invariant 2 - not `<noscript>`):
 **No `.exhibit-directions` paragraph**, because interactivity is benched and the exhibit is
 observational. See the Benched section.
 
-## Open questions
+## Two bugs the live page found that headless verification did not
 
-None blocking. Copy above is placeholder pending the user seeing it rendered, and the
-tunables table is expected to move during Phase 3.
+Both were reported by the user watching the exhibit run for several minutes, and both are
+worth recording because neither was a tuning miss - they were structural, and the test
+suite was blind to both by construction.
+
+**1. The three tiers were not running for the same amount of time.** The renderer gated
+simulation on each tier's own `IntersectionObserver`, so a tier advanced only while it
+personally sat in the viewport. Parking the page mid-exhibit ran the middle tier for
+minutes while the outer two were frozen. Because the scoreboard totals are cumulative and
+are meant to be compared BETWEEN tiers, this produced a confident, completely false
+reading - live, rate limiting looked four times worse than no defense at all, while 800
+simulated seconds put the ordering at a stable 177 / 71 / 23 that never inverts.
+
+The general lesson, which applies to any future exhibit: **cumulative counters plus
+per-instance visibility gating produce numbers that cannot be compared.** Either gate all
+instances together, or display a rate instead of a total. This one now gates once, in
+`js/swarm.js`, against the whole exhibit.
+
+**2. The middle node was decorative.** Spawners sat at y=118 and y=482, dead level with
+srv1 (128) and srv3 (472), launching the swarm down those two lanes; the pile-on then let
+the two forward nodes grow their radius to the cap and vacuum the centre corridor before
+anything reached srv2, which was also 230 units further back. Over 800s it took 0.7
+outages on the layered tier against 13.7 and 13.0.
+
+Why the suite missed it: every test runs 50 simulated seconds, where a tier has only a
+handful of outages total and any per-node split looks plausible. `_tests/swarm-analysis.html`
+was built to cover exactly that blind spot and is kept for the same reason
+`_tests/scroll-prototype.html` is kept. There is now also a regression test asserting no
+node takes under 20% of its tier's outages.
+
+**A third hypothesis was tested and rejected**, recorded so it does not get re-raised: the
+idea that repulsion bunches the swarm into synchronized bursts that return together and
+instantly re-overwhelm the node. Measured across 274 scatter events, the scattered group's
+RMS spread when its immunity lifts is 193.7 units against a 76-unit acquisition radius.
+They disperse well before they can reacquire. Tier 2's higher outage count is unremoved
+attackers accumulating (population ~107 against tier 1's ~61), not resynchronized ones.
+
+## Where a future session should start
+
+Nothing here is blocking and nothing is broken. This is the list of what "baseline" leaves
+open, roughly in the order it is likely to matter.
+
+1. **All copy is placeholder** and marked as such at every definition site: the disclosure
+   summary and exhibit description in `index.html`, the three tier captions and the
+   play/pause labels in `js/swarm.js`, the toggle note and the fallback text. The summary
+   is the load-bearing one - on a phone it is the only thing a visitor who never expands
+   will read.
+2. **Tier 3's srv2 still lags** its neighbours (3.7 outages against 10.3 and 9.0 over
+   800s). Much better than the 0.7 it started at, but the middle position still costs it
+   something at low attack volume. May not be worth fixing.
+3. **Every tuning constant is provisional.** See the tunables table above. They are all in
+   `SHARED` and the per-tier `defense` blocks in `swarm/tiers/tiers.js`, deliberately in
+   one place per tier so a tuning pass is cheap.
+4. **Mobile and touch legibility are unverified.** Chrome scaling was checked headlessly
+   down to 496px, but the user cannot reach `localhost` from their phone, so real
+   narrow-screen confirmation is blocked until a deploy.
+5. **Phase 5 has not started**: deploy, verify live, then migrate this file's durable
+   content into `CLAUDE.md`, delete this file, and remove its `_config.yml` exclude.
+
+**What is NOT open, and should not be re-litigated:** interactivity and the tier-3
+honeypot are benched by user decision (see Benched above); the reduced-motion and
+play/pause behavior is decided; the engine's determinism contract is not negotiable; and
+tier 3's repulsion block must stay byte-identical to tier 2's, with a test enforcing it,
+so that any visible difference between them is attributable to the tarpit alone.
+
+**One thing that WAS unverifiable and now is not:** that the frame loop sustains. Headless
+Chromium fires rAF about once under `--virtual-time-budget`, which proves only that a loop
+starts. The user has now watched the exhibit run for minutes across two sittings, so
+sustained animation is confirmed and does not need re-checking.
 
 ## Tunables
 
