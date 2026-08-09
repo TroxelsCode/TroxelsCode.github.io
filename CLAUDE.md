@@ -390,14 +390,23 @@ component into `#hero-mount` on the homepage. Details:
   holds the component at `visibility: hidden` until that link fires `load`, and a link the
   browser already finished loading never fires it again - the hero would be invisible
   forever. Use `<link rel="preload">` without the attribute if warming is ever needed.
-- **Known a11y gap**: nodes are pointer-only (click listener, no `tabindex`, no key handler).
-  The SVG's `aria-label` was rewritten to describe the diagram instead of instructing a click,
-  and the pointer instruction moved to a visible `.exhibit-directions` line that JS unhides only
-  on successful mount (it was `.hero-mount-hint` below the diagram until 2026-08-07 - see the
-  exhibit-intro block in the exhibit-list section). Named fix if it ever matters: `tabindex="0"` + `role="button"` +
-  `aria-pressed` + a keydown handler in the renderer, plus a `:focus-visible` style in
-  `topology.css`. Do NOT add `aria-live` to the status bar - with gremlin running it would
-  announce a change every few seconds.
+- **Keyboard support for nodes: CLOSED FOR CONSIDERATION 2026-08-08, will not be built.**
+  Nodes are pointer-only (click listener, no `tabindex`, no key handler) and this is a
+  deliberate decision, not an oversight. The SVG's `aria-label` was rewritten to describe the
+  diagram instead of instructing a click, and the pointer instruction moved to a visible
+  `.exhibit-directions` line that JS unhides only on successful mount (it was
+  `.hero-mount-hint` below the diagram until 2026-08-07 - see the exhibit-intro block in the
+  exhibit-list section). Reasoning: this site's audience is friends, family, and hiring
+  managers/recruiters, essentially none of whom are keyboard-only users; nothing on the page
+  is available *solely* through clicking a node (the diagram, captions, and status bar already
+  communicate its point without interaction); and the one plausible payoff - a technical
+  reviewer running an automated scanner - doesn't actually materialize, because the exhibit is
+  mounted only after the collapsed `<details>` is expanded, so a default Lighthouse/axe crawl
+  never even reaches the nodes, and WCAG 2.1.1 keyboard operability is not reliably
+  automatable in the first place (no ARIA role announces these as interactive). Do NOT add
+  `aria-live` to the status bar regardless - with gremlin running it would announce a change
+  every few seconds. **Do not resurface this as an open item unless the user explicitly
+  reopens it.**
 
 **Mobile treatment DECIDED (2026-08-05): portrait layouts for all three tiers.**
 This unblocks Phase 2b. The reasoning, because it is not obvious from the code:
@@ -1220,7 +1229,16 @@ Running list of things noticed or deferred, not yet acted on. Add to this list a
   (2026-08-06)** - this item is fully closed. Note for any future icon change: the tab itself
   cannot be screenshotted headlessly, and browsers plus the Pages CDN cache favicons hard, so
   re-check in a private window rather than assuming a stale icon means something is broken.
-- Known a11y gap, logged not fixed: topology nodes are pointer-only (no `tabindex`, no key handler), so the click-to-break interaction is unavailable to keyboard users. Defensible today because it is a non-essential enhancement and nothing on the page is available *solely* through it. Named fix is in the "Homepage build" section. **The gremlin toggle is now the one keyboard-operable control in the hero**, which slightly raises the floor but does not close this.
+- ~~Known a11y gap: topology nodes are pointer-only, no keyboard support~~ **CLOSED FOR
+  CONSIDERATION 2026-08-08 - user decision, will not be built, do not resurface.** Weighed and
+  rejected: the site's audience (friends, family, hiring managers/recruiters) is essentially
+  never keyboard-only; nothing on the page is available *solely* through clicking a node; and
+  the one plausible payoff - a reviewer's automated scanner catching it - doesn't hold up,
+  since the exhibit only mounts after the visitor expands the collapsed disclosure (a default
+  Lighthouse/axe crawl never reaches the nodes) and WCAG 2.1.1 keyboard operability isn't
+  reliably automatable regardless. See the "Known a11y gap" bullet under Phase 2a in
+  "Homepage build" for the full reasoning. The gremlin toggle remains the one keyboard-operable
+  control in the hero; that does not change with this decision.
 - **Verification status of the hero work - everything shipping is now user-confirmed live.** Confirmed in a real browser: the stacked layout at desktop and at a ~492px window, the packet-reroute fix (the user reported the asymmetric-disturbance bug from the live site and confirmed the fix resolved it), and **the gremlin toggle (confirmed 2026-08-07, working as expected)**. The only unwatched piece is the pinned scroll sequence, and that is **dormant rather than open**: `HERO_PINNED_SEQUENCE` is off permanently, so nothing renders it: re-verify only if the flag is ever flipped back on. **The user works over RDP much of the time and will not change RDP animation settings, so any `prefers-reduced-motion` behavior has to be checked from their console session**; they also cannot reach `localhost` from their phone, so mobile verification happens against the deployed site. **Useful consequence of the packets toggle (2026-08-07): the reduced-motion machine is no longer a dead end for checking MOTION.** Toggling packets on there overrides the preference for the dots, so packet animation can now be confirmed by the user without touching any OS or RDP setting - which is exactly how the reduced-motion override got verified end to end. That only covers the packet dots, though; **both dash marches (sync links and, as of 2026-08-07, standby site links) and the badge pop** have no such override by design, so those need a motion-allowed session. The standby site-link march was confirmed that way on 2026-08-07, which shows the console session is a workable route when something genuinely cannot be checked any other way.
 - ~~Spec-literal behavior worth confirming: cluster-B firewalls lighting as transit in bridge mode and the shared mesh~~ **RESOLVED 2026-08-07 - confirmed as intended, do not re-file.** The user chose to keep the engine model and make the labeling state it: the large tier is a clustered, ECMP-routed design, so both clusters carrying traffic is correct at that scale. Medium remains an active/backup pair with the backup's links dark. Firewall sub-labels now read `cluster A` / `cluster B`, and the captions name VRRP, ECMP and clustering outright. Full reasoning, including why active/standby is still the enterprise default for a *pair*, is in the redundancy-model note in the Architecture section.
 - ~~Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation)~~ **CLOSED, NOT BUILT - user decision 2026-08-08: no longer in consideration.** This was on the open list since the prototype phase as a deferred idea; the user has now decided against it outright rather than continuing to defer it. Nothing was ever built, so there is no code to keep. Do not resurface this in future TODO scans. See the failover-timing ruling under "Design rulings" for the (now historical) reasoning it was weighed against.
