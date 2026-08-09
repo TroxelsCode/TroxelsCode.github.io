@@ -480,21 +480,27 @@ Decided up front so the prototype does not drift into something that has to be r
 - **A down node dims** rather than disappearing, following the topology component's
   `is-unreachable` treatment, so the field's composition stays stable through an outage.
 
-## Placeholder copy
+## Copy (FINALIZED 2026-08-09)
 
-**All of this is PLACEHOLDER, written so prototyping is not blocked on wordsmithing.**
-The user will revise once there is something on screen to react to. Mark each of these at
-its definition site with a comment saying so, the way the topology exhibit's draft copy was
-marked, and strike this section when the copy is finalized.
+**No longer placeholder.** The user reviewed every string after watching the exhibit run and
+approved or revised each one; the "PLACEHOLDER COPY" comments at the definition sites were
+removed in the same pass. What follows is the approved text, kept here so a future edit can
+see what was deliberate.
 
-Note the shell invariant this has to satisfy: the summary is the **only** thing a visitor
-who never expands the row will read, so it must carry the claim in words rather than label
-a control.
+Note the shell invariant the summary has to satisfy: it is the **only** thing a visitor who
+never expands the row will read, so it must carry the claim in words rather than label a
+control.
 
-**Disclosure summary:**
+**Disclosure summary** (revised - the draft was "Watch a botnet hunt for something to knock
+over"):
 
-> Watch a botnet hunt for something to knock over. Three networks, three defenses, and only
-> one of them is still standing.
+> Watch a botnet search for weaknesses in your network
+
+The second person is the point. It is the one line that puts the visitor inside the
+scenario rather than describing a demo, and it doubles as the call to action on a collapsed
+row. A drafted second sentence ("Three networks, three defenses, and only one of them is
+still standing") was dropped - the shorter line lands harder, and the description below it
+already does the enumerating.
 
 **Exhibit description** (always renders, including with no JS - this is the only account of
 the exhibit a visitor gets when the module never loads):
@@ -502,14 +508,65 @@ the exhibit a visitor gets when the module never loads):
 > A botnet does not know where you are. It wanders until something answers, then it piles
 > on, and the machines it finds first go down hardest. Three networks face the identical
 > swarm here: one with no defense at all, one that pushes attackers back, and one that
-> holds them until they give up. Nothing about the attack changes between them. The only
-> variable is what the network does when it arrives.
+> holds them inert until they give up. Nothing about the attack changes between them. The
+> only variable is what the network does when the swarm arrives.
 
 **Tier captions:**
 
-- Tier 1: `No defense. The swarm fills every connection slot it can reach, and the node stops answering. It comes back, and then it happens again.`
-- Tier 2: `Rate limiting. Traffic past the threshold gets pushed away, which buys time but removes nothing. The same attackers are still out there, still looking, and the next wave lands before the defense can fire again.`
-- Tier 3: `Rate limiting and tarpitting together. Suspect connections get held open until they time out, so attackers leave the board for good instead of moving on to the next target. This is the only tier where the swarm gets smaller.`
+- Tier 1: `No defense. The swarm fills every connection slot it can reach, and the node goes down. The node comes back, and so does the swarm.`
+- Tier 2: `Rate limiting. Traffic past the threshold gets delayed and pushed away, which buys time but removes nothing. The same attackers are still out there, still looking, and the next wave lands before the defense can fire again.`
+- Tier 3: `Rate limiting and tarpitting together. A tarpit does not push a suspect connection away; it captures it, holding it open and inert until it times out. On the other two tiers the only thing that ever clears a connection is the server going down, which is why the stopped count moves here and nowhere else.`
+
+**Tier 3's caption was FACTUALLY WRONG in an earlier draft and the correction is worth
+keeping.** It ended "attackers leave the board for good instead of moving on to the next
+target, and this is the only tier where the swarm gets smaller." Both halves failed against
+the engine, and the user caught both by watching it run:
+
+- **A boid is a connection, not a bot.** `runTarpit` removes one boid and pushes one entry
+  onto `node.held`; the machine that opened it is still out there. Nothing "leaves the board
+  for good".
+- **Tier 3 does not have the smallest swarm, tier 1 does.** Spawning refills continuously
+  against `populationCeiling`, and the spawn rate *rises* as population falls, so no tier
+  shrinks over time. Measured live population at 800s over 3 seeds: unprotected 69, rate
+  limited 106, layered 85. The unprotected tier carries the smallest swarm precisely because
+  it keeps detonating and taking its attackers with it, which is the opposite of the point
+  the sentence was trying to make.
+
+The replacement makes the narrow claim that is actually true and actually visible:
+`runRepulsion` never removes a boid, and overwhelm (the node dying) is the only other
+removal path in the exhibit, so **the tarpit is the only mechanism that clears a connection
+while the server is still standing**. That is also why the scoreboard's `stopped` column is
+permanently 0 on tiers 1 and 2 and only ever moves on tier 3 - the caption now points the
+visitor at a number they can watch.
+
+**General lesson, alongside the two live-page bugs below: a caption that summarizes
+simulation behavior is an assertion about the engine and has to be checked against it.**
+`_tests/swarm-analysis.html` answers this class of question in one headless run.
+
+**The captions carry a deliberate vocabulary split: tier 2 DELAYS and pushes, tier 3
+CAPTURES.** This is the user's ruling (2026-08-09) and it is the exhibit's argument
+compressed into verbs. Delay is the honest word for rate limiting - a 429 with a retry hint
+literally tells the client to come back later - and the attacker duly comes back. A tarpit
+is not a longer delay; it is a different category of answer, which is why tier 3's caption
+says outright that it does **not** push. Do not let "delay" leak into tier 3 or "capture"
+into tier 2. The two tiers differ by exactly one defense, so their words have to differ
+cleanly or the comparison stops reading.
+
+*(An earlier draft had tier 2 merely "pushed away" and tier 3 "held open until they time
+out". That was raised as blurring the two, and the user's fix went the other way from the
+one proposed: keep delay where it is technically correct, and sharpen tier 3 into capture
+instead. Recorded because the reasoning is not recoverable from the strings.)*
+
+**"inert" is load-bearing and appears twice on purpose**, in the description and in tier 3's
+caption. It is the state a captured connection is left in. If either instance is ever
+reworded, reword both.
+
+**Tier 1 avoids "it" after the first sentence, deliberately.** The draft read "the node
+stops answering. It comes back, and then it happens again", where "it" pointed at the node,
+then at the outage, in consecutive clauses. Naming the node and the swarm outright is
+clumsier to read aloud and much clearer to parse. It also now says the node **goes down**
+rather than "becomes overwhelmed", so the caption uses the same words the visitor can see
+on screen (`OFFLINE` on the node, `outages` on the scoreboard) rather than a third one.
 
 **Play/pause toggle**, label swapping between:
 
@@ -575,11 +632,14 @@ attackers accumulating (population ~107 against tier 1's ~61), not resynchronize
 Nothing here is blocking and nothing is broken. This is the list of what "baseline" leaves
 open, roughly in the order it is likely to matter.
 
-1. **All copy is placeholder** and marked as such at every definition site: the disclosure
-   summary and exhibit description in `index.html`, the three tier captions and the
-   play/pause labels in `js/swarm.js`, the toggle note and the fallback text. The summary
-   is the load-bearing one - on a phone it is the only thing a visitor who never expands
-   will read.
+1. ~~All copy is placeholder~~ **DONE 2026-08-09.** Every string was reviewed by the user
+   and is now final: the disclosure summary and exhibit description in `index.html`, the
+   three tier captions and the play/pause labels in `js/swarm.js`, the toggle note and the
+   fallback text. Four changed, the rest were approved as drafted. See the Copy section
+   above for the approved text and for the two decisions worth preserving ("inert" appearing
+   twice on purpose, and tier 1 avoiding a chain of pronouns). The scoreboard labels
+   (`held` / `stopped` / `outages`), the online/offline status text and the canvas
+   `aria-label` were reviewed in the same pass and approved unchanged.
 2. **Tier 3's srv2 still lags** its neighbours (3.7 outages against 10.3 and 9.0 over
    800s). Much better than the 0.7 it started at, but the middle position still costs it
    something at low attack volume. May not be worth fixing.

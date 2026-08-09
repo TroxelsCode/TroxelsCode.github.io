@@ -28,25 +28,49 @@ import { TIERS } from '../swarm/tiers/tiers.js';
 const TIER_ORDER = ['unprotected', 'ratelimited', 'layered'];
 
 /*
- * PLACEHOLDER COPY (2026-08-09). Workshop these once the exhibit can be
- * watched running - they are written blind against the simulation's
- * measured behavior, not against how it feels to look at.
- *
  * Each caption is a judgment on the design, not a description of the
  * picture, following the topology captions' precedent.
+ *
+ * The three captions carry ONE deliberate vocabulary split, and it is
+ * the whole argument of the exhibit compressed into verbs. Tier 2
+ * DELAYS and pushes: that is what a 429 with a retry hint actually
+ * does, and the attacker comes back. Tier 3 CAPTURES: a tarpit is not
+ * a longer delay, it is a different category of answer, which is why
+ * tier 3's caption says outright that it does not push. Do not let
+ * "delay" leak into tier 3 or "capture" into tier 2 - the two tiers
+ * differ by exactly one defense, so the words have to differ cleanly
+ * or the comparison stops reading.
+ *
+ * "inert" appears here and in the exhibit description in index.html on
+ * purpose, for the same reason: it is the state a captured connection
+ * is left in, and both places that name the tarpit use the same word.
+ *
+ * Tier 3 talks about CONNECTIONS, not attackers, and the claim it makes
+ * is deliberately narrow. A tarpit removes one boid and parks one entry
+ * in node.held; the bot that opened it is still out there. It also does
+ * NOT shrink the swarm - spawning refills against a ceiling, and over
+ * 800 simulated seconds the layered tier carries a LARGER live
+ * population than the unprotected one (85 against 69), because tier 1
+ * sheds attackers by detonating. An earlier draft claimed tier 3 was
+ * "the only tier where the swarm gets smaller", which is false and
+ * names the wrong tier. What IS unique to tier 3: runRepulsion never
+ * removes a boid, so on the other two tiers the only way a connection
+ * ever clears is the node dying. That is also why the scoreboard's
+ * "stopped" column sits at 0 forever on tiers 1 and 2.
  */
 const CAPTIONS = {
   unprotected:
-    'No defense. The swarm fills every connection slot it can reach, and the node stops ' +
-    'answering. It comes back, and then it happens again.',
+    'No defense. The swarm fills every connection slot it can reach, and the node goes down. ' +
+    'The node comes back, and so does the swarm.',
   ratelimited:
-    'Rate limiting. Traffic past the threshold gets pushed away, which buys time but removes ' +
-    'nothing. The same attackers are still out there, still looking, and the next wave lands ' +
-    'before the defense can fire again.',
+    'Rate limiting. Traffic past the threshold gets delayed and pushed away, which buys time ' +
+    'but removes nothing. The same attackers are still out there, still looking, and the next ' +
+    'wave lands before the defense can fire again.',
   layered:
-    'Rate limiting and tarpitting together. Suspect connections get held open until they time ' +
-    'out, so attackers leave the board for good instead of moving on to the next target. This ' +
-    'is the only tier where the swarm gets smaller.'
+    'Rate limiting and tarpitting together. A tarpit does not push a suspect connection away; ' +
+    'it captures it, holding it open and inert until it times out. On the other two tiers the ' +
+    'only thing that ever clears a connection is the server going down, which is why the ' +
+    'stopped count moves here and nowhere else.'
 };
 
 const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
