@@ -148,6 +148,74 @@
           </div>
         </div>
       </details>
+
+      <!-- Exhibit #2: the botnet swarm. Second row of the exhibit list, and
+           the first one built against that direction rather than
+           retrofitted into it (see CLAUDE.md). It reuses the topology
+           exhibit's shell classes verbatim - .hero-disclosure,
+           .hero-disclosure-summary, .hero-controls - because those ARE the
+           shared shell, just not renamed yet. The generic
+           .exhibit-disclosure class carries only what is specific to being
+           a row in a list: closing the gap to the row above. Do NOT rename
+           the hero-* names to match; that is churn with no visible benefit
+           and js/hero.js genuinely is the topology host.
+
+           Ships OPEN and js/swarm.js collapses it, never the reverse -
+           shipping closed would strand a no-JS visitor at a control that
+           does nothing. -->
+      <details id="swarm-disclosure" class="hero-disclosure exhibit-disclosure" open>
+        <!-- PLACEHOLDER COPY (2026-08-09), workshop once it can be seen
+             running. Same load-bearing role as the topology summary: this
+             is the only thing a visitor who never expands will read. -->
+        <summary class="hero-disclosure-summary">Watch a botnet hunt for something to knock over</summary>
+        <div class="exhibit-intro">
+          <!-- PLACEHOLDER COPY. Always renders, including with no JS - it is
+               the only account of the exhibit a visitor gets if the module
+               never loads. -->
+          <p class="exhibit-description">A botnet does not know where you are. It wanders until
+            something answers, then it piles on, and the machines it finds first go down hardest.
+            Three networks face the identical swarm here: one with no defense at all, one that
+            pushes attackers back, and one that holds them until they give up. Nothing about the
+            attack changes between them. The only variable is what the network does when the swarm
+            arrives.</p>
+          <!-- Deliberately NO .exhibit-directions paragraph. That half of the
+               intro block describes an interaction, and this exhibit is
+               observational - there is nothing to click. Interactivity was
+               benched by the user on 2026-08-08; if it is ever built, the
+               directions paragraph comes back with it. Filling it with
+               filler copy now would be worse than its absence. -->
+        </div>
+        <!-- Ships hidden, unhidden by js/swarm.js on a successful mount, so
+             a control that cannot do anything is never shown and a no-JS
+             visitor never sees it. The markup state below is only a guess
+             for the common case (motion allowed); js/swarm.js derives the
+             real initial state from prefers-reduced-motion and repaints the
+             label before this block is ever unhidden. -->
+        <div class="hero-controls" id="swarm-controls" hidden>
+          <div class="hero-toggle-row">
+            <button type="button" id="swarm-playback" class="hero-toggle" aria-pressed="true">
+              <span class="hero-toggle-dot" aria-hidden="true"></span>
+              <span class="hero-toggle-label">Simulation playing</span>
+            </button>
+          </div>
+          <p class="hero-toggle-note">The swarm runs continuously and never resolves, because the
+            attack never stops. It starts paused if your system asks for reduced motion.</p>
+        </div>
+        <div class="swarm-stack" id="swarm-mount">
+          <div class="swarm-layer" data-tier="unprotected"></div>
+          <div class="swarm-layer" data-tier="ratelimited"></div>
+          <div class="swarm-layer" data-tier="layered"></div>
+          <!-- A real element, not <noscript>: <noscript> covers scripting
+               being disabled and nothing else, so a 404'd module, a blocked
+               script or a parse error would leave an empty box. Removed by
+               js/swarm.js only after ALL THREE tiers mount. -->
+          <div class="swarm-mount-fallback">
+            <p>A swarm simulation belongs here: a botnet wandering a field of servers, piling
+              onto whatever answers, against three networks with three different defenses. It
+              needs JavaScript to run.</p>
+          </div>
+        </div>
+      </details>
     </section>
 
     <section class="stats" aria-label="Key figures">
@@ -204,5 +272,10 @@
        script so the footer email still renders over file:// and without the
        deferred-execution flash. See the header comment in js/hero.js. -->
   <script type="module" src="js/hero.js"></script>
+  <!-- A third independent failure domain, for the same reason hero.js is
+       separate from main.js: a throw while building the swarm must not take
+       the topology exhibit down with it, and vice versa. Each exhibit owns
+       its own module and its own fallback. -->
+  <script type="module" src="js/swarm.js"></script>
 </body>
 </html>
