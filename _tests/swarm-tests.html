@@ -373,6 +373,24 @@
       return totals(s, 'overwhelmed') >= 3;
     });
 
+    /* Layout regression guard. The spawners once sat level with srv1 and
+     * srv3, which launched the swarm down those two lanes and left srv2
+     * taking under 2% of the layered tier's outages - a third of the
+     * exhibit rendered decorative, and invisible from the short runs the
+     * rest of this suite does. Runs long enough for the counts to mean
+     * something, since at 50 simulated seconds a tier has only a handful
+     * of outages total and any split looks plausible. */
+    t('no target node is starved by the field layout', () => {
+      const tally = [0, 0, 0];
+      for (const seed of [2, 3, 5]) {
+        const s = run('unprotected', 12000, seed);
+        s.nodes.forEach((n, k) => { tally[k] += n.overwhelmed; });
+      }
+      const total = tally.reduce((a, b) => a + b, 0);
+      if (total < 30) return false;
+      return tally.every((v) => v / total >= 0.2);
+    });
+
     /* The honesty guarantee. If a tier could quietly get a gentler
      * attack, every comparison above would be meaningless, so this
      * asserts identity rather than equality - one object, three

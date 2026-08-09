@@ -86,6 +86,26 @@ function boot() {
   let playing = !prefersReducedMotion();
   let playingChosen = false;
 
+  /*
+   * Whether the exhibit as a WHOLE is on screen. This is the only
+   * visibility gate in the exhibit, and it deliberately lives here
+   * rather than inside each renderer instance.
+   *
+   * The renderer used to gate itself, per tier. That quietly broke the
+   * exhibit's entire claim: the scoreboard totals are cumulative and are
+   * meant to be compared across tiers, but a per-tier gate means each
+   * tier only accrues simulation time while it personally happens to be
+   * in the viewport. Parking the page mid-exhibit ran the middle tier
+   * for minutes while the outer two were frozen, and the totals then
+   * said rate limiting was four times worse than no defense at all -
+   * which 800 simulated seconds flatly contradict.
+   *
+   * Gating all three together means they always share one clock, so the
+   * numbers are comparing defenses rather than screen time. Off-screen
+   * still costs nothing, which was the original point.
+   */
+  let onScreen = true;
+
   function paintButton() {
     button.setAttribute('aria-pressed', playing ? 'true' : 'false');
     const label = button.querySelector('.hero-toggle-label');
@@ -100,9 +120,26 @@ function boot() {
    */
   function syncPlayback() {
     if (!instances) return;
+    const run = playing && onScreen;
     for (const inst of instances) {
-      if (playing) inst.play();
+      if (run) inst.play();
       else inst.pause();
+    }
+  }
+
+  /* Feature-detected and wrapped, degrading to always-on rather than to
+   * a permanently paused exhibit - failing closed here would be worse
+   * than the cost it saves. */
+  function watchVisibility() {
+    try {
+      if (typeof IntersectionObserver !== 'function') return;
+      const io = new IntersectionObserver((entries) => {
+        for (const entry of entries) onScreen = entry.isIntersecting;
+        syncPlayback();
+      }, { threshold: 0 });
+      io.observe(mount);
+    } catch (e) {
+      onScreen = true;
     }
   }
 
@@ -135,6 +172,7 @@ function boot() {
     if (fallback) fallback.remove();
     controls.hidden = false;
     paintButton();
+    watchVisibility();
     syncPlayback();
   }
 

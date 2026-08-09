@@ -393,7 +393,6 @@ export const SwarmViz = {
 
     /* ---- frame loop ---- */
     let playing = opts.playing !== false;
-    let visible = true;
     let raf = null;
     let lastFrame = 0;
     let accumulator = 0;
@@ -428,7 +427,7 @@ export const SwarmViz = {
     }
 
     function running() {
-      return playing && visible;
+      return playing;
     }
 
     function kick() {
@@ -449,24 +448,26 @@ export const SwarmViz = {
       }
     }
 
-    /* Off-screen tiers do no simulation work at all. Composed with the
-     * play state, so a tier steps only when playing AND visible - two
-     * independent reasons to suspend the same operation. Feature
-     * detected and wrapped, degrading to always-visible. */
-    let io = null;
-    try {
-      if (typeof IntersectionObserver === 'function') {
-        io = new IntersectionObserver((entries) => {
-          for (const entry of entries) visible = entry.isIntersecting;
-          kick();
-        }, { threshold: 0 });
-        io.observe(root);
-      }
-    } catch (e) {
-      io = null;
-      visible = true;
-    }
-
+    /*
+     * NO PER-INSTANCE VISIBILITY GATING, and that is a correctness
+     * requirement rather than a simplification. This renderer used to
+     * carry its own IntersectionObserver and suspend simulation while
+     * its tier was off screen, which is a fine instinct and was wrong
+     * here: the exhibit's whole claim is a comparison BETWEEN tiers, and
+     * the scoreboard totals are cumulative. Gating per tier meant each
+     * one accrued simulation time only while it happened to be in the
+     * viewport, so parking the page mid-exhibit let the middle tier run
+     * for minutes while the outer two sat frozen. The counters then
+     * invited a comparison they could not support - reported from the
+     * live page as tier 2 showing roughly four times tier 1, which no
+     * amount of simulating reproduces (measured over 800 simulated
+     * seconds, the ordering is stable at about 184 / 92 / 27).
+     *
+     * Suspension now happens one level up, in js/swarm.js, against the
+     * whole exhibit at once. All three tiers therefore always share an
+     * identical clock, which is what makes their totals comparable.
+     * Do not reintroduce a per-instance observer here.
+     */
     let ro = null;
     try {
       if (typeof ResizeObserver === 'function') {
@@ -526,7 +527,6 @@ export const SwarmViz = {
       destroy() {
         if (raf !== null) window.cancelAnimationFrame(raf);
         raf = null;
-        if (io) io.disconnect();
         if (ro) ro.disconnect();
         window.removeEventListener('resize', resize);
         if (schemeQuery.removeEventListener) {

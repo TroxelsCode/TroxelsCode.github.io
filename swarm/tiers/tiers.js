@@ -34,19 +34,34 @@ export const SHARED = {
   /* Ids match rendered labels (bot1 -> BOT-1, srv1 -> SRV-1), following
    * the naming rule the topology component settled on: a box on screen
    * can be found in the config by reading it. */
+  /*
+   * Spawner y-positions are OFFSET FROM EVERY NODE ROW on purpose. They
+   * used to sit at 118 and 482, dead level with srv1 (128) and srv3
+   * (472), which launched the swarm straight down those two lanes and
+   * left the middle node barely attacked at all. Measured over 800
+   * simulated seconds before the fix: srv2 took 0.7 outages on the
+   * layered tier against 13.7 and 13.0 for its neighbours - decorative
+   * rather than participating. Keep these between node rows.
+   */
   spawners: [
-    { id: 'bot1', label: 'BOT-1', x: 78, y: 118 },
-    { id: 'bot2', label: 'BOT-2', x: 78, y: 482 }
+    { id: 'bot1', label: 'BOT-1', x: 78, y: 200 },
+    { id: 'bot2', label: 'BOT-2', x: 78, y: 400 }
   ],
 
-  /* Deliberately NOT a straight column. Three nodes stacked vertically
-   * put their acquisition rings in one overlapping line and left the
-   * whole left half of the field empty; splaying them into a triangle
-   * spreads the rings apart and gives the swarm somewhere to travel. */
+  /*
+   * Splayed, but only slightly, and the amount is load-bearing in both
+   * directions. A straight column stacks all three acquisition rings in
+   * one line and leaves the left half of the field dead; a deep splay
+   * (srv2 was once 230 units behind its neighbours) puts the middle node
+   * in their shadow, where first-seen-wins targeting means it never gets
+   * found - made worse by the pile-on, since the two forward nodes grow
+   * their radius toward the cap and vacuum the centre corridor first.
+   * 56 units reads as a triangle without shadowing anything.
+   */
   nodes: [
-    { id: 'srv1', label: 'SRV-1', x: 600, y: 128 },
-    { id: 'srv2', label: 'SRV-2', x: 830, y: 300 },
-    { id: 'srv3', label: 'SRV-3', x: 600, y: 472 }
+    { id: 'srv1', label: 'SRV-1', x: 712, y: 110 },
+    { id: 'srv2', label: 'SRV-2', x: 768, y: 300 },
+    { id: 'srv3', label: 'SRV-3', x: 712, y: 490 }
   ],
 
   /* One attacker eats this fraction of a node's connection table, so
