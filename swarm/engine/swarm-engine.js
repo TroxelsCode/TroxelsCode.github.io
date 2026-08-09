@@ -62,15 +62,22 @@ function randRange(rng, min, max) {
 export const SHARED = {
   field: { w: 1000, h: 600 },
 
+  /* Ids match rendered labels (bot1 -> BOT-1, srv1 -> SRV-1), following
+   * the naming rule the topology component settled on: a box on screen
+   * can be found in the config by reading it. */
   spawners: [
-    { id: 'src1', x: 70, y: 140 },
-    { id: 'src2', x: 70, y: 460 }
+    { id: 'bot1', label: 'BOT-1', x: 78, y: 118 },
+    { id: 'bot2', label: 'BOT-2', x: 78, y: 482 }
   ],
 
+  /* Deliberately NOT a straight column. Three nodes stacked vertically
+   * put their acquisition rings in one overlapping line and left the
+   * whole left half of the field empty; splaying them into a triangle
+   * spreads the rings apart and gives the swarm somewhere to travel. */
   nodes: [
-    { id: 'node1', x: 720, y: 130 },
-    { id: 'node2', x: 720, y: 300 },
-    { id: 'node3', x: 720, y: 470 }
+    { id: 'srv1', label: 'SRV-1', x: 600, y: 128 },
+    { id: 'srv2', label: 'SRV-2', x: 830, y: 300 },
+    { id: 'srv3', label: 'SRV-3', x: 600, y: 472 }
   ],
 
   /* One attacker eats this fraction of a node's connection table, so
@@ -83,18 +90,24 @@ export const SHARED = {
 
   spawn: {
     /* Boids per second when the field is completely empty. */
-    baseRate: 9,
+    baseRate: 21,
     /* Exponential falloff against population pressure. rate =
-     * baseRate * exp(-decayK * population / ceiling), so at the ceiling
-     * the rate has fallen to roughly half a percent of base. There is no
-     * clock anywhere in this: what looks like a wave is the feedback
-     * loop of destruction releasing pressure and spawning responding. */
-    decayK: 5.2
+     * baseRate * exp(-decayK * population / ceiling). There is no clock
+     * anywhere in this: what looks like a wave is the feedback loop of
+     * destruction releasing pressure and spawning responding.
+     *
+     * These two numbers set DENSITY, which turned out to matter more
+     * than expected: the first pass equilibrated near 45 boids on a
+     * 1000x600 field and read as scattered individuals rather than a
+     * swarm, which undercuts the whole point of the exhibit. Equilibrium
+     * is where this curve crosses the removal rate, so raising base and
+     * flattening the decay both push it up. */
+    decayK: 3.4
   },
 
   acquisition: {
     /* Radius at which an undisturbed node is noticed. */
-    baseRadius: 95,
+    baseRadius: 76,
     /* Pile-on. The radius grows with the number of boids already
      * attacking, so a node under attack becomes visible from further
      * away, the way a coordinated botnet would concentrate. Growth is
@@ -102,17 +115,21 @@ export const SHARED = {
      * into one node swallowing the whole field before the pile-on has
      * time to read as drama. It is self-limiting regardless, because a
      * popular target eventually hits capacity and dies. */
-    growth: 34,
-    maxRadius: 260
+    growth: 27,
+    maxRadius: 178
   },
 
   flock: {
-    perception: 70,
+    /* Perception and cohesion are deliberately modest. Classic boids
+     * weights collapse the whole population into one dense knot, which
+     * looks like a flock of birds rather than an untargeted scan; the
+     * swarm needs to spread across the field and stumble onto things. */
+    perception: 58,
     separation: 22,
     weightSeparation: 1.7,
-    weightAlignment: 0.9,
-    weightCohesion: 0.7,
-    weightWander: 0.55,
+    weightAlignment: 0.75,
+    weightCohesion: 0.32,
+    weightWander: 0.85,
     weightSeek: 2.4,
     /* Soft steer-away from the field edges. Wrapping was rejected: a
      * boid teleporting across a visible canvas edge reads as a glitch. */
@@ -150,6 +167,11 @@ export const TIERS = [
     id: 'layered',
     label: 'Rate limiting and tarpitting',
     defense: {
+      /* IDENTICAL to tier 2's repulsion, deliberately. Keeping it
+       * byte-for-byte the same makes tier 3 exactly "tier 2 plus a
+       * tarpit", so any difference a visitor sees between them is
+       * attributable to the tarpit alone. Do not tune this block
+       * separately from tier 2 - tune the tarpit instead. */
       repulsion: { threshold: 0.55, cooldown: 4.5, impulse: 190 },
       /* dwell: the identification window. A boid is a normal attacker
        * costing real capacity for this long before being pulled. It is
@@ -157,7 +179,7 @@ export const TIERS = [
        * zero, which is both boring and dishonest.
        * hold: how long a captured slot is retained before the connection
        * gives up and converts to neutralized. */
-      tarpit: { dwell: 1.5, hold: 7 }
+      tarpit: { dwell: 1.15, hold: 7 }
     }
   }
 ];

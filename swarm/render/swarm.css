@@ -1,0 +1,176 @@
+/*
+ * swarm.css
+ *
+ * Every visual value the botnet swarm exhibit uses is a --swarm-* custom
+ * property declared here, with light defaults and a
+ * prefers-color-scheme: dark override block. A host retheme is a matter
+ * of overriding properties; it never touches component internals.
+ *
+ * The twist versus topology.css: most of these tokens are consumed by
+ * CANVAS drawing code, which cannot read custom properties directly.
+ * swarm-render.js reads them off the component root with
+ * getComputedStyle at mount and re-reads them when the color scheme
+ * changes. The tokens still live here, so the contract holds; only the
+ * delivery differs. Do not move any of these values into JS.
+ *
+ * ONE RULE THAT IS NOT NEGOTIABLE: the hostile swarm is PURPLE, never
+ * red-devil imagery. This matches the gremlin badge in the topology
+ * component, which is deliberately a purple imp rather than a red devil.
+ * A field of malicious agents is an easy place to drift into demonic
+ * visual language. Red is reserved for node status here, and appears
+ * nowhere on the attackers.
+ */
+
+.swarm-viz {
+  --swarm-field-bg: #f4f4f2;
+  --swarm-field-border: #dcdcd6;
+  --swarm-text: #1c1c1a;
+  --swarm-muted: #76756f;
+
+  /* The botnet. Purple, mechanical, impersonal. */
+  --swarm-hostile: #7c3fbf;
+  --swarm-hostile-locked: #6a26b0;
+
+  --swarm-node-fill: #ffffff;
+  --swarm-node-border: #b6b5ad;
+  --swarm-node-text: #1c1c1a;
+
+  /* Status semantics deliberately match the topology component so the
+   * two exhibits read as one system. */
+  --swarm-ok: #1aa674;
+  --swarm-warn: #c48704;
+  --swarm-down: #c0392f;
+
+  --swarm-spawner: #8a8a82;
+  /* Stroked, not filled - see the note in swarm-render.js. */
+  --swarm-radius-ring: rgba(124, 63, 191, 0.42);
+  --swarm-repulse-ring: #1aa674;
+
+  display: block;
+  width: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  .swarm-viz {
+    --swarm-field-bg: #17171a;
+    --swarm-field-border: #2e2e33;
+    --swarm-text: #e8e8e3;
+    --swarm-muted: #9a998f;
+
+    --swarm-hostile: #a97bea;
+    --swarm-hostile-locked: #c39cf5;
+
+    --swarm-node-fill: #232329;
+    --swarm-node-border: #4a4a52;
+    --swarm-node-text: #e8e8e3;
+
+    --swarm-ok: #21c489;
+    --swarm-warn: #fab219;
+    --swarm-down: #e05a4e;
+
+    --swarm-spawner: #6e6e78;
+    --swarm-radius-ring: rgba(169, 123, 234, 0.45);
+    --swarm-repulse-ring: #21c489;
+  }
+}
+
+/* ---- scoreboard ----
+ *
+ * Off-field by design. The canvas carries only spawners, targets and
+ * boids; all text lives here, above it. This mirrors how the topology
+ * component keeps .topo-status out of its SVG, and it is also what makes
+ * the exhibit legible to assistive tech at all, since a canvas is
+ * otherwise opaque. */
+
+.swarm-scoreboard {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.swarm-score {
+  border: 1px solid var(--swarm-field-border);
+  border-radius: 4px;
+  padding: 7px 9px;
+  background: var(--swarm-field-bg);
+  min-width: 0;
+}
+
+.swarm-score-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.swarm-score-name {
+  font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--swarm-node-text);
+  letter-spacing: 0.02em;
+}
+
+.swarm-score-status {
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--swarm-ok);
+}
+
+.swarm-score[data-status="down"] .swarm-score-status {
+  color: var(--swarm-down);
+}
+
+.swarm-score-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.swarm-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.swarm-stat-value {
+  font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.95rem;
+  line-height: 1.1;
+  color: var(--swarm-node-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.swarm-stat-label {
+  font-size: 0.6rem;
+  line-height: 1.25;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--swarm-muted);
+}
+
+/* ---- field ---- */
+
+.swarm-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--swarm-field-border);
+  border-radius: 4px;
+  background: var(--swarm-field-bg);
+}
+
+/* Narrow screens: three score cards side by side stop being readable
+ * well before the canvas does, so they stack. The three stats within a
+ * card stay in a row - they are short numbers and reading them as a
+ * group is the point. */
+@media (max-width: 640px) {
+  .swarm-scoreboard {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}

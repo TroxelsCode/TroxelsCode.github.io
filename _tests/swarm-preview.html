@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swarm preview</title>
+  <style>
+    /* Dev harness for the swarm renderer. Lives under _tests/ so Jekyll's
+       EntryFilter keeps it off the live domain, same as the other pages
+       here. Kept rather than deleted (unlike the _scenario-temp.html
+       pattern) because it is the only place the renderer can be driven
+       without the whole homepage around it - the same reason
+       scroll-prototype.html is kept. */
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, sans-serif;
+      margin: 0 auto;
+      padding: 20px;
+      max-width: 900px;
+      background: #fcfcfb;
+      color: #1c1c1a;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #131316; color: #e8e8e3; }
+    }
+    h2 { font-size: 0.95rem; margin: 26px 0 4px; }
+    p.cap { margin: 0 0 10px; font-size: 0.85rem; opacity: 0.75; max-width: 62ch; }
+    button { font: inherit; padding: 5px 12px; margin-right: 8px; }
+    #bar { position: sticky; top: 0; padding: 10px 0; background: inherit; z-index: 2; }
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <button id="toggle">Pause</button>
+    <button id="reset">Reset</button>
+    <span id="readout" style="font-family: monospace; font-size: 0.8rem;"></span>
+  </div>
+  <div id="host"></div>
+
+  <script type="module">
+    import { SwarmViz } from '../swarm/render/swarm-render.js';
+    import { TIERS } from '../swarm/engine/swarm-engine.js';
+
+    const CAPTIONS = {
+      unprotected: 'No defense. The swarm fills every connection slot it can reach, and the node stops answering.',
+      ratelimited: 'Rate limiting. Traffic past the threshold gets pushed away, which buys time but removes nothing.',
+      layered: 'Rate limiting and tarpitting together. Suspect connections are held until they time out.'
+    };
+
+    const host = document.getElementById('host');
+    const instances = [];
+    for (const tier of TIERS) {
+      const h2 = document.createElement('h2');
+      h2.textContent = tier.label;
+      host.appendChild(h2);
+      const p = document.createElement('p');
+      p.className = 'cap';
+      p.textContent = CAPTIONS[tier.id];
+      host.appendChild(p);
+      const slot = document.createElement('div');
+      host.appendChild(slot);
+      instances.push(SwarmViz.mount(slot, tier, {
+        seed: 20260809,
+        playing: new URLSearchParams(location.search).get('paused') !== '1'
+      }));
+    }
+
+    const toggle = document.getElementById('toggle');
+    toggle.addEventListener('click', () => {
+      const nowPlaying = !instances[0].isPlaying();
+      for (const i of instances) nowPlaying ? i.play() : i.pause();
+      toggle.textContent = nowPlaying ? 'Pause' : 'Play';
+    });
+    document.getElementById('reset').addEventListener('click', () => {
+      for (const i of instances) i.reset();
+    });
+
+    /* Readout doubles as the headless probe surface: --dump-dom picks it
+       up, so a screenshot is not the only way to check the mount. */
+    const readout = document.getElementById('readout');
+    const report = () => {
+      readout.textContent = instances.map((i) => {
+        const s = i.state();
+        return s.tier.id + ' pop=' + s.boids.length +
+          ' cap=' + s.nodes.map((n) => capPct(n, s)).join('/');
+      }).join('  |  ');
+    };
+    const capPct = (n, s) =>
+      n.status === 'up' ? Math.round(n.attackers * s.shared.perBoidCost * 100) : 'X';
+    report();
+    setInterval(report, 400);
+    window.__swarm = { instances, report };
+  </script>
+</body>
+</html>
