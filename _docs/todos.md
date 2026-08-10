@@ -70,6 +70,15 @@ be done on hardware this environment cannot reach.
 - **Exhibit #2 (swarm): deployed and verified byte-identical**, all three `_tests/`
   pages confirmed 404 from the domain, but it has not been looked at on a real phone.
   See the mobile legibility item above.
+- **The fallbacks and their four static frames (`c71bbda`): served content confirmed,
+  appearance confirmed only headlessly.** The live `index.html` was fetched and grepped
+  after the deploy - snapshot heading, `SRV-1-A`, `Frame 3 of 3`, both `STATIC SNAPSHOT`
+  comments, both `exhibit-fallback-tiers` lists and 137 `<text>` nodes all present with no
+  JavaScript executed, and `_tests/fallback-preview.html` 404s from the domain as intended.
+  What is NOT confirmed is how any of it looks in a real browser: headless screenshots and a
+  dark-token override are all this environment can reach. Open
+  `/_tests/fallback-preview.html` from the local preview to see it properly, and note the
+  narrow-phone text size item above is the one open question worth a real look.
 
 **Standing constraints on how verification happens in this project**, both of which
 shape what can be checked and by whom:
@@ -104,7 +113,7 @@ Index only. Reasoning lives in `CLAUDE.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |
-| 2026-08-10 | (pending) | Both exhibit fallbacks rewritten as text equivalents carrying each tier's outcome, plus four static labelled SVG frames (one topology, three swarm) |
+| 2026-08-10 | `c71bbda` | Both exhibit fallbacks rewritten as text equivalents carrying each tier's outcome, plus four static labelled SVG frames (one topology, three swarm) and `_tests/fallback-preview.html` |
 | 2026-08-09 | `48f7ca4` | Swarm: light blue repulsor, per-node cooldown bars, boids drawn over node chrome |
 | 2026-08-09 | `d4cb2f7` | Exhibit documentation split out of `CLAUDE.md` into `_docs/` |
 | 2026-08-09 | `bad17b0` | Swarm spec migrated into documentation and deleted |

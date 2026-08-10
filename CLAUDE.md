@@ -107,6 +107,20 @@ Three things about this arrangement are load-bearing.
 - `gh` CLI is installed and authenticated as `TroxelsCode`.
 - Git identity for this repo is set locally (not globally) to the GitHub noreply address (`203574397+TroxelsCode@users.noreply.github.com`) so the user's real email stays out of public commit history.
 - **The `gitStatus` block in your context is a snapshot from session start, not live state.** Re-read `HEAD` and `git status` right before drawing any conclusion from them, and never commit on the strength of a status printed earlier in the turn.
+- **If the working tree was already dirty when you arrived, prove every change is yours before
+  committing** (2026-08-10). A session that did not start from a clean tree cannot tell its own
+  edits from someone else's by looking at the file list, and `git add` plus a descriptive
+  message will happily publish both. The cheap audit is to enumerate the removals and check the
+  hunk locations, since additions in files you touched are self-evident but a deletion you did
+  not make is not:
+
+  ```sh
+  git diff -U0 | grep -E "^-[^-]"
+  git diff --stat -- <docs and config paths>
+  ```
+
+  On this repo's commit `c71bbda` that produced exactly the two paragraphs being replaced, which
+  settled it in one command. A deletion you cannot account for is the signal to stop and ask.
 - **Custom domain setup gotcha (2026-08-04):** pushing a `CNAME` file to the repo root does NOT by itself register the custom domain with GitHub Pages, contrary to the usual assumption that Pages auto-detects it on push - the Pages API still showed `cname: null` after the push and merge. Had to explicitly `PUT` `repos/<owner>/<repo>/pages` with `-F cname=<domain>` via `gh api`. After that, `https_certificate.state` goes `new` -> (wait, no fixed timing - took under 10 min this time) -> `approved`; only once `approved` will `-F https_enforced=true` succeed (it 404s with "The certificate does not exist yet" before that). Check status anytime with `gh api repos/<owner>/<repo>/pages`.
 
 ## Commands
@@ -114,6 +128,14 @@ Three things about this arrangement are load-bearing.
 - **Local preview** (required; the homepage hero is an ES module and modules do not load over `file://`):
   `python -m http.server 8123` from the repo root, then open `http://localhost:8123/`.
 - **Engine tests**: open `http://localhost:8123/_tests/engine-tests.html` in a browser (or headless Edge `--dump-dom` and grep for `TESTS:`). The page title reports `TESTS: N/N PASS`.
+- **Fallback preview**: `http://localhost:8123/_tests/fallback-preview.html` shows the no-JS
+  state of BOTH exhibits without disabling JavaScript in your browser - it loads the real
+  `index.html` in a sandboxed iframe **without `allow-scripts`**, which is a true no-JS
+  render, and clones the two fallbacks out of it. It has a 320px-column toggle and a
+  **text-only view** that dumps what a non-rendering agent actually receives: the prose plus
+  every `<title>`, `<desc>` and `<text>` in reading order. It derives every string from the
+  page and keeps no copy of its own, per the one-home-per-string lesson below - if it ever
+  shows text `index.html` does not contain, that is a bug in the harness.
 - **Scenario verification workflow** (used both revision rounds): write a temporary `_tests/_scenario-temp.html` that mounts one tier and applies `?tier=<id>&down=<id,id,...>` by dispatching click events on `[data-id]` nodes, screenshot it headlessly, Read the PNG to inspect, and DELETE the temp page before committing. Faster and more reliable than describing expected states.
 - **Layout / no-JS measurement workflow** (added 2026-08-04, how the hero reservation was proven): write a temporary `_measure-temp.html` **in the repo root** that iframes the real page at a list of widths, waits, then reads `getBoundingClientRect()` off elements inside `iframe.contentDocument` and writes the numbers into `document.title` or a `<div>` for `--dump-dom` to pick up. Two things make this work:
   - Iterating widths in one page beats one headless run per width, and it sidesteps the ~492px `--window-size` floor entirely - the iframe can be 320px wide even though the browser window cannot.
@@ -121,6 +143,16 @@ Three things about this arrangement are load-bearing.
 
   Measure the reserved height against the real component's height at several widths and require a ~0 delta. DELETE the temp file before committing.
 - **Label-fit measurement workflow** (added 2026-08-07, how the `cluster A` sub-label was cleared). **SVG `<text>` neither wraps nor truncates**, so an over-long node label silently spills outside its box - never eyeball this, and never estimate it from character count. Write a temporary `_measure-temp.html` **at the repo root** (it needs to import `./topology/...`), import `tiers` / `tiersPortrait` and `TopologyViz` directly rather than going through `js/hero.js`, mount the tier into a host div of a chosen pixel width, then walk `g[data-id]` and compare `rect.getBBox().width` to `.topo-sub`'s `getBBox().width`. Both are in the same SVG user space, so they subtract directly; multiply by `svgPxWidth / viewBox.width` to convert the slack into rendered pixels. Check the portrait tiers at ~319px (the real phone width after the 12px gutter) since those are far tighter than landscape. **List every node, not just the tightest** - character count is a bad proxy because the sub-label font is not monospace, and the measured winner is often not the one you would guess (`cluster A` at 9 characters measured *narrower* than `off SW-2` at 8). DELETE the temp file before committing.
+  - **For hand-authored inline SVG, sweep every `<text>` in the page rather than eyeballing
+    it** (added 2026-08-10 while composing the fallback frames, which hold 135 text nodes
+    across four SVGs). `getComputedTextLength()` gives the rendered width; combine it with the
+    element's computed `text-anchor` to get real extents - `start` is `x .. x+len`, `middle` is
+    `x-len/2 .. x+len/2`, `end` is `x-len .. x` - and flag anything falling outside the
+    viewBox width. **Check the baseline against `viewBox.height` too**: a `<text>` whose `y`
+    equals the viewBox height renders with its descenders clipped, and a width-only check
+    passes it happily (hit on the first swarm frame at `y=146` in a 146-unit box). Budgeting up
+    front helps - a monospace advance of ~0.62em is a safe upper bound for the stacks this repo
+    uses, so a 9px line fits about 60 characters in a 340-unit viewBox.
 - **Forcing dark mode for a screenshot**: copy `index.html` to a temp root file and splice in a `<style>` block before `</head>` that re-declares BOTH token sets with `!important` - `--site-*` on `:root` and `--topo-*` on `.topo-viz` - mirroring their `prefers-color-scheme: dark` blocks. Generating the copy with PowerShell (`(Get-Content $src -Raw) -replace '</head>', $style`) avoids transcription drift. Again: `--force-dark-mode` does NOT do this.
 - **Forcing MOTION on (defeating the headless reduced-motion default)**: same splice pattern, but insert a **classic** `<script>` before `</head>` that wraps `window.matchMedia` and returns a stub `{ matches: false, addEventListener(){}, ... }` for any query matching `/prefers-reduced-motion/`, delegating everything else to the real one. A classic script in `<head>` runs before the deferred module, so `js/hero.js` sees the shim. This is how the pinned hero was verified on 2026-08-05 (`_forcemotion-temp.html` at the repo root - it must be at the ROOT, since `hero.js` imports `../topology/...`). Delete it when done; never commit it.
 - **Checking a deploy**: `gh api repos/TroxelsCode/TroxelsCode.github.io/pages/builds/latest` gives status/commit/duration, and `.../pages/builds` gives the history. A healthy build on this repo takes **31-45 seconds**; treat `duration: 0` as "never actually ran". On 2026-08-06 two consecutive doc-only commits errored with `duration: 0` and the generic message `Page build failed.`, and a retry then sat in `building` for over four hours - that was a GitHub-side incident, not repo content. **Do not go hunting for a Jekyll/Liquid bug when the failing commits only touched Markdown and the duration is 0**; push a new commit and see whether it builds. The next push (the favicon commit) built normally in 40s and cleared it. A real content error looks different: nonzero duration and a specific message such as a Liquid exception.
@@ -479,6 +511,9 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
        carrier - the failed node says `OFFLINE`, it is not merely red.
      - **The prose fallback still has to stand alone.** The snapshot follows it and supplements
        it; nothing may exist only in the picture.
+     - **Preview it without disabling JavaScript**: `_tests/fallback-preview.html` renders the
+       no-JS state of both exhibits, including a text-only view of exactly what a
+       non-rendering reader receives. See Commands above.
 3. **Remove that fallback only after the exhibit has fully succeeded.** For the topology that
    means all three tiers mounting into detached containers first.
 4. **Ship interactive controls `[hidden]` and unhide them on successful mount.** A control that
@@ -580,7 +615,28 @@ before anyone can repeat the mistake.
   its own copy of production captions goes stale and then contradicts the live site;
   this happened to `_tests/swarm-preview.html`, which was still showing a claim the
   site had already corrected. Harnesses derive their labels from the same config the
-  page uses, or do without.
+  page uses, or do without. `_tests/fallback-preview.html` is the pattern applied:
+  it loads the real `index.html` in an iframe and clones nodes out of it, so it
+  cannot drift by construction.
+- **When illustrating why one design beats another, draw the whole thing, not just the
+  stage where they differ.** The topology snapshot first showed each tier collapsed to
+  its firewall stage, on the reasoning that the firewall was the only part the chosen
+  failure touched. That was true and still misleading: it made the redundant designs
+  read as the fragile one with more firewalls bolted on, when what they actually do is
+  widen *every* stage - paired uplinks, a meshed switch core, a server pair. Caught by
+  the user on sight, not by any check. The fix was a five-column grid with one box per
+  real node, so the redundancy is counted by the picture. The general form: an
+  illustration cropped to the difference hides the shape of the thing that differs.
+- **A rendering difference you cannot see is one you have to measure.** Three SVG
+  states that should have been three colors were silently rendering as one, because
+  `.exhibit-snapshot use` (0,1,1) outranked the state class `.snap-boid--locked`
+  (0,1,0). It looked plausible in a screenshot - triangles are triangles - and only
+  surfaced on reading the computed fills back and counting distinct values, expecting
+  three and getting two. When a visual encoding is supposed to have N states, assert
+  N, do not look at it. (The related SVG trap: a class on the `<path>` inside `<defs>`
+  beats a class on the `<use>` that clones it, because the clone keeps the original's
+  own declarations. Leave the referenced element unstyled and let `fill` inherit from
+  the `<use>`.)
 
 ## Settled - do not reopen
 
