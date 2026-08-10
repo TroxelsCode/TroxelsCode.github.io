@@ -24,6 +24,46 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 - Repo: `TroxelsCode/TroxelsCode.github.io` (public, user site, served at the domain root)
 - Live URL: <https://troxeltech.com/> (custom domain, live since 2026-08-04; <https://troxelscode.github.io/> still resolves and redirects)
 
+## Documentation map - read this before going looking
+
+**This file holds only what benefits EVERY session**: the rules, the environment,
+the deploy mechanics, the site-wide chrome, and the contract every exhibit shares.
+Anything specific to one exhibit lives in `_docs/` and is **not** loaded
+automatically. Read the matching file with the Read tool when its trigger fires, and
+never answer a question about an exhibit from memory or from this file alone.
+
+| read this file | before touching |
+| --- | --- |
+| `_docs/exhibit-1-topology.md` | `topology/`, `js/hero.js`, `.hero-*` / `.topo-*` in `css/style.css`, `#hero-mount` / `#hero-disclosure` in `index.html`, `_tests/engine-tests.html` |
+| `_docs/exhibit-2-swarm.md` | `swarm/`, `js/swarm.js`, the swarm blocks in `index.html`, `_tests/swarm-*.html` |
+| `_docs/todos.md` | any question about what is open, deferred, or already shipped |
+| `_docs/archive-hero-scrollytelling.md` | only when reviving the pinned hero sequence, or touching `HERO_PINNED_SEQUENCE` / `.hero-scroll[data-hero-mode="pinned"]` / `_tests/scroll-prototype.html` |
+
+Three things about this arrangement are load-bearing.
+
+- **These are plain paths, deliberately NOT `@path` imports.** Claude Code expands an
+  `@path` import into context at session start, recursively, so writing
+  `@_docs/exhibit-2-swarm.md` here would reload every byte this split exists to avoid
+  and the whole arrangement would silently become pointless while still looking
+  correct. The `@path` mechanism remains the right tool for the one job described in
+  the public-repo warning above - pulling private context in from OUTSIDE the repo,
+  where the point is that no `git add` can publish it. Never use it for these.
+- **`_docs/` is underscore-prefixed on purpose.** Jekyll's `EntryFilter` drops
+  underscore directories, so nothing in it is served from troxeltech.com and it needs
+  no `_config.yml` entry, exactly like `_tests/` and `_icons/` (both empirically
+  confirmed to 404). A root `.md` file would need its own exclude, one per file, and
+  that list is not a pattern. **Put new documentation in `_docs/`, never at the repo
+  root.** `CLAUDE.md` itself is the exception only because Claude Code requires it
+  there, which is why it needs an explicit exclude. The repo is public either way;
+  the goal is "not on the live domain", not "secret".
+- **The pointers above must stay pointers, not summaries.** This repo has already
+  deleted two design documents that drifted into being actively wrong
+  (`network-topology-prototype-spec.md`, `botnet-swarm-spec.md`), and both times the
+  cause was identical: a second copy of a decision, kept in parallel, that nobody
+  updated. This split is safe only because each fact has exactly one home. If a claim
+  about an exhibit starts appearing here as well as in its `_docs/` file, that is the
+  same failure returning - delete it here and leave the pointer.
+
 ## Style rules (user directives)
 
 - **No em dashes and no non-ASCII characters anywhere**, in code, comments, or docs. ASCII only: use "->" not arrows, "x" not multiplication signs, plain hyphens for punctuation.
@@ -117,237 +157,17 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 
 Root `index.html` / `css/style.css` / `js/main.js` / `js/hero.js` / `js/swarm.js` are the real
 homepage (see "Homepage build" below for what's built vs. deferred). `main.js` is a classic
-script, `hero.js` and `swarm.js` are ES modules - that split is deliberate and load-bearing,
-see Phase 2a below, and the two modules are separate from each other so a throw in one exhibit
-cannot take the other down.
+script, `hero.js` and `swarm.js` are ES modules - that split is deliberate and load-bearing
+(see the host notes in `_docs/exhibit-1-topology.md`), and the two modules are separate from
+each other so a throw in one exhibit cannot take the other down.
 
-**This section documents the TOPOLOGY component (exhibit #1), under `topology/`. The botnet
-swarm (exhibit #2) lives under `swarm/` and has its own section, "Exhibit #2: botnet swarm",
-further down.** The two share the exhibit shell and nothing else: different engines, different
-renderers, SVG versus canvas. The
-topology visualization's original build spec (`network-topology-prototype-spec.md`) was
-**retired and deleted on 2026-08-08** - everything below is now the only source of truth for
-the component, alongside the code itself. It was removed rather than archived because it had
-drifted from actively-useful into actively-wrong: it mandated the packet throttle that was
-deliberately ripped out on 2026-08-05, described a single stack-A-to-stack-A bridge where the
-code has two, listed a `/harness/index.html` deliverable deleted on 2026-08-04, knew nothing
-about gremlin mode or the portrait layouts, and predated this repo's ASCII-only rule. Its
-still-valuable parts were migrated here first - see "Component contract" and "Design rulings"
-below, which exist specifically to hold them. Do not go looking for it in git history to
-settle a question; if it is not written down here, it is not a live constraint.
-
-- `topology/engine/topology-engine.js` - pure state computation (pairwise failover, mesh reachability, site bridge fallback, status rollup). **Zero DOM code; keep it that way.** Redundancy is dispatched per class (`single`/`pair`/`mesh` + site-level bridge); do NOT unify into one generic shortest-path pass - that produces the documented both-pair-members-light bug.
-- `topology/render/topology-render.js` - SVG renderer + click interaction. Consumes engine output; contains no failover logic. Mount API: `TopologyViz.mount(containerEl, tierConfig, options)` returns `{ root, update, reset, destroy, startGremlin, stopGremlin, gremlinRunning }`. Injects its own stylesheet link (resolved via `import.meta.url`) once per document. "Gremlin mode" (`options.gremlin = { enabled, breakMin, breakMax, fixMin, fixMax }`) is ambient auto-play: random node breaks with per-strike randomized repair timers, SVG badge popouts (purple imp with pointy ears and an evil grin while down - deliberately NOT a red devil, user is sensitive to religious readings - and a teal check on repair). Pacing merges defaults < tier config `gremlin` block < mount options; tier configs scale pacing with network size (small slowest, large busiest, fix/break ratio ~0.6). Gremlin only toggles the same downSet a click uses; the engine stays pure and failover stays instant. The mount hides the component root until its injected stylesheet loads (prevents a black-fill first paint / mid-transition screenshots). **Gremlin victim selection is viewport-biased via an `IntersectionObserver`** (added 2026-08-05 for the portrait layouts): the portrait large tier renders ~1190px tall on a phone, so uniform-random strikes would mostly break nodes scrolled off screen, and the visitor would watch a status bar change with no visible cause. Node groups are observed at `threshold: 0.5`, and a strike picks from the on-screen pool with probability `GREMLIN_VISIBLE_BIAS` (0.8), falling back to the full pool otherwise. The 20% leak is deliberate, not a rounding-off: it keeps off-screen parts of the network live, so scrolling reveals damage that happened while you were looking elsewhere. Feature-detected and wrapped in try/catch - if `IntersectionObserver` is missing or throws, the visible set stays empty and selection degrades to the original uniform-random behavior. `destroy()` disconnects the observer.
-- `topology/render/topology.css` - every visual token is a `--topo-*` custom property on `.topo-viz` with light defaults + `prefers-color-scheme: dark` overrides. Hosts retheme by overriding the properties; no colors in JS. It also carries **one host override hook, `data-packets="on"|"off"` on the component root**, which forces the packet dots visible or hidden regardless of `prefers-reduced-motion` (added 2026-08-07 for the homepage toggle - see "Packets toggle" under Phase 2b). Three things about it are load-bearing: the rules sit **outside** any `@media` block, because they beat the reduced-motion `display: none` on specificity alone (0,3,0 against 0,2,0) whereas a rule nested inside `@media (prefers-reduced-motion: reduce)` could only ever override in the one direction; the "on" value is `display: inline` rather than `block` because inline is the initial display for an SVG element; and the **absence** of the attribute leaves the media query in charge, so hosts that ship no control are unaffected. The renderer knows nothing about any of this - the attribute is set by the host and read by CSS only, which is what keeps the component ignorant of motion preferences.
-- `topology/tiers/tiers.js` - small/medium/large tier data (nodes, edges, layout coords in viewBox units, and a `structure` block naming fabric roles per site so the engine dispatches by declared role). The large tier is generated by `buildLargeTier()` since both sites are identical. Exports **two** tier sets: `tiers` (landscape) and `tiersPortrait` (narrow screens), the latter derived from the former by `withPortraitLayout()` - see the portrait-layout comment block in that file and "Mobile treatment" below. Both sets share `edges`, `structure` and `gremlin` by reference, so engine behavior cannot drift between orientations.
-- `js/hero.js` - the component's only host. ES module. Mounts **all three tiers**, one per `.hero-layer` inside `#hero-mount`. Picks landscape or portrait tier data from a `matchMedia` width query; picks pinned-vs-stacked layout from the `HERO_PINNED_SEQUENCE` flag (**currently false**, so always stacked), width, or `prefers-reduced-motion`; re-lays-out on either query crossing; owns the gremlin toggle via `syncGremlin()`; and defers mounting entirely while the `<details>` disclosure is collapsed, which is now every width. See "Homepage build" and "Phase 2b" below.
-- `_tests/engine-tests.html` - browser-run engine assertions (24 scenario tests). The repo's only test suite, so keep it working; the underscore prefix on the directory is what keeps it off the live domain (see Deploy above). The former `harness/index.html` preview page was deleted on 2026-08-04 when the hero went live - it rendered all three tiers at once and is fully superseded by the real homepage.
-
-### Component contract (migrated from the retired build spec, 2026-08-08)
-
-These were the spec's "structural constraints", and they are the reason the component could be
-dropped into a real hero with no rework. All still hold. The harness-page constraint is the
-only one that died, along with the harness.
-
-1. **Engine and renderer are physically separate files, and the boundary is not negotiable.**
-   The engine is pure functions over plain data with zero DOM code; the renderer holds zero
-   failover logic. Do not blur this for convenience.
-2. **The component sizes to its container**, never a fixed canvas - percentage width plus
-   viewBox scaling, embedded at a width it cannot know in advance. (Corollary learned later,
-   see the hero notes: cap **width**, never `max-height` - the SVG is width-driven, so a
-   height cap makes it overflow instead of scale.)
-3. **Every visual token is one of the component's own `--topo-*` custom properties**, with
-   defaults in its own stylesheet. No hex values in engine or renderer logic. A host rethemes
-   by overriding properties and never touches internals.
-4. **No global namespace pollution and no host dependencies.** ES module, scoped styles, no
-   backend calls, no routing assumptions, and **no persisted state between loads** - state
-   resets to the tier default on reload. Mountable in a single call.
-5. **No draggable nodes.** Fixed layout position per tier; considered and dropped from scope.
-
-**Data model** (the shape `tiers.js` produces and the engine consumes):
-
-```text
-Node = { id, label, sub, class, redundancy, group, x, y }
-       class:      'isp'|'firewall'|'switch'|'server'|'workstation'
-       redundancy: 'single'|'pair'|'mesh'
-       sub:        short subtitle, e.g. 'primary', 'backup', 'cluster A'
-Edge = { a, b, kind, bow?, label? }
-       kind:       'primary'|'backup'|'mesh'|'sync'|'bridge'
-```
-
-`downSet` is a Set of node ids currently toggled offline. **Node ids match their rendered
-labels** (`isp1` -> ISP-1); `group` is vestigial - nothing reads it.
-
-### Design rulings (migrated from the retired build spec, 2026-08-08)
-
-Rationale that is not recoverable from the code, and that has been re-litigated before.
-
-- **Status rollup is per sink class, and generalizes to any number of them - never hardcode
-  two.** A site's "sink classes" are the leaf groups whose reachability decides whether the
-  business function works (medium has three: the server pair, WS-1, WS-2). All reachable is
-  green, some is amber ("services affected"), none is red ("business down"). Global rollup
-  across the two large-tier sites: both green is green, **either one non-green is amber**,
-  both red is red. One site fully dark while the other covers is a real degraded event worth
-  surfacing, not a silent non-issue.
-- **A site riding the bridge reads AMBER, not green.** Its own four ISPs being dead is a real
-  degraded state even though the bridge masks the impact downstream.
-- **Local upstream is always preferred, and the bridge check is deliberately NOT recursive.**
-  `resolveSiteUpstream` tests the donor site's LOCAL-only reachability, never the donor's own
-  bridge fallback - otherwise two sites that both lose local upstream could circularly rescue
-  each other. There is a test for this (`both sites dark = no circular rescue`).
-- **The site link is a dedicated point-to-point bridge (fixed wireless/optical), NOT a VPN,
-  and the reason is the whole point.** A VPN tunnel rides the internet, so it would depend on
-  exactly the ISP connectivity it is supposed to survive the loss of. The bridge is a
-  physically independent medium. Do not "modernize" this into a VPN.
-- **`pair` members get a dashed sync line whether or not a literal cable exists**, as a
-  consistent visual for a logical relationship. Applied to the firewall pair and the server
-  pair; the ISP pair is excluded, because there is no ISP-to-ISP sync to draw.
-- **The workstation groups are single-homed on purpose, and the asymmetry with the server
-  pair is intended.** A real workstation is single-NIC, so when its one switch dies that group
-  goes down even though the mesh keeps everything else up. That is a correct distinction being
-  demonstrated, not a gap to fix.
-- **Failover is instant, with no simulated timeout.** A click recomputes and repaints
-  immediately. The cosmetic dash marches on sync and standby-bridge links must never gate or
-  delay a state change. A timeout-based keepalive/VRRP simulation ("engineer mode") was
-  considered and **withdrawn from consideration by the user on 2026-08-08** - not merely
-  deferred. See the Open items list for the closure note; do not resurface it as a candidate.
-
-Large-tier bridges: TWO cluster-paired site links (A-A and B-B, `structure.bridges` array), so bridge redundancy matches cluster redundancy. When a site falls back to bridges, every usable bridge lights (active/active, user-confirmed decision); a bridge only lights if its landing firewalls actually carry traffic. Server naming convention (user-set): medium tier SRV-1/SRV-2; large tier SRV-1-A/B (site 1) and SRV-2-A/B (site 2); the numeral indexes the cluster, A/B the pair member.
-
-**Bridge dim/standby bug FIXED 2026-08-08: renderer must use cluster-wide fwIds, not the two
-literal drawn endpoints.** Each bridge edge is drawn anchored on one firewall per cluster (e.g.
-site link A is `s1-fwa2 -- s2-fwa1`), but the comment above the bridge edges in `tiers.js` (and
-`resolveSiteUpstream`'s own `anyUp(thisEnd.fwIds)` check) has always treated a bridge as usable
-while ANY firewall in its cluster is up at both ends - the engine's `activeEdgeIds` computation
-already honored this. The renderer's `is-dead` and `bridge-standby` toggles in
-`topology-render.js` did not: they read `state.nodes.get(ev.a)` / `get(ev.b)`, the specific two
-drawn-endpoint nodes, so toggling off just `s1-fwa2` (leaving its cluster mate `s1-fwa1` up)
-dimmed the link even though the bridge was still fully usable via the mate - a real visual bug
-the user caught by comparing the two firewalls per cluster/site side. **Other edge kinds do not
-have this problem and were left untouched** - a bridge is the only edge whose drawn endpoint is
-a stand-in for a redundant group rather than the literal thing being tested.
-
-Fix: `topology-render.js` now builds a `bridgeEnds` map (`edgeId -> { aFwIds, bFwIds }`) from
-`config.structure.bridges` at mount time, and in `update()`, for `ev.kind === 'bridge'`,
-substitutes cluster-aggregate `{ down, reachable }` (`down` = ALL of the cluster's fwIds down,
-`reachable` = ANY of them reachable) in place of the two literal node states before the
-existing is-dead/bridge-standby checks run. Small and medium tiers have `bridges: []`, so
-`bridgeEnds` is empty there and nothing changes for them. Verified with a scratch scenario probe
-(`_tests/_scenario-temp.html`, deleted after): with site 1's ISPs all down (forcing both bridges
-active), toggling off `s1-fwa2` alone left bridge A `is-active` (previously would have gone
-`is-dead`); toggling off `s1-fwa1` as well (the WHOLE of cluster A at site 1) correctly flipped
-bridge A to `is-dead` while bridge B stayed `is-active`, unaffected. Engine tests unaffected
-(24/24) since this is a renderer-only change - the engine's own bridge-activation logic was
-already correct.
-
-**Redundancy model per tier, and why the large tier lights both firewall clusters (RESOLVED 2026-08-07 - this closes a long-standing open question).** The two tiers deliberately model *different* real-world HA designs, and the difference is not an inconsistency:
-
-- **Medium is an active/standby pair, and is already textbook.** `fw-a` is `sub: 'primary'`, `fw-b` is `sub: 'backup'` (it read `standby` until 2026-08-08 - see the label pass below), joined by a `sync` edge. `pair-fabric` in the engine resolves one side and **keeps the standby's links dark even though the standby is healthy** (see the comment at the mesh pass). That is what an HA pair actually does.
-- **Large is a CLUSTERED, ECMP-routed design, not an HA pair behaving oddly.** It uses `mesh-fabric`, which resolves ISPs, every firewall from both clusters, and the shared switch core in one reachability pass, so every edge on a surviving path lights. The old open item asked whether cluster-B firewalls lighting as transit was intended. **It is** - the user's decision was to keep the engine model and make the labeling say so.
-
-The reasoning, so nobody re-opens it: for a *pair*, active/standby is the enterprise default - you must size each unit for 100% of load anyway, so active/active buys no dependable capacity, and it invites the asymmetric routing that stateful inspection hates. But at the scale the large tier depicts (two sites, four ISPs, dual firewall clusters, meshed core, site bridges), both-boxes-carrying is genuinely normal, and it is achieved by clustering, per-context or per-VLAN splits, or ECMP. The large tier is at exactly that scale, so the mesh model is the *more* accurate one. There is also a presentation argument: darkening cluster B would remove a large fraction of the tier's lit surface and work directly against the "traffic keeps flowing along the other paths" point that the packet-throttle removal was made to strengthen.
-
-**How this is expressed to the visitor** (the actual change, 2026-08-07):
-
-- Large-tier firewall sub-labels read **`cluster A` / `cluster B`**. "stack" was the earlier word for the same thing and, as of the 2026-08-08 consistency pass, survives nowhere - code comments, tests and this file all say cluster. The node ids stay `fwa1`..`fwb2` because A/B is the group letter, exactly what the labels FW-A1..FW-B2 show.
-- `CAPTIONS` in `js/hero.js` names the mechanisms outright: medium cites a VRRP standby, large cites clustered firewalls, ECMP uplinks and multi-group VRRP. This is deliberate portfolio surface - the user built a fully active/active VRRP + ECMP MikroTik cluster and wants that knowledge visible. Do not flatten these back into describing the picture.
-- Sub-label length is constrained: SVG `<text>` neither wraps nor truncates, and the portrait large node box is 64 viewBox units. Measured 2026-08-07: `cluster A` renders 36.5u against that 64u box, and is actually *narrower* than the then-existing `off SW-2` (37.4u) because the sub-label font is not monospace. Re-measured 2026-08-08 after the label pass below: the tightest sub-label on the whole site is now **`secondary` at 41.2u**, leaving 22.8u / 20.2px of slack at a 319px SVG width, and `cluster A` is second. **Measure before lengthening any sub-label.**
-
-**Naming consistency pass, 2026-08-08 (user-directed).** One deliberate sweep so that a node's
-id, its rendered label, the engine's vocabulary and the site's prose all agree. **The governing
-rule from here on: a node's id matches its rendered label** (`isp1` -> ISP-1, `fw2` -> FW-2),
-so a box on screen can be found in `tiers.js` by reading it. Keep new nodes to that rule.
-
-Labels and sub-labels:
-
-| tier | was | now | why |
-| --- | --- | --- | --- |
-| small | Workstations `aggregate` | no sub-label | the node label is descriptive enough on its own |
-| medium | `WAN-A` / `WAN-B` | `ISP-1` / `ISP-2` | consistent with the ISP-n naming the large tier already uses |
-| medium | `FW-A` / `FW-B` | `FW-1` / `FW-2` | same numbering consistency |
-| medium | fw2 `standby` | `backup` | matches the ISP pair's primary/backup wording |
-| medium + large | srv2 `standby` | `secondary` | ditto, and it is now the tightest sub-label on the site |
-| medium + large | WS-n `off SW-n` | no sub-label | the drawn edge already shows which switch each group hangs off |
-
-Ids and vocabulary:
-
-- **Medium node ids renamed to match**: `wan-a`/`wan-b` -> `isp1`/`isp2`, `fw-a`/`fw-b` ->
-  `fw1`/`fw2`, `srv-a`/`srv-b` -> `srv1`/`srv2`. Edges, `structure`, the portrait `coords` and
-  `bows` maps, and the engine tests all moved with them. Large-tier ids were already
-  label-matching and did not change.
-- **Engine key `wanPair` -> `ispPair`** (plus the `activeWan`/`isUpWan` locals). The vestigial
-  `group: 'wan'` became `'isp'` - nothing reads `group`, so that was free.
-- **"stack" is gone; the firewall groups are "clusters" everywhere** - sub-label, code
-  comments, test names and this file.
-- **"standby" -> "backup" in the prose too**: the medium caption in `js/hero.js`, the exhibit
-  description in `index.html`, and `README.md`. VRRP's own role names are Master and Backup, so
-  "a VRRP backup" is if anything more precise than what it replaced.
-
-Two things deliberately did NOT change, and both are correct:
-
-- **The engine's `role` value stays `'active'`/`'standby'`.** It is one generic term produced
-  by `resolvePair()` for every pair kind at once, whose sub-labels now differ (`backup` for
-  ISPs and firewalls, `secondary` for servers) - no single display word is right for all of
-  them. Nothing renders it as text. There is a note at the `computeState` docblock saying so.
-- **The medium tier is still genuinely active/standby.** The relabel changed words, not
-  behavior: `pair-fabric` still keeps the backup member's links dark, and the test
-  `medium: backup side does NOT light` still enforces it. Do not read "backup" as a claim that
-  medium went active/active - that is the large tier, which says `cluster A`/`cluster B`.
-
-Verified 2026-08-08: engine tests 24/24; every sub-label measured at 319px portrait and 460px
-landscape across all three tiers; and a throwaway probe confirmed every portrait `coords` key
-still moves its node, the four bow overrides still land, no edge or `structure` entry names a
-missing node, and the landscape bows were not mutated. **That probe matters because a stale key
-in those maps fails SILENTLY** - the node simply keeps its landscape position, or an edge keeps
-a bow tuned for the other orientation. Re-run an equivalent check after any future id rename.
-
-**Two dash marches, not one: sync links AND standby site links** (the bridge march added
-2026-08-07 at user request - they noticed the site links sat static while the HA sync links
-crawled). Both are the same two-part pattern, a class from the renderer plus a keyframe in
-`topology.css`, and both are cosmetic: neither gates or delays failover, which is instant.
-
-| edge kind | class | when | dasharray | keyframe |
-| --- | --- | --- | --- | --- |
-| `sync` | `sync-live` | both ends up and reachable | `6 7` | `-26` over 2.6s |
-| `bridge` | `bridge-standby` | both ends up and reachable **and not active** | `2 6` | `-24` over 2.4s |
-
-- **The `bridge-standby` condition carries the extra "not active" term** because an active
-  bridge is drawn solid (`stroke-dasharray: none`) with packet dots on it, so there would be
-  no dash left to march. Verified across four states on the large tier: healthy (both links
-  standby, marching), site 1 riding the bridges (both active and solid), site 2 cluster A down
-  (link A dead and dim, link B still active), and reset.
-- **"both ends" in the table row means the bridge's whole cluster at each end, not the two
-  literal nodes the edge is drawn between** - see the "Bridge dim/standby bug FIXED
-  2026-08-08" note under "Large-tier bridges" above for the renderer fix that made this true.
-  Before that fix, `is-dead`/`bridge-standby` read the two literal drawn-endpoint nodes only,
-  so a bridge could half-dim while its cluster mate kept it genuinely usable.
-- **The keyframe distance must be a whole number of dash periods** (`2 + 6 = 8`, so `-24` is
-  three) or the loop visibly jumps at the wrap. 24 units over 2.4s is also the same 10
-  units/sec the sync march runs at, deliberately, so the two heartbeats read as one mechanism
-  rather than two unrelated speeds. Change the dasharray and you must re-derive the distance.
-- **The semantics are real, not decoration.** A standby site link is not idle hardware - it
-  carries keepalives and routing adjacency the whole time it is not carrying traffic, which
-  is exactly why the failover it backstops can be instant.
-- **Both are suppressed under `prefers-reduced-motion` and the packets toggle does NOT cover
-  either.** That is by design (see the packets-toggle scope note in Phase 2b), so both marches
-  are invisible from a reduced-motion session and need a motion-allowed one to confirm. The
-  bridge march was **user-confirmed on the live site 2026-08-07** from a motion-allowed
-  session - do not re-file it as needing a real-browser check.
-- **Headless verification trick, since headless Chromium always reports reduced motion:** the
-  component's injected sheet is same-origin, so a probe page can walk `link[data-topo-css]`,
-  `sheet.cssRules`, find the `CSSRule.MEDIA_RULE` whose `conditionText` mentions
-  `reduced-motion`, `deleteRule` it, and re-read `getComputedStyle(el).animationName`. That
-  proves the *authored* rule resolves and applies to the right elements, which an
-  `!important` scratch override would not. Both bridges read `none` before the deletion and
-  `topo-bridge-march` after.
-
-Component conventions: edge ids are `a + '--' + b` (see `edgeKey`); edge `bow` is a lateral quadratic-curve offset (positive bows right of the a->b direction) used to route around node boxes; packet animations ride **every active edge** except sync links, and never affect state accuracy.
-
-**Packet throttle removed 2026-08-05 - do not reinstate it.** `renderPackets()` used to keep only one active edge per (site, section), which on the large tier animated 7 of 50 active edges, and always the same ones: the tie-break was a lexicographic compare on the edge id, so the alphabetically-first edge won and every dot clustered on the top and leftmost paths. That looked like an active/standby pathing decision and was asked about as one; it was purely a rendering throttle, tuned back when the hero only ever showed the small tier. The scroll sequence inverted the tradeoff - the entire argument medium and large make is "traffic keeps flowing along the other paths", and animating a seventh of them undersold exactly that. Edge *coloring* was always accurate; only the dots were subsetted. Measured after the change: dots now equal active edges exactly (small 4, medium 7, large 46). The dead `edgeSection()` helper and the `section` / `siteId` fields on `edgeViews` went with it. Packet phase now steps by `duration * 0.618` rather than a flat 0.65s, because at 50 dots the old step banded (0.65 x 3 = 1.95, so every third dot sat within 0.05s of the same phase and neighbouring edges pulsed in unison).
-
-**`renderPackets()` reconciles incrementally - do not "simplify" it back to a rebuild.** It used to clear `gPackets` and recreate every dot on every `update()`, and take each dot's phase from its index among the *currently active* edges. Both halves leaked unrelated state into the animation, and the user spotted the result: toggling one node visibly disturbed packets heading somewhere else entirely. The coupling was **asymmetric**, which is what made it look like engine behavior rather than a rendering artifact - removing an edge re-indexed every edge AFTER it in config order onto a new phase while leaving earlier ones alone. On the small tier (`isp--fw`, `fw--sw`, `sw--srv`, `sw--ws`) toggling Workstations dropped the last edge so the Server dot kept its index, but toggling Server shifted the Workstations dot from index 3 to 2 and jumped it. Nothing about the engine or the computed state was ever wrong. Now: phases key off `ev.index` (the edge's fixed position in the tier config), and dots for edges that are still active are left untouched - only the add/remove difference is applied. Verified by element identity: after toggling either sink, every surviving dot is the SAME DOM element with an unchanged `begin`.
-
-Default palette values came from the bundled dataviz skill's validated reference palette (status colors #0ca30c / #fab219 / #d03b3b, active teal #1baf7a light / #21c489 dark).
+**Everything else about the two exhibits lives in `_docs/`, not here.** The topology
+diagram (`topology/`, exhibit #1) and the botnet swarm (`swarm/`, exhibit #2) share
+the exhibit shell described under "Expandable exhibit list" below, and nothing else:
+different engines, different renderers, SVG versus canvas. Their engines, renderers,
+data models, hosts, design rulings, copy and traps are documented in
+`_docs/exhibit-1-topology.md` and `_docs/exhibit-2-swarm.md`. See the documentation
+map near the top of this file for when to read each.
 
 ## Homepage build
 
@@ -358,216 +178,12 @@ during implementation: the forced teal-on-near-black palette, replaced by respec
 `prefers-color-scheme`; and a dedicated Contact page section, replaced by footer links). This
 file is the sole source of truth going forward.
 
-**Phase 2a COMPLETE (2026-08-04): the hero is live.** `js/hero.js` mounts the topology
-component into `#hero-mount` on the homepage. Details:
-
-- **Small tier, gremlin ON.** SUPERSEDED by Phase 2b - `HERO_TIER` no longer exists and all
-  three tiers mount; small is now just the first step of the sequence (`TIER_ORDER` in
-  `js/hero.js`), and `HERO_GREMLIN` is still the one-line gremlin switch. The reasoning is
-  kept because it still explains why the sequence OPENS on small: it is a no-redundancy chain
-  and the gremlin picks victims uniformly, so 3 of its 5 nodes take everything down - the hero
-  reads "Business down" roughly 20% of the time and "Services affected" another ~15%. That is
-  the intended "this is what a single point of failure costs" provocation.
-- **Gremlin needs no JS `prefers-reduced-motion` gate. Do not add one** - this was
-  investigated and rejected. Everything that genuinely moves is already handled in
-  `topology/render/topology.css` (packet dots hidden, sync dash march stopped, badge pop
-  disabled). What gremlin adds on top is color changes and a status-text swap, which is not
-  "moving, blinking or scrolling" under WCAG 2.2.2.
-- **`js/hero.js` is a separate module from `js/main.js` on purpose.** `main.js` must stay a
-  classic script: converting it would defer it (flashing the footer email placeholder) and
-  would break it over `file://`, where ES modules do not load, taking the email link down
-  with the hero. Two script tags, independent failure domains.
-- **The height reservation is a floor, not `aspect-ratio` on `.hero-mount`.** See the long
-  comment in `css/style.css`. `aspect-ratio` on a block box *sets* the used height, and the
-  component's height is a width-driven ratio term plus ~44px of fixed chrome, so one ratio is
-  only right at one viewport width - everywhere else the component overflows and overlaps the
-  stats strip. It is now an empty `::before` spacer in a shared grid cell, parameterized by
-  `--hero-tier-h` / `--hero-chrome` / `--hero-gutter`. As of Phase 2b the spacer serves ONLY
-  the pre-mount / no-JS state - `js/hero.js` disables it (`[data-hero-mode] .hero-mount::before
-  { display: none }`) once it takes over, because the pin height governs when pinned and each
-  layer sizes itself when stacked. Also: cap **width**, never `max-height` - the SVG is
-  width-driven, so a height cap makes it overflow rather than scale. That rule is why
-  `.hero-layer` caps width against a `--hero-fit` height budget instead of setting a height.
-- **No visible card, deliberate.** `--topo-bg` is byte-identical to `--site-bg` in both
-  schemes, so the diagram sits flush on the page. Placeholder chrome lives on
-  `.hero-mount-fallback` (removed by JS on successful mount), never on `.hero-mount`.
-- **Progressive enhancement**: `.hero-mount-fallback` is a real element, not `<noscript>` -
-  `<noscript>` only covers scripting-disabled, not a 404/blocked/parse-error module, which
-  would leave an empty reserved box. It is removed only after a successful mount.
-- **`data-topo-css` trap**: never hand-place `<link data-topo-css>` in the HTML. `mount()`
-  holds the component at `visibility: hidden` until that link fires `load`, and a link the
-  browser already finished loading never fires it again - the hero would be invisible
-  forever. Use `<link rel="preload">` without the attribute if warming is ever needed.
-- **Keyboard support for nodes: CLOSED FOR CONSIDERATION 2026-08-08, will not be built.**
-  Nodes are pointer-only (click listener, no `tabindex`, no key handler) and this is a
-  deliberate decision, not an oversight. The SVG's `aria-label` was rewritten to describe the
-  diagram instead of instructing a click, and the pointer instruction moved to a visible
-  `.exhibit-directions` line that JS unhides only on successful mount (it was
-  `.hero-mount-hint` below the diagram until 2026-08-07 - see the exhibit-intro block in the
-  exhibit-list section). Reasoning: this site's audience is friends, family, and hiring
-  managers/recruiters, essentially none of whom are keyboard-only users; nothing on the page
-  is available *solely* through clicking a node (the diagram, captions, and status bar already
-  communicate its point without interaction); and the one plausible payoff - a technical
-  reviewer running an automated scanner - doesn't actually materialize, because the exhibit is
-  mounted only after the collapsed `<details>` is expanded, so a default Lighthouse/axe crawl
-  never even reaches the nodes, and WCAG 2.1.1 keyboard operability is not reliably
-  automatable in the first place (no ARIA role announces these as interactive). Do NOT add
-  `aria-live` to the status bar regardless - with gremlin running it would announce a change
-  every few seconds. **Do not resurface this as an open item unless the user explicitly
-  reopens it.**
-
-**Mobile treatment DECIDED (2026-08-05): portrait layouts for all three tiers.**
-This unblocks Phase 2b. The reasoning, because it is not obvious from the code:
-
-The hero was never actually stealing much vertical space on a phone - the small tier is
-`viewBox` 1000x300, so at a ~319px SVG width it renders about 140px tall, less than a
-paragraph. The real problem is legibility: scaled to fit 375px, the small tier's node boxes
-render 41x18px (against a ~44px touch-target minimum) with 5px labels and 3.5px sub-labels.
-It occupied space while communicating nothing and refusing to be tapped. So the fix is not
-"hide it to make room", it is "stop scaling a landscape diagram down to fit a portrait
-screen".
-
-**Every tier gets a portrait layout** (user decision - translating only the small tier was
-rejected, because the medium and large tiers are where the actual design principles live).
-Portrait viewBoxes are ~340-360 wide, so viewBox units land close to 1:1 with CSS pixels on
-a phone and node geometry can be reasoned about directly in device pixels.
-
-Measured/computed targets at a 375px phone (~319px of SVG after the 12px `--hero-gutter`):
-
-| Tier | Portrait viewBox | Node (rendered) | Label / sub | Height on phone |
-| --- | --- | --- | --- | --- |
-| Small | 340 x 500 | 122 x 53px | 15 / 10px | ~513px |
-| Medium | 340 x 580 | 105 x 49px | 14 / 10px | ~589px |
-| Large | 360 x 1290 | 57 x 46px | 12.4 / 8.9px | ~1187px |
-
-Design notes that cost real effort to work out, so do not re-derive them:
-
-- **Portrait is a data-only change.** `withPortraitLayout()` in `topology/tiers/tiers.js`
-  clones a landscape tier and overrides `viewBox`, `nodeSize`, node x/y, and specific edge
-  bows. `edges`, `structure`, and `gremlin` pacing stay single-sourced from the landscape
-  config, so engine behavior is provably identical between orientations. The renderer needed
-  **zero** changes for this.
-- **Edge bows must be re-tuned per orientation, they do not survive rotation.** A bow is a
-  lateral offset perpendicular to the a->b direction, so a value tuned for a horizontal run
-  means something entirely different on a vertical one. Portrait bow overrides live in the
-  `bows` map keyed by `a + '--' + b`.
-- **The recurring portrait hazard is a vertical edge passing through an intervening node
-  box.** In medium, `sw1 -> ws1` runs straight through `srv-a`; the fix is a large outward
-  bow (-140 / +140) that arcs the link around the outside of the server. A vertical edge's
-  lateral extreme is at t=0.5 and equals `0.5 * bow`, which is the formula to size these
-  with.
-- **Large tier column assignment is semantic, not arbitrary.** Rows are ISP(4-across) ->
-  FW(4-across) -> SW(3) -> SRV(2) -> WS(3). ISP and FW are adjacent rows on purpose so the
-  8 ISP-to-firewall edges never cross an intervening row. The servers sit at x=120/240
-  rather than under their switches specifically so the three vertical switch-to-workstation
-  links thread the gaps between and beside them.
-- **Large-tier site bridges cannot be routed around the outside with a single quadratic and
-  this was proven, not guessed.** The bow needed to clear the 3-across rows near the curve's
-  quarter-points pushes the midpoint outside the viewBox; there is no value that satisfies
-  both. They therefore use a moderate bow (-90 / +90) and pass *behind* some node boxes,
-  which reads acceptably because `gEdges` is appended before `gNodes` so nodes always paint
-  on top. The bow values are chosen so the `site link A` / `site link B` edge labels land in
-  open space between rows rather than on a node.
-  **SUPERSEDED - see the two bullets below. Kept only because the failure is instructive.**
-- **Site bridges are actually solved by column assignment, not by bowing.** Read this before
-  touching `FW_X` in `largePortraitCoords()`. With firewalls in their natural order the
-  bridge endpoints land on *inner* columns, making each site link a long diagonal across the
-  whole diagram, and the paragraph above is the correct conclusion for that arrangement -
-  bowing harder genuinely cannot win. The fix was to change the arrangement: give each site's
-  bridge-anchored firewall the **outermost column of its own site**, which is why `FW_X`
-  orders the two sites differently. Both links then become straight vertical runs, and a
-  modest bow (-110 / +110) pushes them into the margins with about 9 units of clearance at
-  the quarter-points. Stack members are interchangeable, so which one sits outboard is a
-  drawing decision with no structural meaning. Verified visually in both the healthy and the
-  bridge-carrying states.
-- **The `site link A` / `site link B` edge labels are dropped in portrait, deliberately.**
-  The renderer centers an edge label on the curve midpoint, and those midpoints now sit ~17
-  units from the viewBox edge, so the text clips - it rendered as "te link A". Widening the
-  viewBox to buy the room drops the scale until node height falls under the 44px touch
-  target, which is the worse trade. `withPortraitLayout()` grew a `labels` override map for
-  this. If the text is ever wanted back, the fix is a renderer change to offset edge labels
-  off the curve midpoint, not a layout change.
-- **No landscape fallback for the large tier on mobile** (explicit user decision). If the
-  portrait large tier does not read well, iterate on the portrait layout; do not reintroduce
-  a horizontally-panned landscape version.
-
-**The hero re-orients live, it is not fixed at load** (added 2026-08-05 at user request - they
-want the page as responsive as possible including rotation). Now `watchLayout()` in
-`js/hero.js` (renamed from `watchOrientation()` in Phase 2b, and it listens to the
-reduced-motion query as well as the width one, since both change what should render). It
-re-lays-out by `destroy()` plus a fresh `mount()`, since the renderer still has no tier-swap
-API. Details that matter:
-
-- **This was not optional polish, the half-responsive state was actively broken.**
-  `--hero-tier-w` / `--hero-tier-h` used to be set as *inline* styles and so stayed pinned to
-  the mounted tier, but the `max-width: 460px` cap in `css/style.css` is not inline and kept
-  toggling against a diagram that never re-oriented. A landscape tier squeezed into the cap
-  renders 57x24px nodes; a portrait tier released from it scales to 342px node boxes.
-  (Phase 2b removed the inline writes entirely - the tier tokens are now plain CSS on
-  `.hero-layer[data-tier]`, switched by the width media query, so this particular mismatch
-  cannot recur. The live re-layout is still needed, for the tier DATA and the pinned/stacked
-  choice.)
-- **Listen to the media query, not to `resize`.** `matchMedia` fires once per crossing rather
-  than continuously, so there is nothing to debounce.
-- **The replacement mounts BEFORE the old instance is destroyed**, so a throw leaves a working
-  diagram in the wrong orientation instead of an empty box. Both share the one grid cell and
-  the swap is synchronous, so nothing paints in between.
-- **Re-mounting is safe with respect to the `data-topo-css` trap** documented below.
-  `ensureStylesheet()` flags the injected link with `data-topo-css-loaded="1"` and calls back
-  synchronously on every later mount, so a re-mount is never held at `visibility: hidden`
-  waiting for a `load` event that already fired. The trap is real only for a hand-placed link.
-- A re-mount starts with an empty `downSet`, so nodes the visitor knocked offline come back
-  up. That is correct on a rotation.
-- **Verified as far as this environment allows**: correct tier at every width on fresh load,
-  and one observed live crossing that produced a correct swap with `roots=1` (old instance
-  properly torn down, no duplicate). Full live-resize coverage is impossible headlessly - see
-  the resize note in Environment.
-
-**Gremlin stays ON by default on mobile** (user decision, overriding a battery concern:
-session lengths on a landing page make the power cost irrelevant). But portrait creates a
-real problem it solves separately - see the viewport-biased selection note in the
-Architecture section. As of the gremlin toggle (Phase 2b section below) "on by default" is
-now just the starting state, and the visitor can switch it off on any device.
-
-**Collapse-by-default: BUILT (2026-08-05), and now applies at EVERY width** - it was
-narrow-screens-only until the pinned sequence was switched off; see `collapsesByDefault()` in
-`js/hero.js`. A real `<details>` element (`#hero-disclosure` in `index.html`), not a scripted
-toggle - native keyboard operation and correct expanded/collapsed semantics for assistive tech
-come free, and it degrades to plain visible content with no JS. Points that are load-bearing:
-
-- **It ships `open` in the markup and JS collapses it - never the reverse.** Shipping it
-  closed and opening it with JS would leave a no-JS visitor staring at a collapsed summary
-  with a control that does nothing. Verified across five states (narrow/wide x JS/no-JS, plus
-  expand), and re-verified at four widths after the sequence was switched off.
-- **The mount is deferred while collapsed** - no module work, no SVG construction and no
-  gremlin timers until the first expand. `boot()` in `js/hero.js` attaches a `toggle` listener
-  instead of mounting. Confirmed by counting zero `.topo-viz` nodes on load; since the
-  collapse now applies everywhere, that saving applies to desktop too (measured `roots=0` at
-  1400px, 1000px, 760px and 375px).
-- **The summary is `display: none` above the breakpoint** so the disclosure reads as a plain
-  wrapper on a desktop - which is why `watchLayout()` force-opens it when crossing upward: a
-  details left closed with its summary hidden would strand the diagram with no control to
-  reopen it. Crossing *downward* deliberately does not auto-collapse - pulling away content
-  someone is reading is worse than revealing a collapse control. **Both of those behaviors are
-  now gated on the sequence being ON**: the CSS rule keys off `[data-hero-sequence="on"]` and
-  the force-open checks `HERO_PINNED_SEQUENCE`, because with the sequence off the disclosure
-  starts collapsed on desktop too and hiding the control would strand it.
-- Three places share the 800px breakpoint and must move together: `PORTRAIT_MAX_WIDTH` in
-  `js/hero.js`, the `max-width: 800px` portrait block and the `min-width: 801px` summary block
-  in `css/style.css`.
-
-**The summary copy is finalized** (`index.html`, confirmed 2026-08-08 alongside the hero
-tagline - the user reviewed the original draft and kept it as-is). It is **load-bearing**:
-on a phone it is the only thing a visitor who never expands the diagram will read, so it
-has to carry the claim in words rather than just label a control. Deliberately
-inviting-but-mysterious, meant to drive curiosity and clicks rather than explain up front.
-
 **Phase 1 COMPLETE (2026-08-04): static homepage skeleton.**
 `index.html` / `css/style.css` / `js/main.js` are no longer the placeholder. Built: nav
 (`sean troxel` wordmark + Home/Resume, no Contact/Projects items - see below), header/intro
 banner with the hero tagline (`hero-tagline` in `index.html`, finalized 2026-08-08 - see the
 placeholder-copy resolution in Open items/TODOs), the hero slot (`#hero-mount` / `.hero-mount` in
-`css/style.css`, filled for real in Phase 2a above), stats strip (real figures, both endpoint numbers shown with the ~2,000
+`css/style.css`, filled for real by exhibit #1 - see `_docs/exhibit-1-topology.md`), stats strip (real figures, both endpoint numbers shown with the ~2,000
 figure primary and the 10,000 figure as a subordinate qualifier), promotion timeline, and
 footer. `/resume/index.html` carries the same nav/footer chrome and, as of 2026-08-04, real
 resume content synced in from the separate resume repo (see "Resume page + cross-repo
@@ -602,27 +218,10 @@ the site and the component now follow system preference the same way, the site n
 to override any `--topo-*` custom property - no specificity fight, no forced-theme CSS to
 maintain.
 
-**Contrast fix applied to `topology/render/topology.css` as a result of that decision.**
-Respecting system preference makes light mode a first-class rendering, and the component's
-original light-mode tokens (from the dataviz skill's reference palette) failed WCAG when
-checked against `--topo-bg: #fcfcfb`: `--topo-active` (the signature teal) measured 2.74:1
-against a 3:1 non-text minimum, `--topo-muted` measured 3.50:1 against a 4.5:1 text minimum,
-`--topo-status-warn` measured 1.79:1 against 3:1. All three were darkened (hue/saturation
-preserved) to clear their thresholds: `--topo-active` -> `#1aa674` (3.03:1),
-`--topo-muted` -> `#76756f` (4.50:1), `--topo-status-warn` -> `#c48704` (3.00:1). Dark-mode
-values were already passing and were left untouched. `--topo-line` and `--topo-node-border`
-(structural strokes, 1.75:1 and 2.35:1 in light mode) still fail and were deliberately left
-as-is after visual review - fixing them to 3:1 made the diagram noticeably heavier and cost
-it the light, airy feel the user had already approved; revisit only if this becomes a real
-accessibility complaint, not preemptively.
-
-Typography: system stacks only for now - a mono stack
-(`ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace`) for labels/section
-eyebrows/technical accents, standard sans for body. No JetBrains Mono webfont is loaded yet
-(zero external requests); self-hosting a woff2 subset is the documented follow-up if the
-system-font fallback isn't distinctive enough - do not use the Google Fonts CDN. Resolved
-(2026-08-04): the resume page shares this site's identity/theme rather than keeping the print
-resume's navy/white look - see "Resume page + cross-repo pipeline" below for the mechanics.
+The topology component's own light-mode tokens had to be darkened to clear WCAG
+against this decision, and two structural strokes were deliberately left failing
+after visual review. The measured values and the reasoning are in
+`_docs/exhibit-1-topology.md` - read it before touching any `--topo-*` color.
 
 **No build step, by deliberate decision (2026-08-04), revisit at ~5 pages.** Node and Ruby
 are both absent from this machine; GitHub Pages already runs Jekyll server-side (no
@@ -772,271 +371,6 @@ that it created a sticky **chain**, and every link offsets against the ones abov
 - Measured no-overlap at scroll: header occupies 0..57, summary 57..122, status bars stick at
   122.
 
-## Phase 2b: scrollytelling tier sequence (BUILT, then SWITCHED OFF 2026-08-05)
-
-**CURRENT STATE: the pinned scroll sequence is OFF, and that is now the DECIDED presentation,
-not a pending question.** `HERO_PINNED_SEQUENCE = false` at the top of `js/hero.js`. The user
-liked the execution but decided the pinned presentation was not what they had envisioned. On
-2026-08-07 they confirmed they like the stacked-behind-a-disclosure behavior as it stands and
-want to keep it. **Do not treat the stacked layout as a placeholder any more** - earlier
-versions of this file said the user intended to revisit it, and that is no longer true.
-
-**The gated pin code is retained deliberately - do not delete it as dead code.** The user
-explicitly wants the pinned/scrollytelling implementation kept present and non-functional so
-the option remains technically available without rediscovering it. That covers the
-`HERO_PINNED_SEQUENCE` flag and everything it gates, the `.hero-scroll[data-hero-mode="pinned"]`
-CSS block, and `_tests/scroll-prototype.html`. A future "simplify" or dead-code pass must leave
-all three alone. Everything below is still live code, just switched off. **CLOSED FOR
-CONSIDERATION 2026-08-08**: retaining the code is not an invitation to keep raising "revisit the
-pin?" - the user is aware it exists and has decided against reviving it; do not surface it in
-future TODO summaries unless the user explicitly reopens the topic.
-
-**What the site does today:** every screen size behaves the way narrow screens already did.
-No sticky pin, no cross-fade, no scroll driver. All three tiers render at full size in a plain
-vertical scroll, collapsed by default behind the `<details>` disclosure at **every** width,
-with the summary always visible as the expand/collapse control.
-
-**To turn it back on, flip the one flag.** Nothing else needs changing:
-
-- `isPinned()` is the single predicate gating the whole mechanism.
-- The pinned CSS all lives under `.hero-scroll[data-hero-mode="pinned"]`.
-- `collapsesByDefault()` reverts to collapsing only on narrow screens.
-- `watchScroll()` returns immediately while the flag is off, so a switched-off hero costs zero
-  scroll work rather than running a handler that returns early.
-- The summary-hiding rule in `css/style.css` is gated on `[data-hero-sequence="on"]`, which
-  `js/hero.js` writes onto `<html>` from the flag. **That gate is load-bearing while the flag
-  is off**: the disclosure now starts collapsed on desktop too, so hiding the control above
-  801px would strand the diagram with no way to open it. The attribute is absent entirely when
-  JS never runs, which is the correct no-JS baseline - content expanded, control visible.
-
-**A side benefit worth keeping in mind:** with the sequence off the mount is deferred at every
-width, not just on phones, so the homepage builds no SVG and starts no gremlin timers until a
-visitor actually expands the diagram. Measured `roots=0` on load at 1400px, 1000px, 760px and
-375px.
-
-**Gremlin toggle restored to the live page (2026-08-05).** The old `Gremlin: ON/off` buttons
-lived in `harness/index.html` and died with it in `0fe0c65`; the component API
-(`startGremlin` / `stopGremlin` / `gremlinRunning`) survived untouched, so this was a small
-addition rather than a rebuild. Now: **one** control for all tiers (user decision - the harness
-had one per tier, but with the tiers stacked three switches for one behavior reads as clutter),
-sitting directly under the disclosure summary with a line of explanatory copy.
-
-- **`syncGremlin()` in `js/hero.js` is the single authority on which instances strike.** Tiers
-  are now always mounted with `gremlin: { enabled: false }` and this turns on exactly the right
-  ones afterward, so the mount path and the toggle path cannot disagree. The rule differs by
-  layout: stacked runs every tier (the renderer's `IntersectionObserver` already keeps
-  off-screen ones quiet), pinned runs only the `is-current` tier. Both `startGremlin` and
-  `stopGremlin` are idempotent, so it is safe to call on every layout, transition and click.
-- **Turning it off does not reset the diagram, deliberately.** `stopGremlin()` lets pending
-  repairs finish, so the network winds down to healthy instead of freezing mid-outage. Verified:
-  9s after switching off, badges and downed nodes both reach 0.
-- `HERO_GREMLIN` is now only the STARTING state, not the switch.
-- The control is `[hidden]` in the markup and unhidden on a successful mount, same pattern as
-  `.exhibit-directions` - a control that cannot do anything is never shown, and a no-JS visitor
-  never sees it. Verified `hidden=true, rendered=false` with scripts blocked.
-- It is a real `<button>` with `aria-pressed`, so focus, keyboard activation and pressed-state
-  semantics are the platform's job. **Worth noting: the two toggles are currently the only
-  keyboard-operable parts of the diagram** - the nodes themselves are still pointer-only (see the
-  logged a11y gap).
-
-**Packets toggle added 2026-08-07 (user request), sitting beside the gremlin toggle.** Labelled
-`Network packets shown` / `hidden`, it controls whether the packet dots are drawn, and it
-**overrides `prefers-reduced-motion` in BOTH directions**.
-
-- **Its starting state is the inverse of the visitor's reduced-motion preference** (`packetsOn =
-  !prefersReducedMotion()` in `js/hero.js`), so someone who asked for less motion gets no dots
-  without touching anything - the system preference remains the default. From the first click the
-  visitor owns it outright: reduced motion ON plus the toggle ON shows the dots, reduced motion OFF
-  plus the toggle OFF hides them. That two-way override is the whole point and is why the CSS hook
-  is a specificity win rather than a rule inside the reduced-motion media block (see the
-  `topology.css` bullet in Architecture).
-- **This is WCAG-clean, not a violation.** 2.2.2 wants a *mechanism to stop* motion, not a ban on
-  ever offering it; a labelled button the visitor pressed is that mechanism made explicit rather
-  than inferred from an OS setting. Note this does NOT reopen the "gremlin needs no reduced-motion
-  gate" decision above - that one is about color and text changes, which are not motion at all.
-- **Scope is the packet dots ONLY, deliberately** (user decision). The sync-link dash march and the
-  gremlin badge pop stay suppressed under reduced motion whatever this toggle says, because the
-  control's label covers packets and must not quietly re-enable motion nobody agreed to. Do not
-  "complete" it by widening the selector.
-- **`packetsChosen` guards against the system preference yanking the toggle.** `watchLayout()`
-  already re-runs on a `prefers-reduced-motion` change; the flag re-derives the default only while
-  the visitor has never clicked. After a click their choice stands through any number of
-  preference or breakpoint changes.
-- **`syncPackets()` mirrors `syncGremlin()` and must be called from `layout()`.** A re-layout
-  destroys and rebuilds all three instances, and the fresh roots carry no `data-packets` attribute,
-  so the choice has to be re-pushed exactly the way the gremlin state is.
-- **Label wording is user-chosen and the distinction is real**: "shown"/"hidden", not "on"/"off",
-  because the packets are not the traffic - the teal edge coloring conveys the live paths either
-  way, and only the rendering of the dots is being switched. Earlier drafts said "Show network
-  traffic" and "Network traffic on/off"; both were rejected for implying the traffic itself stops.
-  Both notes under the buttons carry the same point.
-- **Both buttons share one row (`.hero-toggle-row`, flex with `wrap`)**. Measured 2026-08-07:
-  side by side down to ~430px, stacked at 375px and 320px with no overflow (a 211px button
-  inside a 265px row).
-- **REVERSED 2026-08-08 (user request): the note is now two paragraphs, one per toggle,
-  not one shared note.** The original decision below is kept for the record, but no longer
-  holds - do not "fix" the split back to one paragraph citing this text.
-  ~~ONE note beneath both, rather than a note each - two explanations stacked under two
-  controls reads as a settings page instead of a caption.~~
-- **FULLY user-confirmed on the live site 2026-08-07, on a reduced-motion machine - the whole
-  cycle, not just one direction.** Page loads with the packets correctly hidden (the system
-  preference honored as the default), the first click makes them appear **and animate**, and a
-  second click hides them completely again. That closes the one thing headless could never reach:
-  `--virtual-time-budget` can prove the dots *render* (computed `display: inline` plus a
-  screenshot) but not that they visibly *move*, since there is no rendering lifecycle. Nothing
-  about this toggle is now unverified - do not re-file it as needing a real-browser check.
-- Verified 2026-08-07 headlessly in both motion states, using the `matchMedia` shim from Commands
-  for the motion-allowed half. Under the headless reduced-motion default the toggle starts
-  `aria-pressed=false` / "hidden" with `data-packets=[off,off,off]` and computed
-  `display: none`; one click gives `[on,on,on]` and `display: inline` **while the reduced-motion
-  media query still matches**, which is the override direction that actually needed proving, and a
-  screenshot confirms the dots really paint. With motion shimmed on, the states are exactly
-  inverted. Controls stay `hidden` pre-mount in both.
-
-Everything from here down describes the mechanism as built, and stays accurate for when it is
-switched back on. Read it before touching `js/hero.js` or the scrollytelling block in
-`css/style.css`.
-
-The hero mounts **all three tiers**. `HERO_TIER` is gone; medium and large are reachable in
-production for the first time.
-
-**The whole design turns on two INDEPENDENT axes. Conflating them is a bug that actually
-shipped in the prototype and had to be fixed:**
-
-| | trigger |
-| --- | --- |
-| which tier **data** (landscape vs portrait) | width only |
-| which **layout** (pinned vs stacked) | width **OR** `prefers-reduced-motion` |
-
-- **PINNED** (wide screen, motion allowed): three instances share one grid cell in
-  `#hero-mount` and cross-fade as the visitor scrolls through `.hero-scroll`'s extra height.
-- **STACKED** (narrow screen, or reduced motion): the pin is dropped entirely and all three
-  render at full size in normal flow, each with its own caption and a sticky status bar.
-
-The stacked trigger is a JS-set `data-hero-mode` attribute on `.hero-scroll`, **not** a media
-query, because "narrow OR reduced motion" cannot be expressed as one CSS media block without
-duplicating every rule.
-
-**Why stacked on narrow screens - measured, do not re-derive and do not "restore" the pin.**
-A pinned slide has to fit the viewport, and the SVG is width-driven, so fitting it means
-shrinking its width until the height lands - which drags node boxes below the ~44px touch
-minimum the portrait layouts exist to protect. On a 375x667 phone the pin has about 506px to
-work with (667 - 65px summary - caption and gaps):
-
-| Tier | Portrait viewBox | Natural height | Pinned result |
-| --- | --- | --- | --- |
-| Small | 340 x 500 | ~513px | fits, nodes 111x48px - OK |
-| Medium | 340 x 580 | ~589px | squeezed to 247px wide, nodes 81x38px - FAILS |
-| Large | 360 x 1290 | ~1187px | would need a 155px width, nodes ~28x22px - FAILS BADLY |
-
-Only small survives, and medium misses by only ~80px, which means any rescue would depend on
-the visitor's phone being taller than roughly 700px. Stacking is the answer, not a smaller
-scale. This supersedes the old plan of "cap the scroll version at small/medium on phones".
-
-**Why stacked under reduced motion.** The preference means suppress MOTION, not content.
-The first implementation settled on the first tier and never advanced, which hid medium and
-large entirely - the entire payoff of the sequence - for every visitor with Windows animation
-effects off. That is a large and invisible audience; the bug was only caught because the user
-happens to have the setting off. Stacking shows all three with no scroll-driven swapping at
-all, satisfying the preference without removing anything.
-
-**Traps and load-bearing details:**
-
-- **`.hero-layer` needs an explicit `width: 100%`.** These are grid items, and per spec
-  `justify-self: stretch` does NOT apply to an item with an auto inline margin - so
-  `margin-inline: auto` alone silently drops each layer to its max-content width. For an SVG
-  at `width: 100%` that is the **300px default intrinsic width of a replaced element**, and
-  the whole hero renders at roughly a quarter scale (measured: 300x90 instead of 896x269).
-  This regressed once during the port from the prototype. The symptom looks like a scaling
-  bug, not a margin bug.
-- **The scroll track has NO height until `data-hero-mode="pinned"` is set.** That is the
-  progressive-enhancement guarantee: a no-JS visitor, a 404'd module or a throw leaves the
-  fallback at its natural size instead of floating in a 1860px empty scroll region. Verified
-  no-JS at 1200px and 375px (`mode=null`, `trackH` = fallback height, `roots=0`).
-- **The fallback is removed only after ALL THREE tiers mount.** `buildAll()` mounts into
-  DETACHED containers and hands back roots only if every one succeeded; a throw on the third
-  tier destroys the first two and leaves the placeholder. This is also what makes a re-layout
-  safe - nothing is swapped into the page until the replacement set is known good, which is
-  the three-instance generalization of the old `watchOrientation()` mount-before-destroy rule.
-- **Only the visible tier runs a gremlin when pinned**, and a tier that leaves the screen is
-  `reset()` so it does not come back still carrying nodes the visitor knocked offline. In
-  stacked mode all three run their own, which is fine because all three are genuinely on the
-  page and the renderer's `IntersectionObserver` already biases strikes toward what is on
-  screen.
-- **The `<summary>` is `position: sticky`** (user request): once expanded on a phone the hero
-  runs ~2400px, so backing out should always be one tap away. It needs an opaque background or
-  the diagram scrolls through it. `js/hero.js` measures it and publishes `--hero-summary-h`,
-  which `.hero-pin` and the sticky status bars offset themselves by so the two sticky elements
-  never collide. Measured rather than hardcoded because the summary copy (finalized 2026-08-08)
-  wraps to two lines on a narrow phone - being finalized doesn't make it a fixed length.
-- **`.topo-status` is `position: sticky` in stacked mode** - this closes the previously-logged
-  open item. Pure CSS, no renderer change, works because `topology-render.js` appends the
-  status bar as the FIRST child of `.topo-viz`, before the SVG. Confirmed no ancestor carries
-  `overflow: hidden`.
-- **Track height is fixed px (`--hero-step: 620px` x 3), not a `vh` multiple**, so pacing does
-  not swing between a tall monitor and a short laptop with dev tools open. `.hero-pin` uses
-  `dvh` because iOS Safari's address-bar show/hide makes `100vh` unstable exactly when the pin
-  is on screen.
-- **The scroll driver is rAF-gated and the listener is `IntersectionObserver`-gated**, so it
-  only runs while the hero is near the viewport. Progress comes from
-  `getBoundingClientRect()`, not `scrollY`, so it is independent of everything above the hero.
-- **Native `animation-timeline` did NOT become the primary path, deliberately.** CSS cannot
-  swap a tier - that is a DOM operation - so the native path is only reachable by keeping all
-  three mounted and cross-fading opacity, and even then the JS driver has to decide which
-  layer is current. There is therefore ONE implementation, not the two parallel ones the
-  original plan feared; CSS contributes the opacity transition (gated on
-  `prefers-reduced-motion: no-preference`) and nothing else.
-
-**Verification status.** Geometry, mode selection, caption wiring, fallback removal, hint
-reveal, `--hero-summary-h`, sticky positions and the no-JS baseline are all confirmed
-headlessly across desktop/laptop/phone x motion/reduced-motion plus two no-JS widths.
-**The live scroll sequencing itself is NOT headlessly verifiable** - `requestAnimationFrame`
-never fires under `--virtual-time-budget` (see Environment), so the driver cannot advance.
-The identical logic was verified in `_tests/scroll-prototype.html`, which carries a
-`window.__proto` debug hook for exactly this reason. Confirm the cross-fade in a real browser.
-
-**`_tests/scroll-prototype.html` is kept**, not deleted like the usual `_scenario-temp.html`
-scratch pages. It is the only place the driver can be exercised synchronously, and it is under
-`_tests/` so it stays off the live domain. Its `window.__proto` hook must never be copied into
-`js/hero.js`.
-
-**Formerly "still open inside Phase 2b" - all four items below are now closed, none remain
-open.** Kept for the reasoning and the do-not-re-file notes on each, not because anything here
-is pending:
-
-- **`CAPTIONS` is LIVE, not dormant - correcting an error made earlier in this file.** An
-  earlier pass claimed captions only render when pinned. They do not: `.hero-layer::before`
-  (was `::after` until 2026-08-08, see below) in `css/style.css` uses `content: attr(data-caption)`
-  in **stacked** mode, which is every width today, so all three captions are on the production
-  page above their tiers. Verify before assuming otherwise. All three captions are finished
-  copy: medium and large were finalized 2026-08-07 naming real mechanisms (see the
-  redundancy-model note in Architecture); the small caption was finalized 2026-08-08 despite
-  naming no mechanism - that absence is the point of that tier, and the caption says so as a
-  direct judgment on the design rather than a neutral description.
-- *(closed for consideration, not deleted)* `--hero-step: 620px` pacing was chosen, not tuned
-  against real scrolling. Nothing reads the value while the flag is off, and per the 2026-08-08
-  closure this is not to be raised as a pass worth doing unless the user explicitly reopens the
-  pin.
-- ~~Large-tier density and the dimmed treatment for unreachable nodes~~ **RECONSIDERED
-  2026-08-08, left as-is with no change needed.** This sat open since the prototype phase with
-  no concrete complaint attached. Re-examined against the current code (`is-unreachable` at
-  opacity 0.4, dead edges at opacity 0.35, both applied uniformly across all three tiers - see
-  `topology.css`) and the user judged density and dimming both fine as they stand at large-tier
-  scale. Do not re-file this as open; revisit only if the user raises a concrete complaint.
-- ~~Gremlin idea, not built: the fixer could also repair visitor-caused breakage.~~
-  **RECONSIDERED 2026-08-08, will not be built, left as-is.** The fixer repairing damage the
-  visitor caused by clicking (not just gremlin-caused breaks) was weighed and rejected: it
-  reads as the tool fighting the visitor rather than helping them. If someone clicks a node to
-  test a scenario or deliberately cause an outage, having the fixer silently "helpfully" revert
-  that click a few seconds later is just annoying, not a feature - there's no reliable way to
-  distinguish "curious click" from "intentional break I want to observe," and guessing wrong
-  undermines the one form of visitor agency the exhibit already offers (see "No draggable
-  nodes" and "Failover is instant" under Design rulings - clicking is the interaction). Do not
-  re-file this as an open item unless the user explicitly reopens it.
-
-See the mount API docs in the Architecture section above (`TopologyViz.mount`) for the
-component's existing interface.
-
 ## Expandable exhibit list (direction set 2026-08-07)
 
 **The disclosure is not a one-off wrapper around the network diagram. It is the first row of a
@@ -1172,383 +506,102 @@ disclosure.** It is the generic `section` `border-bottom` in `css/style.css`, wi
 section's 48px bottom padding between the two. Worth knowing before someone tries to explain it
 as a stray exhibit border.
 
-## Exhibit #2: botnet swarm (built and deployed 2026-08-09)
+## Cross-cutting lessons
 
-A boids simulation in which a botnet swarms three servers, across three tiers that vary
-**only** by defense sophistication: none, rate limiting, rate limiting plus tarpitting.
-Second row of the exhibit list, and the first piece built against that direction rather
-than retrofitted into it. Live on the homepage.
+Findings that came out of one exhibit but generalize to the next one. The worked
+example stays in that exhibit's `_docs/` file; the rule lives here so it is loaded
+before anyone can repeat the mistake.
 
-Everything below was migrated from `botnet-swarm-spec.md`, which was **deleted on
-2026-08-09** once this section existed, along with its `_config.yml` exclude. That is the
-same fate the topology build spec met, and for the same reason: a second copy of the
-design drifts and then starts lying. Do not resurrect it from git history to settle a
-question - if it is not here or in the code, it is not a live constraint.
+- **Cumulative counters plus per-instance visibility gating produce numbers that
+  cannot be compared.** If several instances each advance only while personally on
+  screen, and each displays a running total meant to be read against the others, the
+  totals measure scroll history rather than the thing being measured. Gate every
+  instance together against the whole exhibit, or display a rate instead of a total.
+  This shipped in the swarm exhibit and produced a confident, completely false
+  reading - it showed rate limiting as four times worse than no defense at all.
+- **A caption that summarizes simulation behavior is an assertion about the engine,
+  and has to be checked against it.** Two swarm captions claimed things the code did
+  not do and shipped that way. Prose describing what a visitor is watching is
+  testable, so test it.
+- **A metric defined by a rare threshold crossing amplifies small asymmetries
+  geometrically, so it cannot be used to measure the fairness of whatever produced
+  them.** Measured in the swarm exhibit: a 13% edge at one rung became 14x at the
+  outage threshold. A regression test that needs to assert fairness should assert it
+  on the underlying volume, not on the rare event.
+- **A visitor control that overrides a system preference needs a "has the visitor
+  chosen yet" flag.** Both exhibits derive a default from `prefers-reduced-motion`,
+  and both re-derive it when the preference changes - which would yank the control
+  out from under a visitor who had already set it. The guard is a boolean set on
+  first click (`packetsChosen` in `js/hero.js`, `playingChosen` in `js/swarm.js`);
+  after that the visitor's choice stands through any number of preference or
+  breakpoint changes. Copy the pattern rather than reinventing it.
+- **Overriding a motion preference in BOTH directions is a CSS specificity problem,
+  not a media-query problem.** A rule nested inside `@media (prefers-reduced-motion:
+  reduce)` can only ever override in one direction. The working pattern is a host-set
+  attribute read by a rule OUTSIDE any media block, which beats the media rule on
+  specificity alone, and whose ABSENCE leaves the media query in charge, so hosts
+  that ship no control are unaffected.
+- **Scope a motion control to exactly what its label says.** Widening the selector to
+  "complete" it quietly re-enables motion nobody agreed to. Both exhibits deliberately
+  leave some motion suppressed regardless of their toggle.
+- **A control that cannot do anything yet is never shown**, and neither are
+  directions for an interaction that does not exist yet. Ship them `[hidden]` and
+  unhide on successful mount. See the exhibit shell invariants below.
+- **Visitor-facing copy has exactly one home per string.** A test harness that keeps
+  its own copy of production captions goes stale and then contradicts the live site;
+  this happened to `_tests/swarm-preview.html`, which was still showing a claim the
+  site had already corrected. Harnesses derive their labels from the same config the
+  page uses, or do without.
 
-### Files
+## Settled - do not reopen
 
-| file | role |
+Compact index of questions that were raised, weighed, and closed by user decision.
+**Do not surface any of these in a TODO scan, a cleanup pass, or a "things you could
+improve" summary unless the user explicitly reopens the topic.** The reasoning lives
+where each row points and is not repeated here on purpose.
+
+| settled question | reasoning lives in |
 | --- | --- |
-| `swarm/engine/swarm-engine.js` | pure simulation, zero DOM, deterministic |
-| `swarm/tiers/tiers.js` | `SHARED` constants, derived field geometry, the three tiers |
-| `swarm/render/swarm-render.js` | canvas renderer, frame loop, scoreboard DOM |
-| `swarm/render/swarm.css` | every `--swarm-*` token, light + dark |
-| `js/swarm.js` | host module: shell behavior, play/pause, visibility gating |
-| `_tests/swarm-tests.html` | 36 engine assertions, `TESTS: N/N PASS` |
-| `_tests/swarm-preview.html` | renderer harness, no page chrome |
-| `_tests/swarm-analysis.html` | long-run tuning harness |
+| Pinned scrollytelling hero: will not be revived. The gated code stays in the tree regardless of any cleanup pass. | `_docs/archive-hero-scrollytelling.md` |
+| Keyboard operability for topology nodes: will not be built. Do not add `aria-live` to the status bar either. | `_docs/exhibit-1-topology.md` |
+| "Engineer mode" / timeout-based VRRP simulation: will not be built. Failover stays instant. | `_docs/exhibit-1-topology.md` |
+| Gremlin fixer repairing visitor-caused breakage: will not be built. | `_docs/exhibit-1-topology.md` |
+| Large-tier density and the dimming of unreachable nodes: fine as-is. | `_docs/exhibit-1-topology.md` |
+| Large tier lighting both firewall clusters: correct, it models a clustered ECMP design. | `_docs/exhibit-1-topology.md` |
+| Packet throttle: deliberately removed, do not reinstate. | `_docs/exhibit-1-topology.md` |
+| Draggable topology nodes: out of scope. | `_docs/exhibit-1-topology.md` |
+| Swarm visitor interactivity, and a honeypot node for tier 3: benched, build as if the answer is no. | `_docs/exhibit-2-swarm.md` |
+| A dedicated Contact section or nav item: replaced by footer links. | this file, "Homepage build" |
 
-`js/swarm.js` is a **separate module from `js/hero.js` on purpose**, a third independent
-failure domain alongside `js/main.js`: a throw building the swarm must not take the
-topology exhibit down, and vice versa.
+## Maintaining these files
 
-### The determinism contract - the single most load-bearing decision
+Treat all of this as living documentation, not a one-time snapshot. Whenever you
+learn something during a session that would help a future session - a new
+architectural decision, a constraint discovered the hard way, a tool or command that
+turned out to be necessary, a preference the user stated - write it down before the
+session ends. Prefer editing the relevant existing section over appending a
+changelog entry.
 
-The engine is a **deterministic reducer**, not a self-driving animation. Two rules protect
-that, and neither is negotiable:
+**Where it goes:**
 
-1. **Randomness arrives as an injected `rng()` argument.** The engine never imports or
-   calls a global random source.
-2. **Time advances only in `FIXED_DT` increments.** The renderer accumulates real elapsed
-   time and steps a whole number of times. **Never pass a raw frame delta into `step()`** -
-   that would make every run irreproducible and every test meaningless.
+| what you learned | where it goes |
+| --- | --- |
+| A rule, environment quirk, or command that applies to any work in this repo | this file |
+| Anything about one exhibit's engine, renderer, data, host, copy or traps | that exhibit's `_docs/` file |
+| A finding from one exhibit that would change how the NEXT exhibit is built | the rule here under "Cross-cutting lessons", the worked example in the exhibit file |
+| A decision the user closed and does not want reopened | one row in "Settled - do not reopen" above, reasoning in the exhibit file |
+| Something open, deferred, or newly shipped | `_docs/todos.md` |
+| A new exhibit | a new `_docs/exhibit-N-<name>.md`, plus a row in the documentation map and a row in `_docs/todos.md` |
 
-This is what lets `_tests/swarm-tests.html` assert whole runs rather than single
-transitions, including the exhibit's own thesis. It is also why the paused opening frame is
-reproducible. `step()` mutates state in place rather than returning fresh objects (unlike
-`topology-engine.js`, which is genuinely pure) because this runs 60 times a second against
-hundreds of agents; determinism comes from the two rules above, not from immutability.
+**The test for whether something belongs in THIS file: would a session that never
+opens that exhibit still be harmed by not knowing it?** Environment gotchas qualify,
+because you cannot look up what you do not know you need - "headless Chromium
+reports `prefers-reduced-motion: reduce` by default" cost real debugging time for
+exactly that reason, and nothing would have prompted a session to go looking for it.
+Exhibit internals do not qualify, because their trigger is obvious: you are already
+in the file.
 
-### Simulation model
-
-**Capacity is live occupancy, not a draining meter.** `capacityUsed = acquiredCount *
-perBoidCost`. A boid eats a fixed slice the instant it locks on and gives it back the
-instant it stops being acquired. This is a connection-table-exhaustion model, and it is why
-capacity recovers instantly when a repulsion fires.
-
-**Boid lifecycle: two states, three exits.** ROAMING (flocks and wanders, seeks nothing,
-finds targets by bumping into their radius) -> ACQUIRED (locked, seeking, occupying a
-capacity slot). Exits are DESTROYED (target hit 100% capacity; the whole attacking swarm
-dies with it), HELD (tier 3 only, after an identification dwell, pulled off-field into the
-held count, later expiring into neutralized), or SCATTERED back to roaming.
-
-**Only DESTROYED and HELD remove a boid from the field.** `runRepulsion` never removes
-anyone - that is the entire lesson of tier 2, and it is the fact tier 3's caption is built
-on.
-
-**First-seen-wins targeting, never re-evaluated.** A boid locks the first live node whose
-acquisition radius it enters and never switches. Ties resolve in config order, which is
-kept provably irrelevant by geometry rather than by engine code (see below).
-
-**Acquisition radius grows sub-linearly with attacker count** (logarithmic, capped). That
-is the pile-on. It is self-limiting because the popular target eventually dies and
-disperses its own swarm; linear growth would let an early lead swallow the field.
-
-**Spawning is pressure-driven with no clocks anywhere.** Rate is a continuous function of
-current population against the ceiling, decaying exponentially. There are no waves, no
-cooldowns and no "on node death, boost spawn" special case. What reads as a wave is the
-feedback loop of destruction releasing pressure and spawning responding. **Any code that
-special-cases a death to trigger spawning has reintroduced the scripted behavior this
-design rejects.**
-
-### Tiers, and the honesty rule
-
-All three tiers reference **one shared object by reference** and vary **only** their
-`defense` block. Same attack, same field, same capacity cost, same spawn behavior. A test
-asserts identity, not equality. If you ever want to give a tier a gentler attack to make it
-look better, that is the bug.
-
-**Tier 3's repulsion block is byte-identical to tier 2's, with a test enforcing it**, so
-tier 3 is exactly "tier 2 plus a tarpit" and any visible difference is attributable to the
-tarpit alone. Tune the tarpit, never tier 3's repulsion.
-
-**The identification dwell is load-bearing.** A tier 3 attacker sits as a normal attacker
-costing real capacity for ~1.15s before being captured. Without it tier 3's meter sits flat
-at zero, which is both boring and dishonest; with it the tier has genuine close calls
-(measured peak capacity 0.90-0.95) while rarely tipping.
-
-### Scoreboard, and the equal-clock rule
-
-Three numbers per node (`held` / `stopped` / `outages`), rendered **off-canvas** above the
-field. The canvas carries only spawners, targets and boids. This mirrors how the topology
-component keeps `.topo-status` out of its SVG, and it is also what makes the exhibit legible
-to assistive tech at all, since a canvas is otherwise opaque. Do **not** add `aria-live` -
-the values change every few frames.
-
-**ALL THREE TIERS MUST SHARE ONE CLOCK, and this is a correctness requirement.** The
-renderer originally gated simulation on each tier's own `IntersectionObserver`, so a tier
-advanced only while it personally sat in the viewport. Parking the page mid-exhibit ran the
-middle tier for minutes while the outer two were frozen, and since the totals are cumulative
-and meant to be compared BETWEEN tiers, this produced a confident and completely false
-reading - live it showed rate limiting as four times worse than no defense at all, where 800
-simulated seconds put the ordering at a stable 177 / 71 / 23 that never inverts. Suspension
-now happens once, in `js/swarm.js`, against the whole exhibit. **Never reintroduce a
-per-instance observer in the renderer.**
-
-**The general lesson, which applies to any future exhibit: cumulative counters plus
-per-instance visibility gating produce numbers that cannot be compared.** Gate every
-instance together, or display a rate instead of a total.
-
-### Rendering: canvas, not SVG
-
-Forced by agent count - a few hundred boids across three tiers is too many DOM nodes to
-mutate per frame. Consequences the renderer has to carry:
-
-- **Canvas cannot read CSS custom properties**, so `readTokens()` pulls every `--swarm-*`
-  value off the root with `getComputedStyle` at mount and again on a color-scheme change.
-  The tokens still live in `swarm.css`; **do not move color values into JS.**
-- **Chrome scales inversely with canvas width.** At 496px the scale factor is about 0.5 and
-  a 14-unit label rendered at 7px. Text, node boxes and boids each have their own clamp.
-  Deliberately **not** a second portrait field geometry the way the topology tiers work:
-  every simulation length shares units with the field, so reshaping it would invalidate
-  every tuned constant and every seeded test. Text has no such coupling, so text is what
-  moves.
-- `devicePixelRatio` handling is explicit, and repulsion rings are view-only state aged in
-  **sim time** so pausing freezes them with everything else.
-
-### Motion and the play/pause control
-
-Default derives from `prefers-reduced-motion`: paused if the visitor asks for reduced
-motion, playing otherwise. **One toggle governs all three tiers** via `syncPlayback()`, the
-analog of `syncGremlin()`. A `playingChosen` guard mirrors `packetsChosen` - the system
-preference sets the default only while the visitor has never clicked; after one click their
-choice stands through any number of preference changes.
-
-**Pause freezes the engine, not just the draw call.** Field, scoreboard and meters all stop.
-The alternative would tick the scoreboard over a motionless field.
-
-**The paused frame is pre-seeded, not empty.** At mount the engine steps ~1000 ticks with no
-rendering, so a reduced-motion visitor opens on a populated field mid-attack rather than
-three untouched nodes. Cheap (no draw calls, no rAF) and deterministic. Note the seed is
-**fixed**, so every such visitor sees the identical frame; the user reviewed the current one
-and accepted it (2026-08-09). A per-load random seed is possible - the host would pass one
-while tests keep fixed seeds - if variety is ever wanted.
-
-### Field layout: derived geometry, not hand-placed coordinates
-
-Two spawners outside left and right, three servers inside as an equilateral triangle with a
-horizontal base. Coordinates come from `LAYOUT` plus `buildLayout()` in `swarm/tiers/tiers.js`,
-with six geometry invariants asserted in the suite so a later edit cannot silently break a
-property the comments claim. **Read the long comment in that file before changing any of it.**
-
-- **The original bug this replaced:** spawners at y=118/482 sat dead level with srv1 (128)
-  and srv3 (472), launching the swarm down those two lanes, while srv2 sat 230 units behind
-  them. First-seen-wins plus the pile-on let the two forward nodes vacuum the centre corridor.
-  srv2 took 0.7 outages against 13.7 and 13.0 over 800s - decorative rather than participating.
-- **An ellipse with the spawners at its foci is geometrically impossible here and was
-  properly ruled out.** No spawner may sit inside a node's grown acquisition ring or that
-  node locks essentially every boid it emits; solving that constraint collapses the ellipse
-  into a near-circle. **Do not re-raise it.**
-- **The triangle inverted the problem before it fixed it.** With spawners on the horizontal
-  centerline the apex took 71% of the layered tier's outages, because it owns the whole half
-  of the field above the spawner axis while the base pair share the half below. Dropping the
-  spawner axis 75 units toward the base row hands that flux back. **Do not push the drop much
-  further** - level with a node row is the original bug.
-- **Minimum server separation rose from 198 to 280, which drops contested acquisitions from
-  0.20% to 0.00%** and so makes `runAcquisition`'s config-order tie-break provably irrelevant
-  without touching the engine.
-
-### The threshold-amplification finding, and why the starvation bar is per-tier
-
-**Equalizing arrival volume does NOT equalize tier 3's outage split**, and this generalizes
-well past this exhibit. With tier 1 at a near-perfect 33/34/33, the layered tier was still
-14/67/19. Counting how often each node climbed each rung toward the 20 attackers that kill
-it, with volume already equal:
-
-| attackers reached | >=5 | >=10 | >=15 | >=20 (outage) |
-| --- | --- | --- | --- | --- |
-| srv1 | 239 | 77 | 8 | 1 |
-| srv2 (apex) | 271 | 125 | 36 | 14 |
-| srv3 | 248 | 94 | 11 | 4 |
-
-A 13% edge at five attackers becomes 62% at ten, 4.5x at fifteen and 14x at the outage.
-**A metric defined by a rare threshold crossing amplifies small asymmetries geometrically,
-so it cannot be used to measure the fairness of whatever produced them.** Tier 1's ladder
-over the same run is flat, because an outage there tracks volume directly. Five geometries
-including the pre-triangle layout all land between 13% and 18% minimum share on tier 3.
-
-Consequence: the starvation regression test uses a **per-tier floor** - 20% on tiers 1 and 2
-where it honestly measures the layout (both clear it at 29-33%), and 5% plus "every node goes
-down at least once" on tier 3. The 5% is not a fudge to make a red test green: the original
-bug had srv2 under 2% and visibly never going down, which that floor still catches.
-
-### Copy rulings
-
-All copy is **final** (user-reviewed 2026-08-09), not placeholder. The strings live in
-`index.html` (summary, description, toggle note, fallback) and `js/swarm.js` (captions,
-play/pause labels). What is not recoverable from the strings themselves:
-
-- **The summary is second person** ("your network") because it is the one line that puts the
-  visitor inside the scenario, and on a collapsed row it is the only thing they will read.
-- **Tier 2 DELAYS and pushes; tier 3 CAPTURES.** The exhibit's argument compressed into
-  verbs. Delay is honest for rate limiting (a 429 with a retry hint tells the client to come
-  back, and it does); a tarpit is a different category of answer, not a longer delay, which
-  is why tier 3 says outright that it does **not** push. **Do not let "delay" leak into tier
-  3 or "capture" into tier 2** - the tiers differ by exactly one defense, so the words have
-  to differ cleanly or the comparison stops reading.
-- **"inert" appears twice on purpose**, in the description and tier 3's caption. If either is
-  reworded, reword both.
-- **Tier 1 avoids a pronoun chain** ("the node comes back, and so does the swarm", not "it
-  comes back, and then it happens again"), and says the node **goes down** so the caption uses
-  the same words the visitor sees on screen (`OFFLINE`, `outages`).
-- **Tier 3's caption was factually WRONG in an earlier draft**, and the correction is the
-  useful part. It claimed attackers "leave the board for good" and that tier 3 is "the only
-  tier where the swarm gets smaller". A boid is a **connection, not a bot** - `runTarpit`
-  removes one boid and parks one entry in `node.held`, and the machine that opened it is
-  still out there. And no tier shrinks: spawning refills against the ceiling at a rate that
-  rises as population falls, and measured live population at 800s is unprotected 69, rate
-  limited 106, layered 85, so the **unprotected** tier carries the smallest swarm precisely
-  because it keeps detonating. **General lesson: a caption that summarizes simulation
-  behavior is an assertion about the engine and has to be checked against it** -
-  `_tests/swarm-analysis.html` answers that class of question in one headless run.
-
-**Visitor-facing copy has exactly one home per string.** `_tests/swarm-preview.html` used to
-carry a duplicate of the captions and went stale, still showing the corrected-away tier 3
-claim; it now derives a defense summary from the tier config instead. Do not reintroduce copy
-into a harness.
-
-### Visual conventions
-
-- **Hostile is PURPLE, never red-devil imagery.** Carried over from the gremlin badge being
-  deliberately a purple imp rather than a red devil, because the user is sensitive to
-  religious readings. A field of malicious agents is an easy place to drift into demonic
-  visual language: no flames, no horns, no skulls, no blood-red palette. The botnet is
-  purple, mechanical, impersonal. Red is reserved for node status.
-- The rest of the palette follows the topology component's semantics (teal healthy, amber
-  degraded, red down) so the two exhibits read as one system.
-- Boids are triangles oriented along velocity - heading is information, a converging swarm
-  should visibly point at what it has locked onto.
-- **Capacity meters render on-field**, not in the scoreboard: capacity is the fastest-changing
-  and most node-specific value, and making the eye travel to a panel would break the
-  cause-and-effect reading. The scoreboard's three numbers are cumulative or slow-moving.
-- Acquisition radii are **dashed strokes, not filled discs**. Filled, at any alpha low enough
-  to be unobtrusive in light mode, they read as three enormous blobs that bury the swarm they
-  exist to explain.
-- A repulsion wave draws a brief expanding ring; without a visible cause, scattering looks
-  like a bug.
-- Spawners are not attackable, have no capacity and cannot be targeted. They exist so the
-  swarm has a visible origin.
-
-### Benched by user decision (2026-08-08) - build as if the answer is no
-
-- **Visitor interactivity.** The exhibit is observational, which is why it correctly ships
-  **no `.exhibit-directions` paragraph** - the first time that half of the intro block has
-  been absent. If interactivity is ever built, the directions come back with it. Do not fill
-  it with filler copy in the meantime.
-- **A honeypot / decoy node for tier 3.** It would add a fourth node type and break the
-  identical-layout-across-tiers symmetry that makes the comparison honest.
-
-### Still open (tuning only, nothing broken)
-
-- **Tuning constants are provisional.** All in `SHARED` and the per-tier `defense` blocks in
-  `swarm/tiers/tiers.js`, deliberately in one place so a pass is cheap. The triangle
-  rearrangement moved tier totals (unprotected +22%, rate limited +51%, layered -40%) and
-  they have not been judged by eye since.
-- **Mobile and touch legibility** on real hardware. Verified headlessly to 496px; the BOT-1
-  marker sits close to SRV-1's acquisition ring at that width. The user cannot reach
-  `localhost` from their phone, which is why this waited for the deploy.
-- **The pre-seed opening frame** is fixed rather than per-load, accepted as-is.
-
-## Maintaining this file
-
-Treat this file as living documentation, not a one-time snapshot. Whenever you learn something during a session that would help a future session (a new architectural decision, a constraint discovered the hard way, a tool or command that turned out to be necessary, a preference the user stated), add it here before the session ends. Prefer editing the relevant section above over appending a changelog entry.
-
-## Open items / TODOs
-
-Running list of things noticed or deferred, not yet acted on. Add to this list as items come up; remove them once resolved.
-
-- **Exhibit #2 (botnet swarm) COMPLETE and LIVE (2026-08-09, merged as `192e53f`, built in 32.6s).** All five phases done. The design, decisions, traps and measured findings live in the "Exhibit #2: botnet swarm" section above; `botnet-swarm-spec.md` was migrated into it and **deleted**, and its `_config.yml` exclude removed. Verified live: all seven changed assets byte-identical to local, and the spec, `CLAUDE.md` and all three `_tests/` pages return 404 from the domain. Remaining items are tuning only and are listed at the end of that section - constants unjudged since the triangle rearrangement, mobile legibility on real hardware, and the fixed pre-seed frame.
-
-- Prototype phase COMPLETE and committed (66f61a2, 2026-07-13): user approved after two revision rounds (server renames, dual bridges, gremlin mode with purple imp badges and per-tier pacing).
-- Homepage build Phase 1 COMPLETE and committed (fb82f40, 2026-08-04): static nav/hero-slot/stats/timeline/footer, resume stub, topology contrast fix. Resume cross-repo pipeline COMPLETE and committed (7b9ffad, 2026-08-04): sync tooling built, first real resume content synced in and styled - see "Resume page + cross-repo pipeline" above.
-- Phase 2a COMPLETE (2026-08-04): hero went live on the homepage, small tier + gremlin, harness retired - see "Homepage build" above for the details and the traps. *(Historical: the single-tier `HERO_TIER` mount it describes was replaced by the three-tier mount in Phase 2b below.)*
-- **Mobile treatment COMPLETE (2026-08-05)**: portrait layouts for all three tiers, viewport-biased gremlin, live re-orientation on resize/rotation, and the `<details>` collapse with lazy mounting. All three tiers have portrait variants; large gets no landscape fallback by explicit user decision. See "Mobile treatment" under Homepage build for the geometry and the traps. *(The collapse was narrow-screens-only when built; it now applies at every width - see Phase 2b below.)*
-- **Phase 2b (scrollytelling) BUILT then SWITCHED OFF, 2026-08-05. Presentation DECIDED 2026-08-07. CLOSED FOR CONSIDERATION 2026-08-08 - do not list this as an open item in future TODO scans.** All three tiers mount; `HERO_TIER` is gone. The pinned sequence works and shipped, but the user decided the presentation was not what they wanted - `HERO_PINNED_SEQUENCE = false` in `js/hero.js`. Every width uses the plain stacked scroll behind a collapsed-by-default disclosure, and on 2026-08-07 the user confirmed they want to keep exactly that. On 2026-08-08 the user went further: they are aware the pinned code exists and have decided against reviving it for now, and explicitly do not want it resurfaced as a pending decision. **The gated pin code stays in the tree** (that part of the instruction is unchanged - do not delete it in a cleanup pass), but its presence is no longer a reason to raise "revisit the pin?" as an open TODO. Treat it purely as historical/architectural context unless the user explicitly reopens it. See the "Phase 2b" section above for the flag, the two-axis design, the measured reasons the pin is dropped on narrow screens and under reduced motion, and the grid-stretch trap. Resolved as part of it: the sticky `.topo-status` item, and the `dvh` vs `vh` question (the pin uses `dvh`; nothing else on the site uses viewport height units at all).
-- **Expandable exhibit list: direction set 2026-08-07, nothing to build yet.** The disclosure is the first row of a growing list of collapsed-by-default interactive pieces; future additions become rows rather than new presentations. No code changes were needed to adopt this - it is a decision about where future work goes. See the "Expandable exhibit list" section above for the six invariants a new exhibit must honor, the shared-vs-specific boundary, the `exhibit` naming decision (user-approved 2026-08-07), and the two cosmetic constraints that bite once a SECOND row exists (doubled borders between adjacent rows, and the 32px summary margin spacing rows apart). **Sticky handoff between stacked summaries needs no work at all** - measured 2026-08-07, the browser already gives exactly the wanted behavior because each summary is constrained by its own `<details>`.
-- **Exhibit intro block BUILT (2026-08-07)**, at user request: the click instruction moved from
-  below the diagram to the top of the exhibit, and was generalized into an `.exhibit-intro`
-  (description + directions) that every future exhibit reuses. First piece of the shared shell
-  to carry the `exhibit-*` prefix. See "The exhibit intro block" subsection for the markup, the
-  visibility split and the verification. The description copy was reworded and re-colored on
-  2026-08-08 (see the resolution below) - no longer first-draft text, though like any copy it
-  can still be revisited.
-- **Placeholder copy: RESOLVED 2026-08-08.** All three items are finalized: the disclosure
-  summary (kept exactly as originally drafted - load-bearing, since on a phone it is the only
-  thing a visitor who never expands will read, and it is also the **template** every future
-  exhibit summary will follow), the hero tagline (now "An instinct for how systems work,
-  hard-won and applied to infrastructure that holds up under pressure" - workshopped through
-  several drafts before landing here), and the small-tier caption (kept as originally drafted).
-  All three had their "placeholder, not finalized" comments removed at their definition sites
-  in `index.html` and `js/hero.js`. *(The medium and large captions came off this list on
-  2026-08-07 - they are now finished copy naming VRRP, ECMP and clustering.)* Two more copy/
-  layout changes landed in the same session: the exhibit description was reworded ("Three
-  types of networks" instead of "Three versions of the same network") and re-colored from
-  stark white to the same muted tone as the tagline and directions; and each tier's caption
-  now renders **above** its diagram via `.hero-layer::before` rather than below via `::after`
-  (see the CAPTIONS bullet above - this also reverses the toggle-note split noted under the
-  packets toggle above). Committed as `152917c`.
-- ~~320px fallback taller than the reserved hero box (~63px collapse on a slow module load)~~ **RESOLVED by Phase 2b, re-measured 2026-08-06 - do not re-file.** The bug needed the hero to be *expanded on page load* with the fallback occupying visible space while the module was still arriving. It now ships collapsed at every width with the mount deferred behind the expand click, so the module is already loaded when the mount happens and the fallback never occupies visible space at all: measured `shift=0.0px` on expand at 320px, 375px and 480px, with the fallback already gone 50ms after the click. In the genuine failure cases (module 404s, blocked, parse error) `hero.js` never runs, so nothing collapses the disclosure and the page renders exactly like the no-JS baseline - where the grid row is sized by the fallback (`mountH == fallbackH` at all three widths), so it simply renders at its natural height with no overlap and nothing to collapse. Verified, not reasoned.
-- **Sticky nav + packet changes COMPLETE (2026-08-05, `268aab6` and `30bd9d0`).** The header pins on every page - see the sticky-chain table in the Homepage build section, and note `--site-nav-h` must stay published from `js/main.js` so `/resume/` gets it. Packet dots now ride every active edge and reconcile incrementally instead of being rebuilt; see the two packet paragraphs in Architecture, both marked do-not-revert.
-- **Gremlin toggle COMPLETE (2026-08-05, `b7a6c80`).** One control for all tiers under the disclosure summary. `syncGremlin()` in `js/hero.js` is the single authority on which instances strike.
-- **Packets toggle COMPLETE (2026-08-07), beside the gremlin toggle.** `Network packets shown` / `hidden`, defaulting to the inverse of the visitor's `prefers-reduced-motion` setting and overriding it in both directions once clicked. Built as a `data-packets` attribute on the component root read by `topology.css` alone, so the renderer stays ignorant of motion preferences. See "Packets toggle" under Phase 2b for the reasoning, the `packetsChosen` guard, the deliberately packets-only scope, and the headless verification; and the `topology.css` bullet in Architecture for why the CSS rules sit outside any media block. **Deployed (`80fbdb3`, built in 28.6s) and FULLY user-confirmed on the live site the same day, on a reduced-motion machine**: loads hidden, one click makes the packets appear and animate, a second click hides them completely. That is the complete cycle including the reduced-motion override, so this needs no further real-browser verification. All three changed assets were also checked as actually served, not just the HTML.
-- **Naming consistency pass COMPLETE (2026-08-08), and the build spec is DELETED.** Node ids
-  now match their rendered labels, the engine's `wanPair` key became `ispPair`, "stack" became
-  "cluster" everywhere, and "standby" became "backup" in the captions/README/exhibit copy. See
-  the "Naming consistency pass" note in Architecture for the full table, for the two things
-  that deliberately did not change (the engine's `role` enum, and medium still being genuinely
-  active/standby), and for the silent-failure trap in the portrait `coords`/`bows` maps that
-  any future rename must re-probe. `network-topology-prototype-spec.md` was retired in the same
-  pass: its still-live content became the "Component contract" and "Design rulings" sections
-  above, and its `_config.yml` exclude was removed with it. It was deleted rather than archived
-  because it had gone actively wrong - it still mandated the packet throttle that was removed
-  on 2026-08-05. **Do not resurrect it from git history to settle an argument.**
-- **Standby site links now dash-march (2026-08-07), large tier only.** User request: the site
-  bridges sat static while the HA sync links crawled. `bridge-standby` class from the renderer
-  plus a `topo-bridge-march` keyframe, mirroring `sync-live`. See the two-dash-marches table in
-  the Architecture section for the condition, the whole-dash-period constraint on the keyframe
-  distance, and the CSSOM trick for verifying an animation headlessly when Chromium insists on
-  reporting reduced motion. Verified headlessly across four network states plus both motion
-  states, deployed (`222a9c5`, live in ~40s, both changed assets byte-identical to local), and
-  **user-confirmed on the live site the same day** from a motion-allowed session. Fully closed.
-- **Favicon COMPLETE (2026-08-06):** `favicon.svg` + `favicon.ico` + `apple-touch-icon.png` at
-  the root, sources under `_icons/`, root-relative `<link>` block in both pages. See "Site
-  icons / favicon" above for the traps (the XML double-hyphen one is the nasty one).
-  **Deployed and validated live** (`eb30990`, built in 40s): all three serve 200 with correct
-  MIME types and hashes byte-identical to the committed files, both pages carry the
-  root-relative link block, the served SVG parses as XML, and `/_icons/` returns 404 - which
-  is the first empirical confirmation that Jekyll's underscore exclusion works for a directory
-  other than `_tests/`. **User-confirmed rendering correctly in a real browser tab
-  (2026-08-06)** - this item is fully closed. Note for any future icon change: the tab itself
-  cannot be screenshotted headlessly, and browsers plus the Pages CDN cache favicons hard, so
-  re-check in a private window rather than assuming a stale icon means something is broken.
-- ~~Known a11y gap: topology nodes are pointer-only, no keyboard support~~ **CLOSED FOR
-  CONSIDERATION 2026-08-08 - user decision, will not be built, do not resurface.** Weighed and
-  rejected: the site's audience (friends, family, hiring managers/recruiters) is essentially
-  never keyboard-only; nothing on the page is available *solely* through clicking a node; and
-  the one plausible payoff - a reviewer's automated scanner catching it - doesn't hold up,
-  since the exhibit only mounts after the visitor expands the collapsed disclosure (a default
-  Lighthouse/axe crawl never reaches the nodes) and WCAG 2.1.1 keyboard operability isn't
-  reliably automatable regardless. See the "Known a11y gap" bullet under Phase 2a in
-  "Homepage build" for the full reasoning. The gremlin toggle remains the one keyboard-operable
-  control in the hero; that does not change with this decision.
-- **Verification status of the hero work - everything shipping is now user-confirmed live.** Confirmed in a real browser: the stacked layout at desktop and at a ~492px window, the packet-reroute fix (the user reported the asymmetric-disturbance bug from the live site and confirmed the fix resolved it), and **the gremlin toggle (confirmed 2026-08-07, working as expected)**. The only unwatched piece is the pinned scroll sequence, and that is **dormant rather than open**: `HERO_PINNED_SEQUENCE` is off permanently, so nothing renders it: re-verify only if the flag is ever flipped back on. **The user works over RDP much of the time and will not change RDP animation settings, so any `prefers-reduced-motion` behavior has to be checked from their console session**; they also cannot reach `localhost` from their phone, so mobile verification happens against the deployed site. **Useful consequence of the packets toggle (2026-08-07): the reduced-motion machine is no longer a dead end for checking MOTION.** Toggling packets on there overrides the preference for the dots, so packet animation can now be confirmed by the user without touching any OS or RDP setting - which is exactly how the reduced-motion override got verified end to end. That only covers the packet dots, though; **both dash marches (sync links and, as of 2026-08-07, standby site links) and the badge pop** have no such override by design, so those need a motion-allowed session. The standby site-link march was confirmed that way on 2026-08-07, which shows the console session is a workable route when something genuinely cannot be checked any other way.
-- ~~Spec-literal behavior worth confirming: cluster-B firewalls lighting as transit in bridge mode and the shared mesh~~ **RESOLVED 2026-08-07 - confirmed as intended, do not re-file.** The user chose to keep the engine model and make the labeling state it: the large tier is a clustered, ECMP-routed design, so both clusters carrying traffic is correct at that scale. Medium remains an active/backup pair with the backup's links dark. Firewall sub-labels now read `cluster A` / `cluster B`, and the captions name VRRP, ECMP and clustering outright. Full reasoning, including why active/standby is still the enterprise default for a *pair*, is in the redundancy-model note in the Architecture section.
-- ~~Future "engineer mode" toggle (timeout-based VRRP/keepalive simulation)~~ **CLOSED, NOT BUILT - user decision 2026-08-08: no longer in consideration.** This was on the open list since the prototype phase as a deferred idea; the user has now decided against it outright rather than continuing to defer it. Nothing was ever built, so there is no code to keep. Do not resurface this in future TODO scans. See the failover-timing ruling under "Design rulings" for the (now historical) reasoning it was weighed against.
-- No **custom** CI/Actions workflow; Pages uses the legacy branch-based build. This is load-bearing for `_tests/` and `_icons/` staying off the live domain - see Deploy above before changing it. **Correction learned 2026-08-06: "no Actions workflow" does not mean Actions is uninvolved.** The legacy deploy still executes as a GitHub-managed workflow named `pages-build-deployment`, which is why an Actions outage took the deploy down even though this repo owns no workflow file. It also means `gh run list --workflow="pages-build-deployment"` works here at all. Do **not** treat that listing as authoritative though - it and the Pages API each proved wrong at least once on 2026-08-06/07, in opposite directions; fetch the served file to settle it. See Environment.
-- ~~Large-tier density and the dimmed treatment for unreachable nodes~~ **RECONSIDERED
-  2026-08-08, left as-is, no change needed.** Sat open since the prototype phase with no
-  concrete complaint attached; re-examined against the current code and the user judged both
-  fine at large-tier scale. See the "Still genuinely open" bullet (now struck through) under
-  Phase 2b above. Do not re-file unless a concrete complaint comes up.
-- **Bridge dim/standby bug FIXED and COMMITTED 2026-08-08 (`546cb4f`), deployed and live.** User
-  caught that a large-tier site link dimmed when its literal drawn-endpoint firewall went down,
-  even though the other firewall in that same cluster (and thus the bridge itself) was still
-  fully usable - and that toggling the *other* firewall in the pair (the non-drawn one)
-  correctly left it undimmed, which was the tell that the renderer was checking the wrong two
-  nodes. Fixed in `topology-render.js` by resolving `is-dead`/`bridge-standby` against the whole
-  cluster's `fwIds` (from `structure.bridges`) instead of the two literal edge endpoints - see
-  the "Bridge dim/standby bug FIXED" note under "Large-tier bridges" in Architecture for the
-  full mechanism and the scratch-probe verification (four scenarios on the large tier, engine
-  tests unaffected at 24/24 since this is renderer-only). Small/medium tiers have `bridges: []`
-  and are untouched. Build confirmed (`546cb4f built dur=30808` via the Pages API) - fully
-  closed, do not re-file.
+**Keep this file from re-absorbing the exhibits.** The rows in the documentation map
+are pointers. If you find yourself explaining an exhibit's behavior here in order to
+make a sentence work, that explanation belongs in the exhibit's file with a pointer
+left behind.

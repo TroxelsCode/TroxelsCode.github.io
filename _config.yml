@@ -7,8 +7,17 @@
 # root markdown file is rendered into a page even though it has no YAML front
 # matter. Measured 2026-08-07: every root .md was served TWICE - once verbatim
 # at /NAME.md and once rendered at /NAME.html. Underscore-prefixed DIRECTORIES
-# (_tests/, _icons/) are dropped by Jekyll's EntryFilter, but root FILES are
-# not, so they need an explicit exclude. One entry here removes both outputs.
+# (_tests/, _icons/, _docs/) are dropped by Jekyll's EntryFilter, but root
+# FILES are not, so they need an explicit exclude. One entry here removes both
+# outputs.
+#
+# _docs/ is NOT and must not be listed below - it is an underscore directory,
+# so EntryFilter already drops it and an exclude entry would be redundant. That
+# is exactly why the exhibit documentation lives there rather than at the repo
+# root: a root .md would need its own entry, one per file, and this list is not
+# a pattern. Put new documentation in _docs/. (Do not declare _docs as a Jekyll
+# collection either - an undeclared underscore directory is simply skipped, and
+# declaring it would start publishing the contents.)
 #
 # Scope note: this only removes the files from the built site. The repository
 # is public, so they remain readable on github.com, including in history. The
