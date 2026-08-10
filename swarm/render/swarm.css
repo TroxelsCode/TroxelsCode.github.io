@@ -44,7 +44,14 @@
   --swarm-spawner: #8a8a82;
   /* Stroked, not filled - see the note in swarm-render.js. */
   --swarm-radius-ring: rgba(124, 63, 191, 0.42);
-  --swarm-repulse-ring: #1aa674;
+  /* ONE token for TWO elements on purpose: the expanding repulsion wave
+   * and the per-node cooldown bar that says when the next one can fire.
+   * They are the same mechanism seen twice, so they are the same colour
+   * by construction rather than by two values kept in sync by hand.
+   * Light blue reads as a shield rather than as a status: it has to sit
+   * next to the capacity meter without joining the teal/amber/red
+   * health scale, and it must not be mistaken for the purple swarm. */
+  --swarm-repulse: #2a9fd8;
 
   display: block;
   width: 100%;
@@ -70,7 +77,7 @@
 
     --swarm-spawner: #6e6e78;
     --swarm-radius-ring: rgba(169, 123, 234, 0.45);
-    --swarm-repulse-ring: #21c489;
+    --swarm-repulse: #5fc8f7;
   }
 }
 

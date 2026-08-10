@@ -255,14 +255,40 @@ into a harness.
   degraded, red down) so the two exhibits read as one system.
 - Boids are triangles oriented along velocity - heading is information, a converging swarm
   should visibly point at what it has locked onto.
-- **Capacity meters render on-field**, not in the scoreboard: capacity is the fastest-changing
-  and most node-specific value, and making the eye travel to a panel would break the
-  cause-and-effect reading. The scoreboard's three numbers are cumulative or slow-moving.
+- **Meters render on-field**, not in the scoreboard: they are the fastest-changing and most
+  node-specific values, and making the eye travel to a panel would break the cause-and-effect
+  reading. The scoreboard's three numbers are cumulative or slow-moving. Each node carries
+  **two stacked bars**, cooldown above capacity:
+  - **Capacity** keeps the bottom slot and the teal/amber/red health scale.
+  - **Repulsor cooldown**, added 2026-08-09, is **full when the defense can fire**, empties the
+    instant it does and refills across `defense.repulsion.cooldown`. It answers the question
+    the expanding ring raises - when can that happen again. **Tiers 2 and 3 only, and ABSENT
+    rather than permanently empty on the unprotected tier**: a bar that could never fill reads
+    as a defense that is broken rather than one that was never bought. The node label lifts to
+    make room on **all three** tiers, so the boxes stay identical and the only visible
+    difference between tiers remains the defense itself. No special case is needed for "has
+    not fired yet" or for a node that just came back up - the engine leaves `lastRepulse` at
+    `-Infinity` in both, which clamps straight to ready.
+- **The repulsion ring and the cooldown bar read ONE token, `--swarm-repulse`.** Same colour by
+  construction rather than by two values kept in sync by hand - they are the same mechanism
+  seen twice. It is **light blue** (shield, not status): it has to sit next to the capacity
+  meter without joining the teal/amber/red health scale, and it must not be mistaken for the
+  purple swarm. It was teal until 2026-08-09, which collided with `--swarm-ok`.
 - Acquisition radii are **dashed strokes, not filled discs**. Filled, at any alpha low enough
   to be unobtrusive in light mode, they read as three enormous blobs that bury the swarm they
   exist to explain.
 - A repulsion wave draws a brief expanding ring; without a visible cause, scattering looks
-  like a bug.
+  like a bug. The ring is the one thing drawn above the swarm.
+- **Draw order: nodes and ALL their chrome, then the swarm, then repulsion rings.** Boids pass
+  over the node box, the label and both meters. This **reversed** the original order (user
+  decision, 2026-08-09), which repainted label and meter on top of the boids so they stayed
+  readable under a heavy attack. The trade was made knowingly: a node smothered by two dozen
+  attackers is the moment the exhibit is making its point, and holding chrome above the swarm
+  at exactly that moment undersold it. Nothing buried is the only copy of itself - the
+  scoreboard above the canvas carries every per-node number as real text and is the accessible
+  representation anyway. Node body and chrome are one loop rather than two now that they are
+  adjacent, which is safe only because node boxes provably never overlap (minimum server
+  separation 280 units against a 92-unit box).
 - Spawners are not attackable, have no capacity and cannot be targeted. They exist so the
   swarm has a visible origin.
 

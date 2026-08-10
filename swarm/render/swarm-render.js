@@ -59,7 +59,7 @@ const TOKEN_NAMES = [
   'hostile', 'hostile-locked',
   'node-fill', 'node-border', 'node-text',
   'ok', 'warn', 'down',
-  'spawner', 'radius-ring', 'repulse-ring'
+  'spawner', 'radius-ring', 'repulse'
 ];
 
 function readTokens(el) {
@@ -88,6 +88,10 @@ function roundRect(ctx, x, y, w, h, r) {
 const NODE_W = 92;
 const NODE_H = 52;
 const METER_H = 7;
+/* Vertical gap between the two stacked meters. Small enough that they
+ * read as one instrument cluster, large enough that a full cooldown bar
+ * and a full capacity bar do not merge into a single block. */
+const METER_GAP = 3;
 const RING_LIFE = 0.85;
 
 /*
@@ -253,6 +257,18 @@ export const SwarmViz = {
       ctx.fill();
     }
 
+    /* The empty channel a meter fills into. Both bars share it so an
+     * unfilled cooldown bar and an unfilled capacity bar are visibly the
+     * same kind of thing. */
+    function drawMeterTrack(x, y, w, h) {
+      roundRect(ctx, x, y, w, h, 3);
+      ctx.fillStyle = tokens['field-bg'];
+      ctx.fill();
+      ctx.lineWidth = 1 * nodeScale;
+      ctx.strokeStyle = tokens['node-border'];
+      ctx.stroke();
+    }
+
     function draw() {
       if (!tokens || !canvas.width) return;
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -297,13 +313,29 @@ export const SwarmViz = {
         ctx.fillText(s.label, s.x, s.y + spawnR + 19 * textScale);
       }
 
-      /* Node bodies. Boids draw over these so a pile-on visibly buries
-       * its target; the label and meter are drawn again afterwards so
-       * the readable parts survive. */
+      /* Nodes: body, label and both meters, ALL drawn before the swarm
+       * so a pile-on visibly buries its target whole.
+       *
+       * This reverses the original order (user decision, 2026-08-09),
+       * which repainted the label and capacity meter on top of the boids
+       * so the readable parts survived a heavy attack. The trade was made
+       * knowingly: a node smothered by two dozen attackers is the moment
+       * the exhibit is making its point, and holding chrome above the
+       * swarm at exactly that moment undersold it. Nothing is lost that
+       * has only one home - the scoreboard above the canvas carries every
+       * per-node number as real text, and is the accessible copy anyway.
+       *
+       * Body and chrome merged into one pass now that they are adjacent.
+       * Safe because node boxes provably never overlap: minimum server
+       * separation is 280 units against a 92-unit box. */
       const nw = NODE_W * nodeScale;
       const nh = NODE_H * nodeScale;
+      const meterH = METER_H * nodeScale;
+      const defense = state.tier.defense || {};
+
       for (const node of state.nodes) {
         const down = node.status !== 'up';
+
         ctx.globalAlpha = down ? 0.45 : 1;
         roundRect(ctx, node.x - nw / 2, node.y - nh / 2, nw, nh, 6 * nodeScale);
         ctx.fillStyle = tokens['node-fill'];
@@ -312,10 +344,61 @@ export const SwarmViz = {
         ctx.strokeStyle = down ? tokens.down : tokens['node-border'];
         ctx.stroke();
         ctx.globalAlpha = 1;
+
+        const pad = 8 * nodeScale;
+        const mx = node.x - nw / 2 + pad;
+        const mw = nw - pad * 2;
+        /* Capacity keeps the bottom slot it has always had; the cooldown
+         * bar stacks above it and the label lifts to make room. The lift
+         * applies to EVERY tier, including the unprotected one with no
+         * cooldown bar to show, so the boxes stay identical across tiers
+         * and the only visible difference between them remains the
+         * defense itself. */
+        const capY = node.y + nh / 2 - meterH - 7 * nodeScale;
+        const repY = capY - meterH - METER_GAP * nodeScale;
+
+        ctx.font = '600 ' + (14 * textScale).toFixed(1) + 'px ui-monospace, Consolas, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = down ? tokens.down : tokens['node-text'];
+        ctx.fillText(down ? 'OFFLINE' : node.label, node.x, node.y - 6 * nodeScale);
+
+        /* Repulsor readiness, tiers 2 and 3 only. Full means the defense
+         * can fire; it empties the instant it does and refills across the
+         * cooldown, so the bar answers the question the expanding ring
+         * raises - when can that happen again. Same colour as the ring by
+         * construction, since both read one token.
+         *
+         * ABSENT rather than permanently empty on the unprotected tier: a
+         * bar that could never fill would read as a defense that is
+         * broken rather than one that was never bought.
+         *
+         * No special case is needed for "has not fired yet" or for a node
+         * that just came back up - the engine leaves lastRepulse at
+         * -Infinity in both, which clamps straight to ready. */
+        if (defense.repulsion) {
+          drawMeterTrack(mx, repY, mw, meterH);
+          if (!down) {
+            const ready = clamp((state.t - node.lastRepulse) / defense.repulsion.cooldown, 0, 1);
+            if (ready > 0) {
+              roundRect(ctx, mx, repY, Math.max(2, ready * mw), meterH, 3);
+              ctx.fillStyle = tokens.repulse;
+              ctx.fill();
+            }
+          }
+        }
+
+        const cap = capacityOf(node, state.shared);
+        drawMeterTrack(mx, capY, mw, meterH);
+        if (!down && cap > 0) {
+          roundRect(ctx, mx, capY, Math.max(2, Math.min(1, cap) * mw), meterH, 3);
+          ctx.fillStyle = cap >= 0.75 ? tokens.down : cap >= 0.4 ? tokens.warn : tokens.ok;
+          ctx.fill();
+        }
       }
 
-      /* The swarm. Locked attackers read darker than roaming scouts, so
-       * "found something" is visible without following individuals. */
+      /* The swarm, over the nodes and everything on them. Locked
+       * attackers read darker than roaming scouts, so "found something"
+       * is visible without following individuals. */
       for (const b of state.boids) {
         ctx.fillStyle = b.mode === 'acquired' ? tokens['hostile-locked'] : tokens.hostile;
         ctx.globalAlpha = b.mode === 'acquired' ? 1 : 0.78;
@@ -323,43 +406,13 @@ export const SwarmViz = {
       }
       ctx.globalAlpha = 1;
 
-      /* Node chrome, drawn last so it stays readable under a swarm. */
-      const meterH = METER_H * nodeScale;
-      for (const node of state.nodes) {
-        const down = node.status !== 'up';
-        const cap = capacityOf(node, state.shared);
-        const pad = 8 * nodeScale;
-        const mx = node.x - nw / 2 + pad;
-        const mw = nw - pad * 2;
-        const my = node.y + nh / 2 - meterH - 7 * nodeScale;
-
-        ctx.font = '600 ' + (14 * textScale).toFixed(1) + 'px ui-monospace, Consolas, monospace';
-        ctx.textAlign = 'center';
-        ctx.fillStyle = down ? tokens.down : tokens['node-text'];
-        ctx.fillText(down ? 'OFFLINE' : node.label, node.x, node.y - 3 * nodeScale);
-
-        roundRect(ctx, mx, my, mw, meterH, 3);
-        ctx.fillStyle = tokens['field-bg'];
-        ctx.fill();
-        ctx.lineWidth = 1 * nodeScale;
-        ctx.strokeStyle = tokens['node-border'];
-        ctx.stroke();
-
-        if (!down && cap > 0) {
-          const fillW = Math.max(2, Math.min(1, cap) * mw);
-          roundRect(ctx, mx, my, fillW, meterH, 3);
-          ctx.fillStyle = cap >= 0.75 ? tokens.down : cap >= 0.4 ? tokens.warn : tokens.ok;
-          ctx.fill();
-        }
-      }
-
       /* Repulsion rings, on top: a defense firing needs a visible cause,
        * or boids scattering just looks like a bug. */
       for (const ring of rings) {
         const age = (state.t - ring.t) / RING_LIFE;
         if (age < 0 || age > 1) continue;
         ctx.globalAlpha = (1 - age) * 0.85;
-        ctx.strokeStyle = tokens['repulse-ring'];
+        ctx.strokeStyle = tokens.repulse;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.arc(ring.x, ring.y, 20 + age * 150, 0, Math.PI * 2);
