@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fallback preview (no-JS state of both exhibits)</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <!--
+    Why this page exists: the exhibit fallbacks are only on screen when the
+    modules do NOT run, so the live page cannot show them without disabling
+    JavaScript in the browser. This loads the real index.html in a sandboxed
+    iframe WITHOUT allow-scripts, which is the true no-JS render, then clones
+    the two fallbacks out of it.
+
+    It DERIVES everything from index.html and copies nothing. That is the rule
+    for harnesses in this repo (see the copy note in _docs/exhibit-2-swarm.md):
+    _tests/swarm-preview.html once kept its own duplicate of the captions and
+    went stale, contradicting the live site. If this page ever shows text that
+    index.html does not contain, that is a bug in this page.
+
+    Underscore directory, so Jekyll never publishes it. Serve the repo root
+    (python -m http.server 8123) and open /_tests/fallback-preview.html.
+  -->
+  <style>
+    body { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+    .preview-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+    .preview-controls button { font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer;
+      color: var(--site-text); background: var(--site-surface);
+      border: 1px solid var(--site-border); border-radius: 6px; }
+    .preview-controls button[aria-pressed="true"] { border-color: var(--site-accent); }
+    .preview-stage { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+    .preview-col { flex: 1 1 420px; min-width: 300px; }
+    .preview-col > h2 { font-family: var(--font-mono); font-size: 14px; margin: 0 0 10px; }
+    .preview-note { font-family: var(--font-mono); font-size: 12px; color: var(--site-muted); }
+    #src { position: absolute; left: -9999px; width: 1200px; height: 600px; border: 0; }
+    body[data-w="narrow"] .preview-col { flex: 0 0 320px; min-width: 320px; }
+  </style>
+</head>
+<body>
+  <h1 style="font-size:20px;margin:0 0 6px">Exhibit fallback preview</h1>
+  <p class="preview-note">The no-JS state of both exhibits, cloned live out of index.html.
+    Nothing on this page is a copy of the site's text.</p>
+  <div class="preview-controls">
+    <button type="button" id="w-toggle" aria-pressed="false">Narrow column (320px)</button>
+    <button type="button" id="t-toggle" aria-pressed="false">Show text-only view</button>
+    <span class="preview-note" id="stat"></span>
+  </div>
+  <div class="preview-stage" id="stage"></div>
+  <iframe id="src" sandbox="allow-same-origin" src="../index.html" title="no-JS source"></iframe>
+  <script>
+    var stage = document.getElementById('stage');
+    var stat = document.getElementById('stat');
+    var textOnly = false;
+    var cols = [];
+
+    document.getElementById('src').addEventListener('load', function () {
+      var d = document.getElementById('src').contentDocument;
+      [['Exhibit 1: network redundancy', '.hero-mount-fallback'],
+       ['Exhibit 2: botnet swarm', '.swarm-mount-fallback']].forEach(function (pair) {
+        var el = d.querySelector(pair[1]);
+        var col = document.createElement('div');
+        col.className = 'preview-col';
+        var h = document.createElement('h2');
+        h.textContent = pair[0];
+        col.appendChild(h);
+        var body = document.createElement('div');
+        body.appendChild(document.importNode(el, true));
+        col.appendChild(body);
+        cols.push({ node: body, source: el });
+        stage.appendChild(col);
+      });
+      report();
+    });
+
+    /* What an agent that never rasterizes the image actually receives: the
+       prose, plus every <title>, <desc> and <text> in reading order. */
+    function asText(el) {
+      return el.textContent.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
+    }
+
+    function render() {
+      cols.forEach(function (c) {
+        c.node.textContent = '';
+        if (textOnly) {
+          var pre = document.createElement('pre');
+          pre.style.whiteSpace = 'pre-wrap';
+          pre.style.fontFamily = 'var(--font-mono)';
+          pre.style.fontSize = '12px';
+          pre.textContent = asText(c.source);
+          c.node.appendChild(pre);
+        } else {
+          c.node.appendChild(document.importNode(c.source, true));
+        }
+      });
+    }
+
+    function report() {
+      var n = 0;
+      cols.forEach(function (c) { n += c.source.querySelectorAll('svg text').length; });
+      stat.textContent = cols.length + ' fallbacks, ' + n + ' SVG text nodes';
+    }
+
+    document.getElementById('w-toggle').addEventListener('click', function () {
+      var on = this.getAttribute('aria-pressed') === 'true';
+      this.setAttribute('aria-pressed', String(!on));
+      document.body.dataset.w = on ? '' : 'narrow';
+    });
+
+    document.getElementById('t-toggle').addEventListener('click', function () {
+      textOnly = this.getAttribute('aria-pressed') !== 'true';
+      this.setAttribute('aria-pressed', String(textOnly));
+      this.textContent = textOnly ? 'Show rendered view' : 'Show text-only view';
+      render();
+    });
+  </script>
+</body>
+</html>

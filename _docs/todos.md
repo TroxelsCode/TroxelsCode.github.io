@@ -34,6 +34,14 @@ be done on hardware this environment cannot reach.
   visitor opens on the identical frame. The user reviewed the current one and
   accepted it (2026-08-09). A per-load random seed is possible - the host would pass
   one while the tests keep fixed seeds - if variety is ever wanted. Not a defect.
+- **Fallback snapshot text is small on a narrow phone.** The four static SVGs use a 340-unit
+  viewBox and render at the fallback's own width, so at a 320px viewport (231px of SVG) a
+  10.5-unit heading lands at about 7px, and about 9px at 375px. From 480px up it is 12px or
+  more. Only affects the no-JS path, where the prose above carries everything the frames say.
+  Options if it ever matters: drop the frames below a breakpoint, or narrow the viewBox.
+- **The snapshots do not track their engines.** By construction, not by omission - see
+  invariant #2 in `CLAUDE.md`. Listed here only so it is visible at TODO-scan time: changing a
+  simulation outcome means editing `index.html` too (grep `STATIC SNAPSHOT`).
 - **No LinkedIn link in the footer**, because there is no profile URL yet. Add one
   if a profile appears, with `target="_blank" rel="noopener noreferrer"` per the
   external-link convention in `CLAUDE.md`.
@@ -96,6 +104,7 @@ Index only. Reasoning lives in `CLAUDE.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |
+| 2026-08-10 | (pending) | Both exhibit fallbacks rewritten as text equivalents carrying each tier's outcome, plus four static labelled SVG frames (one topology, three swarm) |
 | 2026-08-09 | `48f7ca4` | Swarm: light blue repulsor, per-node cooldown bars, boids drawn over node chrome |
 | 2026-08-09 | `d4cb2f7` | Exhibit documentation split out of `CLAUDE.md` into `_docs/` |
 | 2026-08-09 | `bad17b0` | Swarm spec migrated into documentation and deleted |

@@ -319,6 +319,46 @@ component into `#hero-mount` on the homepage. Details:
 - **Progressive enhancement**: `.hero-mount-fallback` is a real element, not `<noscript>` -
   `<noscript>` only covers scripting-disabled, not a 404/blocked/parse-error module, which
   would leave an empty reserved box. It is removed only after a successful mount.
+- **The fallback copy states the OUTCOME per tier, and every clause of it is a claim about
+  `topology-engine.js`** (rewritten 2026-08-10; the shared rule is invariant #2 in
+  `CLAUDE.md`). It used to describe the picture - "an internet uplink into a firewall, a
+  switch behind it" - which told a reader who cannot see the diagram nothing about what the
+  diagram argues. Now: small fails first and fails completely (uplink, firewall or switch
+  takes everything behind it, status `Business down`); medium turns the same failure into a
+  failover and the residual damage is the single-homed workstation groups (`Services
+  affected`); large absorbs any single failure and, having lost all four uplinks at a site,
+  rides the site links and reads degraded rather than green. Those three status strings are
+  the renderer's own (`STATUS_TEXT` in `topology-render.js`), the workstation asymmetry is
+  the deliberate design ruling above, and the degraded-on-bridge reading is
+  `resolveSiteUpstream`'s rule. **Re-verify against the engine before rewording any of it**,
+  and do not let it drift into naming a mechanism the tier does not model.
+- **The fallback also carries ONE static SVG frame, and the scenario it freezes was chosen,
+  not arbitrary** (added 2026-08-10; the shared rules are under invariant #2 in `CLAUDE.md`).
+  It shows **the primary firewall going offline in all three tiers at once**, because that is
+  the single event where the three designs answer differently in the cleanest way: small goes
+  `Business down`, medium fails over to `FW-2` and reads `All systems normal`, large keeps
+  carrying on three surviving firewalls. A switch failure was the alternative and is worse for
+  this purpose - it lands medium and large in the same `Services affected` state via the
+  single-homed workstation groups, which is a subtler point the prose already makes and a
+  muddier picture.
+  - **It draws ALL FIVE stages per tier - uplink, firewall, switching, servers, desks - and
+    that is load bearing, not decoration** (user direction, 2026-08-10). The first version
+    collapsed each tier to internet -> firewall -> business, which made the medium and large
+    designs look like the small one with more firewalls bolted on. It is not: they widen
+    *every* stage, and the switch mesh and the server pair are as much of the answer as the
+    firewall pair. The layout is a five-column grid with one box per real node, so the boxes
+    themselves count the redundancy (medium is two of everything; large is four uplinks, four
+    firewalls, three switches, a server pair), and a `.snap-sublabel` under each column names
+    it in words - `pair`, `meshed`, `single-homed`.
+  - **Node labels match the live tier data exactly** (`ISP-1`, `FW-A1`, `SRV-1-A`, `WS-3`),
+    per the id-matches-label rule above, so a box in the frame can be found in `tiers.js`.
+    The large tier draws **one of its two sites**, with the second and the site links carried
+    in a note - drawing both would halve the scale for no added argument.
+  - **The desks column is the honest part.** Both redundant tiers show `single-homed` there,
+    and the medium note says so outright. That is the documented workstation asymmetry, and
+    the frame would be flattering rather than accurate without it.
+  - It is decoupled from `topology-engine.js` and nothing keeps it honest automatically - if
+    failover behavior, node ids or the `STATUS_TEXT` wording change, edit the frame by hand.
 - **`data-topo-css` trap**: never hand-place `<link data-topo-css>` in the HTML. `mount()`
   holds the component at `visibility: hidden` until that link fires `load`, and a link the
   browser already finished loading never fires it again - the hero would be invisible

@@ -450,6 +450,35 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
 2. **Provide a real fallback element, not `<noscript>`.** `<noscript>` only covers scripting
    disabled; it does nothing for a 404'd module, a blocked script or a parse error, which would
    leave an empty box.
+   - **The fallback is a text EQUIVALENT, and it has to carry the exhibit's conclusion, not
+     just its setup** (rewritten 2026-08-10). Both fallbacks used to describe what the piece
+     would have depicted - an uplink into a firewall, a botnet wandering a field - which is
+     the one thing a reader who cannot see it does not need. They now state the outcome per
+     tier: which one fails first, what it takes down with it, and why the others survive the
+     same event. This is what a no-JS visitor, a screen reader and an agent fetching the
+     served HTML all get instead of the exhibit, and on the swarm it is the *only* thing they
+     get, since a canvas is opaque and its scoreboard never renders. Mark the per-tier
+     outcomes up as a `<dl>` (`.exhibit-fallback-tiers`) so the pairing survives into both.
+   - **Every sentence in a fallback is an assertion about the engine**, exactly like a
+     caption - see the cross-cutting lesson above. Check it against the code, and prefer
+     mechanism and ordering over run totals: the swarm's tuning constants are provisional, so
+     a hardcoded count would go stale while the ordering it illustrates would not.
+   - **Each fallback also carries a static SVG snapshot, and those are DECOUPLED from the
+     engines by construction** (added 2026-08-10). They are hand-composed frames, not renders:
+     nothing recomputes them, so a change in simulation behavior will not propagate and the
+     frames will keep asserting the old outcome until someone edits them. That is an accepted
+     tradeoff, not an oversight - the alternative is running the real renderer, which is the
+     one thing unavailable in the state the fallback exists to serve. Both are flagged in a
+     block comment beside the markup; **when you change an engine outcome, grep `index.html`
+     for `STATIC SNAPSHOT` and re-check the frames.** Three rules make them worth having:
+     - **Inline `<svg>`, never `<img src>`.** An external asset puts every label behind a
+       second request and outside the served HTML, so a text-only agent gets an `alt` string
+       and nothing else. Inline, each label is a real `<text>` node in the document.
+     - **Every fact carried by text**, with a `<title>`, a `<desc>` and `<text>` for labels and
+       legend. Color and stroke weight may reinforce meaning but must never be its only
+       carrier - the failed node says `OFFLINE`, it is not merely red.
+     - **The prose fallback still has to stand alone.** The snapshot follows it and supplements
+       it; nothing may exist only in the picture.
 3. **Remove that fallback only after the exhibit has fully succeeded.** For the topology that
    means all three tiers mounting into detached containers first.
 4. **Ship interactive controls `[hidden]` and unhide them on successful mount.** A control that

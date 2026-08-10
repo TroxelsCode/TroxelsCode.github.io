@@ -242,6 +242,41 @@ play/pause labels). What is not recoverable from the strings themselves:
   behavior is an assertion about the engine and has to be checked against it** -
   `_tests/swarm-analysis.html` answers that class of question in one headless run.
 
+- **The fallback in `index.html` is a full text equivalent of the RESULT, not a placeholder**
+  (rewritten 2026-08-10; the shared rule is invariant #2 in `CLAUDE.md`). It matters more here
+  than on the topology exhibit: a canvas is opaque, so a reader without the module gets no
+  scoreboard, no meters and no field - the fallback prose is the entire exhibit for them. It
+  states the outcome per defense in the same vocabulary the captions use, and it repeats the
+  tier 3 correction verbatim in spirit: a captured connection is not a captured machine, and
+  **none of the three swarms gets smaller**. **It carries no run totals on purpose.** The
+  tuning constants are provisional (see Still open below), so a number written into shipped
+  copy would go stale while the claims it illustrates - unprotected worst by a wide margin,
+  rate limiting a large improvement that still fails, layered rare - would not. The one
+  quantitative-sounding claim it does make, that the rate limited tier carries the **largest**
+  live swarm of the three, is the measured 69 / 106 / 85 result stated as an ordering rather
+  than as figures, and it follows from the engine directly: `runRepulsion` removes nobody, so
+  the tier that detonates least keeps the most attackers on the field.
+
+- **The fallback carries THREE static SVG frames, and the count is the point** (added
+  2026-08-10; the shared rules are under invariant #2 in `CLAUDE.md`). The topology exhibit
+  gets one frame because it has a payoff moment; this one does not - the simulation is
+  designed never to resolve, so a single frame of an attack in progress would show three tiers
+  that look alike, which is the opposite of the argument. The differentiation exists only
+  across time, so the snapshot has to contain time: **first contact, sustained pressure, where
+  it ends up.**
+  - **Frame 1 is ONE field, not three.** At first contact the tiers are identical - same
+    swarm, same field, same capacity cost, only the `defense` block differs and none of them
+    has fired - so drawing three panels would imply a difference that does not exist yet.
+    That is the honesty rule made visible, and it is worth keeping if these are ever redrawn.
+  - **Counts are words, not numbers** ("near full", "OFFLINE", "held:"), for the same reason
+    the prose carries no run totals: a wrong number reads as a measurement, a wrong word reads
+    as prose and is likelier to be caught. Frame 1's legend says outright that the counts are
+    illustrative.
+  - The frames are **decoupled from `swarm-engine.js`** and nothing recomputes them. They
+    encode the current outcomes (unprotected detonates and its swarm dies with the node; rate
+    limited is caught on cooldown and carries the most attackers; layered stays up with the
+    held count climbing), so a tuning pass that changes those has to reach the frames by hand.
+
 **Visitor-facing copy has exactly one home per string.** `_tests/swarm-preview.html` used to
 carry a duplicate of the captions and went stale, still showing the corrected-away tier 3
 claim; it now derives a defense summary from the tier config instead. Do not reintroduce copy

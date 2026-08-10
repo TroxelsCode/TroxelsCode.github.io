@@ -135,10 +135,207 @@
               <div class="hero-layer" data-tier="small"></div>
               <div class="hero-layer" data-tier="medium"></div>
               <div class="hero-layer" data-tier="large"></div>
+              <!-- This is a TEXT EQUIVALENT, not a placeholder. It has to
+                   carry the exhibit's conclusion - which tier fails first,
+                   what it takes down, and why the other two survive the
+                   same failure - because a visitor without the module (or
+                   an agent reading the served HTML) gets no other account
+                   of it. Every claim below is a claim about
+                   topology-engine.js: the status strings are its own
+                   ('All systems normal' / 'Services affected' / 'Business
+                   down'), the single-homed workstation groups are the
+                   documented asymmetry with the server pair, and the site
+                   bridge reading degraded rather than green is the
+                   engine's rule. Re-verify against the engine before
+                   rewording any of it. -->
               <div class="hero-mount-fallback">
-                <p>An interactive network diagram belongs here: an internet uplink into a
-                  firewall, a switch behind it, and the servers and workstations it
-                  serves. It needs JavaScript to run.</p>
+                <div class="exhibit-fallback">
+                  <p>An interactive network diagram belongs here: three networks doing the
+                    same job with different amounts of redundancy, with reachability
+                    recomputed live as nodes are taken offline. It needs JavaScript to run.
+                    What it demonstrates:</p>
+                  <dl class="exhibit-fallback-tiers">
+                    <dt>Small - one uplink, one firewall, one switch</dt>
+                    <dd>This is the one that fails first, and it fails completely. Take out the
+                      uplink, the firewall or the switch and everything behind it goes dark in
+                      the same instant, servers and workstations together, and the status reads
+                      Business down. Nothing reroutes, because there is nowhere else for
+                      traffic to go.</dd>
+                    <dt>Medium - paired uplinks and firewalls, two switches, a server pair</dt>
+                    <dd>The same failure becomes a failover. The primary firewall dies and its
+                      VRRP backup carries the traffic; the primary uplink dies and the second
+                      one takes over; a switch dies and the servers answer on their secondary.
+                      What still hurts is the workstation groups, single-homed to one switch
+                      each on purpose, so losing a switch takes its group with it and the status
+                      drops to Services affected while the rest of the business keeps working.
+                      Only losing both halves of a pair puts it back where the small tier
+                      started.</dd>
+                    <dt>Large - two sites, four uplinks and two firewall clusters each, meshed
+                      core, dedicated site-to-site links</dt>
+                    <dd>No single failure reaches the business function. Uplinks, firewalls and
+                      core switches resolve as one fabric, so every surviving path carries and
+                      damage is absorbed rather than routed around. Lose all four uplinks at one
+                      site and it rides the point-to-point site links to the other site's
+                      internet, which reads as degraded rather than down, because it is. The
+                      single-homed workstation groups remain the weakest thing on the diagram at
+                      every tier: redundancy stops where the last cable stops.</dd>
+                  </dl>
+                  <!-- ============================================================
+                       STATIC SNAPSHOT - DECOUPLED FROM THE LIVE ENGINE.
+                       ============================================================
+                       Hand-composed SVG. It is NOT rendered from
+                       topology-engine.js and nothing recomputes it: if the
+                       engine's failover behavior, status wording or tier
+                       structure changes, this frame will keep asserting the
+                       old outcome until someone edits it by hand. That is a
+                       known tradeoff taken on purpose - the alternative is
+                       running the real renderer, which is exactly the thing
+                       that is unavailable in the state this markup exists to
+                       serve. Treat it like the prose above it: a claim about
+                       the engine, to be re-checked against the engine.
+
+                       It is deliberately NOT a replica of the live diagram.
+                       It collapses each tier to the firewall stage, because
+                       the firewall is where the three designs actually differ
+                       under the one failure being shown.
+
+                       Every fact in it is carried by a <text> element, not by
+                       color or stroke weight, so a text-only agent that never
+                       rasterizes the image still reads the whole outcome.
+                       Keep it that way: no meaning in the palette alone. -->
+                  <figure class="exhibit-snapshot">
+                      <svg viewBox="0 0 340 382" role="img" aria-labelledby="snap-topo-title snap-topo-desc">
+                        <title id="snap-topo-title">One failure, three network designs</title>
+                        <desc id="snap-topo-desc">A frozen frame of the interactive diagram at the moment the
+                          primary firewall goes offline, with all five stages of each network drawn: uplink,
+                          firewall, switching, servers and desks. The small network has one of everything, so
+                          the failure takes the switch, the server and the desks down with it. The medium
+                          network answers at every stage rather than just the firewall: paired uplinks, a
+                          firewall pair whose backup carries, two meshed switches and a server pair, so the
+                          same failure is absorbed. The large network widens each of those stages again to four
+                          uplinks, two firewall clusters, a meshed three-switch core and a server pair. In both
+                          of the redundant designs the desk groups are the exception, single-homed to one
+                          switch each on purpose, which is the one place a single failure still costs
+                          something.</desc>
+                        <text class="snap-head" x="0" y="11">One failure, three designs</text>
+                        <text class="snap-sub" x="0" y="24">The primary firewall goes offline in each of the three.</text>
+                      
+                        <text class="snap-colhead" x="26" y="42">uplink</text>
+                        <text class="snap-colhead" x="96" y="42">firewall</text>
+                        <text class="snap-colhead" x="172" y="42">switching</text>
+                        <text class="snap-colhead" x="242" y="42">servers</text>
+                        <text class="snap-colhead" x="310" y="42">desks</text>
+                      
+                        <text class="snap-tier" x="0" y="60">Small: one of everything, in a line</text>
+                      <line class="snap-link snap-link--live" x1="52" y1="73" x2="60" y2="73"/>
+                      <line class="snap-link snap-link--dead" x1="132" y1="73" x2="140" y2="73"/>
+                      <line class="snap-link snap-link--dead" x1="204" y1="73" x2="212" y2="73"/>
+                      <line class="snap-link snap-link--dead" x1="272" y1="73" x2="280" y2="73"/>
+                      <rect class="snap-box" x="0" y="66" width="52" height="14" rx="3"/>
+                      <text class="snap-cell" x="26" y="75.5">ISP</text>
+                      <rect class="snap-box snap-box--down" x="60" y="66" width="72" height="14" rx="3"/>
+                      <text class="snap-cell snap-cell--down" x="96" y="75.5">Firewall</text>
+                      <rect class="snap-box snap-box--dim" x="140" y="66" width="64" height="14" rx="3"/>
+                      <text class="snap-cell" x="172" y="75.5">Switch</text>
+                      <rect class="snap-box snap-box--dim" x="212" y="66" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="242" y="75.5">Server</text>
+                      <rect class="snap-box snap-box--dim" x="280" y="66" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="310" y="75.5">Workstations</text>
+                      <text class="snap-sublabel" x="26" y="90">single</text>
+                      <text class="snap-sublabel snap-sublabel--down" x="96" y="90">1 down, none left</text>
+                      <text class="snap-sublabel snap-sublabel--down" x="172" y="90">unreachable</text>
+                      <text class="snap-sublabel snap-sublabel--down" x="242" y="90">unreachable</text>
+                      <text class="snap-sublabel snap-sublabel--down" x="310" y="90">unreachable</text>
+                        <text class="snap-status snap-status--down" x="0" y="104">Business down. Switch, server and desks all go with it.</text>
+                        <text class="snap-note" x="0" y="115">There is no second anything to fail over to.</text>
+                      
+                        <text class="snap-tier" x="0" y="137">Medium: a pair at every stage, and a meshed core</text>
+                      <line class="snap-link snap-link--live" x1="52" y1="158" x2="60" y2="158"/>
+                      <line class="snap-link snap-link--live" x1="132" y1="158" x2="140" y2="158"/>
+                      <line class="snap-link snap-link--live" x1="204" y1="158" x2="212" y2="158"/>
+                      <line class="snap-link snap-link--live" x1="272" y1="158" x2="280" y2="158"/>
+                      <rect class="snap-box" x="0" y="143" width="52" height="14" rx="3"/>
+                      <text class="snap-cell" x="26" y="152.5">ISP-1</text>
+                      <rect class="snap-box" x="0" y="160" width="52" height="14" rx="3"/>
+                      <text class="snap-cell" x="26" y="169.5">ISP-2</text>
+                      <rect class="snap-box snap-box--down" x="60" y="143" width="72" height="14" rx="3"/>
+                      <text class="snap-cell snap-cell--down" x="96" y="152.5">FW-1</text>
+                      <rect class="snap-box snap-box--live" x="60" y="160" width="72" height="14" rx="3"/>
+                      <text class="snap-cell" x="96" y="169.5">FW-2</text>
+                      <rect class="snap-box" x="140" y="143" width="64" height="14" rx="3"/>
+                      <text class="snap-cell" x="172" y="152.5">SW-1</text>
+                      <rect class="snap-box" x="140" y="160" width="64" height="14" rx="3"/>
+                      <text class="snap-cell" x="172" y="169.5">SW-2</text>
+                      <rect class="snap-box" x="212" y="143" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="242" y="152.5">SRV-1</text>
+                      <rect class="snap-box" x="212" y="160" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="242" y="169.5">SRV-2</text>
+                      <rect class="snap-box" x="280" y="143" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="310" y="152.5">WS-1</text>
+                      <rect class="snap-box" x="280" y="160" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="310" y="169.5">WS-2</text>
+                      <text class="snap-sublabel" x="26" y="184">pair</text>
+                      <text class="snap-sublabel snap-sublabel--down" x="96" y="184">1 down, 1 carries</text>
+                      <text class="snap-sublabel" x="172" y="184">meshed</text>
+                      <text class="snap-sublabel" x="242" y="184">pair</text>
+                      <text class="snap-sublabel" x="310" y="184">single-homed</text>
+                        <text class="snap-status snap-status--ok" x="0" y="198">All systems normal. The failure became a failover.</text>
+                        <text class="snap-note" x="0" y="209">Desks are the exception: one switch each, no second path.</text>
+                      
+                        <text class="snap-tier" x="0" y="231">Large: four uplinks, two clusters, a meshed core</text>
+                      <line class="snap-link snap-link--live" x1="52" y1="269" x2="60" y2="269"/>
+                      <line class="snap-link snap-link--live" x1="132" y1="269" x2="140" y2="269"/>
+                      <line class="snap-link snap-link--live" x1="204" y1="269" x2="212" y2="269"/>
+                      <line class="snap-link snap-link--live" x1="272" y1="269" x2="280" y2="269"/>
+                      <rect class="snap-box" x="0" y="237" width="52" height="14" rx="3"/>
+                      <text class="snap-cell" x="26" y="246.5">ISP-1</text>
+                      <rect class="snap-box" x="0" y="254" width="52" height="14" rx="3"/>
+                      <text class="snap-cell" x="26" y="263.5">ISP-2</text>
+                      <rect class="snap-box" x="0" y="271" width="52" height="14" rx="3"/>
+                      <text class="snap-cell" x="26" y="280.5">ISP-3</text>
+                      <rect class="snap-box" x="0" y="288" width="52" height="14" rx="3"/>
+                      <text class="snap-cell" x="26" y="297.5">ISP-4</text>
+                      <rect class="snap-box snap-box--down" x="60" y="237" width="72" height="14" rx="3"/>
+                      <text class="snap-cell snap-cell--down" x="96" y="246.5">FW-A1</text>
+                      <rect class="snap-box snap-box--live" x="60" y="254" width="72" height="14" rx="3"/>
+                      <text class="snap-cell" x="96" y="263.5">FW-A2</text>
+                      <rect class="snap-box snap-box--live" x="60" y="271" width="72" height="14" rx="3"/>
+                      <text class="snap-cell" x="96" y="280.5">FW-B1</text>
+                      <rect class="snap-box snap-box--live" x="60" y="288" width="72" height="14" rx="3"/>
+                      <text class="snap-cell" x="96" y="297.5">FW-B2</text>
+                      <rect class="snap-box" x="140" y="237" width="64" height="14" rx="3"/>
+                      <text class="snap-cell" x="172" y="246.5">SW-1</text>
+                      <rect class="snap-box" x="140" y="254" width="64" height="14" rx="3"/>
+                      <text class="snap-cell" x="172" y="263.5">SW-2</text>
+                      <rect class="snap-box" x="140" y="271" width="64" height="14" rx="3"/>
+                      <text class="snap-cell" x="172" y="280.5">SW-3</text>
+                      <rect class="snap-box" x="212" y="237" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="242" y="246.5">SRV-1-A</text>
+                      <rect class="snap-box" x="212" y="254" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="242" y="263.5">SRV-1-B</text>
+                      <rect class="snap-box" x="280" y="237" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="310" y="246.5">WS-1</text>
+                      <rect class="snap-box" x="280" y="254" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="310" y="263.5">WS-2</text>
+                      <rect class="snap-box" x="280" y="271" width="60" height="14" rx="3"/>
+                      <text class="snap-cell" x="310" y="280.5">WS-3</text>
+                      <text class="snap-sublabel" x="26" y="312">four</text>
+                      <text class="snap-sublabel snap-sublabel--down" x="96" y="312">1 down, 3 carry</text>
+                      <text class="snap-sublabel" x="172" y="312">meshed</text>
+                      <text class="snap-sublabel" x="242" y="312">pair</text>
+                      <text class="snap-sublabel" x="310" y="312">single-homed</text>
+                        <text class="snap-status snap-status--ok" x="0" y="326">All systems normal. No single box is load bearing.</text>
+                        <text class="snap-note" x="0" y="337">One of two identical sites; dedicated links join them, and</text>
+                        <text class="snap-note" x="0" y="348">stay on standby because three firewalls still carry.</text>
+                      
+                        <text class="snap-legend" x="0" y="366">Legend: the red box is the failed firewall. The line under</text>
+                        <text class="snap-legend" x="0" y="377">each stage names its redundancy. Dashed links carry nothing.</text>
+                      </svg>
+                    <figcaption>Static snapshot of the failure the live diagram is built around, composed
+                      by hand rather than captured from it. The interactive version computes this
+                      state live and lets you cause it anywhere in the network.</figcaption>
+                  </figure>
+                </div>
               </div>
             </div>
             <!-- Caption for the tier currently on screen. Filled by
@@ -210,10 +407,336 @@
                being disabled and nothing else, so a 404'd module, a blocked
                script or a parse error would leave an empty box. Removed by
                js/swarm.js only after ALL THREE tiers mount. -->
+          <!-- Text equivalent, not a placeholder - same rule as the
+               topology fallback above. It states the outcome for each
+               defense, since a reader without the module never sees the
+               scoreboard the outcome is written in.
+
+               Every sentence here is an assertion about swarm-engine.js
+               and was checked against it: only DESTROYED and HELD remove
+               a boid from the field (runRepulsion removes nobody), the
+               stopped count therefore moves on the layered tier alone,
+               the rate limited tier really does carry the largest live
+               swarm because it detonates least, and no tier's swarm
+               shrinks - spawning refills against the ceiling. Deliberately
+               NO run totals: the tuning constants in swarm/tiers/tiers.js
+               are provisional, so a hardcoded number here would go stale
+               while the ordering it illustrates would not. The ordering
+               itself is stable and does not invert. See the copy rulings
+               in _docs/exhibit-2-swarm.md before rewording; "delay" must
+               not leak into tier 3 nor "capture" into tier 2, and "inert"
+               is shared with the description above on purpose. -->
           <div class="swarm-mount-fallback">
-            <p>A swarm simulation belongs here: a botnet wandering a field of servers, piling
-              onto whatever answers, against three networks with three different defenses. It
-              needs JavaScript to run.</p>
+            <div class="exhibit-fallback">
+              <p>A swarm simulation belongs here: a botnet wandering a field of servers, piling
+                onto whatever answers, against three networks that differ only in what they do
+                when it arrives. It needs JavaScript to run. What each defense does to the
+                identical swarm:</p>
+              <dl class="exhibit-fallback-tiers">
+                <dt>No defense</dt>
+                <dd>Attackers hold connection slots until the server has none left, and it goes
+                  offline. Losing the server is what clears the attack, since the swarm on it
+                  dies with it - so the node comes back, and so does the swarm. Its outage count
+                  climbs faster than either of the others by a wide margin, and nothing else on
+                  this tier ever stops an attacker.</dd>
+                <dt>Rate limiting</dt>
+                <dd>Past a threshold the server pushes attackers off and scatters them, then
+                  waits out a cooldown before it can do that again. That buys real time and the
+                  outages drop sharply, but it removes nobody: the same attackers are still on
+                  the field, still looking, and a wave that lands inside the cooldown takes the
+                  server down anyway. It ends up carrying the largest live swarm of the three,
+                  precisely because it is the tier that stops detonating without ever clearing
+                  anyone.</dd>
+                <dt>Rate limiting and tarpitting</dt>
+                <dd>The same pushback, unchanged, plus a tarpit: a connection identified as
+                  hostile is captured rather than pushed, held open and inert until it times
+                  out. This is the only tier where the stopped count moves at all - on the other
+                  two the only thing that ever clears a connection is the server going down.
+                  Outages become rare instead of routine, with capacity still getting close
+                  during a heavy pile-on. The claim stops there: a captured connection is not a
+                  captured machine, and none of the three swarms gets smaller.</dd>
+              </dl>
+              <!-- ============================================================
+                   STATIC SNAPSHOTS - DECOUPLED FROM THE LIVE SIMULATION.
+                   ============================================================
+                   Three hand-composed SVGs. NOTHING here runs swarm-engine.js
+                   or reads its output: the positions are drawn by hand, the
+                   per-node words are chosen, and the counts are illustrative.
+                   If the tuning constants, the defense blocks or the outcomes
+                   change, these frames will go on asserting the old story
+                   until someone edits them. Known tradeoff, taken on purpose,
+                   and the reason the counts are words ("near full", "OFFLINE")
+                   rather than numbers - a wrong number reads as a measurement,
+                   a wrong word reads as prose and is likelier to be caught.
+
+                   THREE frames rather than one because the simulation never
+                   resolves: a single frame of an attack still in progress
+                   would show the tiers looking alike, which is the opposite
+                   of the exhibit's point. The differentiation only exists
+                   across time, so the snapshot has to have time in it.
+
+                   Frame 1 is deliberately ONE field, not three. At first
+                   contact the tiers are identical - same swarm, same field,
+                   same capacity cost - and drawing three identical panels
+                   would imply a difference that does not exist yet. That
+                   identity is the exhibit's honesty rule made visible.
+
+                   All meaning is carried by <text>, never by color alone. -->
+              <figure class="exhibit-snapshot">
+                <svg viewBox="0 0 340 150" role="img" aria-labelledby="snap-sw1-title snap-sw1-desc">
+                  <title id="snap-sw1-title">Swarm frame 1 of 3: first contact</title>
+                  <desc id="snap-sw1-desc">A field with two botnet sources at the edges and three
+                    servers across the middle. A handful of attacker connections have wandered in
+                    and locked onto each server. Drawn once for all three networks, because at this
+                    point they are identical: the defenses differ, but none of them has fired
+                    yet.</desc>
+                  <defs>
+                    <path id="snap-boid-1" d="M0 -3.2 L2.6 3 L-2.6 3 Z"/>
+                  </defs>
+                  <text class="snap-head" x="0" y="11">Frame 1 of 3: first contact</text>
+                  <text class="snap-sub" x="0" y="24">Identical in all three networks. The attack never varies.</text>
+                  <rect class="snap-field" x="0" y="34" width="340" height="58" rx="4"/>
+                  <rect class="snap-spawner" x="2" y="60" width="8" height="8"/>
+                  <text class="snap-ntag snap-ntag--left" x="2" y="50">BOT-1</text>
+                  <rect class="snap-spawner" x="330" y="60" width="8" height="8"/>
+                  <text class="snap-ntag snap-ntag--right" x="338" y="50">BOT-2</text>
+                  <rect class="snap-node" x="34" y="57" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="65" y="69">SRV-1</text>
+                  <text class="snap-ntag" x="65" y="52">a few locked</text>
+                  <rect class="snap-node" x="139" y="57" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="170" y="69">SRV-2</text>
+                  <text class="snap-ntag" x="170" y="52">a few locked</text>
+                  <rect class="snap-node" x="244" y="57" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="275" y="69">SRV-3</text>
+                  <text class="snap-ntag" x="275" y="52">a few locked</text>
+                  <use href="#snap-boid-1" class="snap-boid--locked" transform="translate(28 66) rotate(90)"/>
+                  <use href="#snap-boid-1" class="snap-boid--locked" transform="translate(102 66) rotate(270)"/>
+                  <use href="#snap-boid-1" class="snap-boid--locked" transform="translate(133 66) rotate(90)"/>
+                  <use href="#snap-boid-1" class="snap-boid--locked" transform="translate(207 66) rotate(270)"/>
+                  <use href="#snap-boid-1" class="snap-boid--locked" transform="translate(238 66) rotate(90)"/>
+                  <use href="#snap-boid-1" class="snap-boid--locked" transform="translate(312 66) rotate(270)"/>
+                  <use href="#snap-boid-1" transform="translate(46 40) rotate(150)"/>
+                  <use href="#snap-boid-1" transform="translate(86 83) rotate(20)"/>
+                  <use href="#snap-boid-1" transform="translate(120 40) rotate(200)"/>
+                  <use href="#snap-boid-1" transform="translate(160 83) rotate(340)"/>
+                  <use href="#snap-boid-1" transform="translate(196 40) rotate(160)"/>
+                  <use href="#snap-boid-1" transform="translate(232 83) rotate(30)"/>
+                  <use href="#snap-boid-1" transform="translate(266 40) rotate(190)"/>
+                  <use href="#snap-boid-1" transform="translate(300 83) rotate(10)"/>
+                  <use href="#snap-boid-1" transform="translate(16 83) rotate(120)"/>
+                  <text class="snap-note" x="0" y="106">A few connections have locked on. No defense has fired.</text>
+                  <text class="snap-legend" x="0" y="124">Legend: solid triangle = an attacker connection on the field.</text>
+                  <text class="snap-legend" x="0" y="135">Ring = the defense firing. Hollow triangle = captured, held.</text>
+                  <text class="snap-legend" x="0" y="146">Counts are illustrative wording, not readings from a run.</text>
+                </svg>
+                <figcaption>Frame 1 of 3. Static, hand-composed, and not a capture of the running
+                  simulation.</figcaption>
+              </figure>
+              <figure class="exhibit-snapshot">
+                <svg viewBox="0 0 340 316" role="img" aria-labelledby="snap-sw2-title snap-sw2-desc">
+                  <title id="snap-sw2-title">Swarm frame 2 of 3: sustained pressure</title>
+                  <desc id="snap-sw2-desc">The same field drawn three times, once per defense. With
+                    no defense the connection slots keep filling and SRV-2 is near full. With rate
+                    limiting the defense has fired, drawn as a ring, and attackers have scattered,
+                    but every one of them is still on the field. With rate limiting and tarpitting
+                    the same ring fires and three connections have additionally been captured and
+                    parked, drawn as hollow triangles.</desc>
+                  <defs>
+                    <path id="snap-boid-2" d="M0 -3.2 L2.6 3 L-2.6 3 Z"/>
+                  </defs>
+                  <text class="snap-head" x="0" y="11">Frame 2 of 3: sustained pressure</text>
+                  <text class="snap-sub" x="0" y="24">Same swarm, same field. Only the defense differs.</text>
+
+                  <text class="snap-tier" x="0" y="42">No defense</text>
+                  <rect class="snap-field" x="0" y="48" width="340" height="58" rx="4"/>
+                  <rect class="snap-node" x="34" y="71" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="65" y="83">SRV-1</text>
+                  <text class="snap-ntag" x="65" y="66">filling</text>
+                  <rect class="snap-node snap-node--warn" x="139" y="71" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="170" y="83">SRV-2</text>
+                  <text class="snap-ntag snap-ntag--warn" x="170" y="66">near full</text>
+                  <rect class="snap-node" x="244" y="71" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="275" y="83">SRV-3</text>
+                  <text class="snap-ntag" x="275" y="66">filling</text>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(28 80) rotate(90)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(102 80) rotate(270)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(60 97) rotate(20)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(133 80) rotate(90)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(207 80) rotate(270)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(150 97) rotate(350)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(170 97) rotate(10)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(190 97) rotate(350)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(160 54) rotate(180)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(180 54) rotate(170)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(238 80) rotate(90)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(312 80) rotate(270)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(280 97) rotate(30)"/>
+                  <use href="#snap-boid-2" transform="translate(16 54) rotate(120)"/>
+                  <use href="#snap-boid-2" transform="translate(118 54) rotate(300)"/>
+                  <use href="#snap-boid-2" transform="translate(228 54) rotate(140)"/>
+                  <use href="#snap-boid-2" transform="translate(330 97) rotate(240)"/>
+                  <text class="snap-note" x="0" y="118">Slots keep filling. Nothing pushes back, nothing is removed.</text>
+
+                  <text class="snap-tier" x="0" y="138">Rate limiting</text>
+                  <rect class="snap-field" x="0" y="144" width="340" height="58" rx="4"/>
+                  <circle class="snap-ring" cx="170" cy="176" r="23"/>
+                  <text class="snap-ntag snap-ntag--left snap-ntag--shield" x="6" y="152">repulsion fired</text>
+                  <rect class="snap-node" x="34" y="167" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="65" y="179">SRV-1</text>
+                  <text class="snap-ntag" x="65" y="162">filling</text>
+                  <rect class="snap-node" x="139" y="167" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="170" y="179">SRV-2</text>
+                  <text class="snap-ntag" x="170" y="162">pushed back</text>
+                  <rect class="snap-node" x="244" y="167" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="275" y="179">SRV-3</text>
+                  <text class="snap-ntag" x="275" y="162">filling</text>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(28 176) rotate(90)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(102 176) rotate(270)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(238 176) rotate(90)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(312 176) rotate(270)"/>
+                  <use href="#snap-boid-2" transform="translate(108 150) rotate(310)"/>
+                  <use href="#snap-boid-2" transform="translate(120 193) rotate(250)"/>
+                  <use href="#snap-boid-2" transform="translate(118 176) rotate(280)"/>
+                  <use href="#snap-boid-2" transform="translate(134 150) rotate(300)"/>
+                  <use href="#snap-boid-2" transform="translate(210 150) rotate(60)"/>
+                  <use href="#snap-boid-2" transform="translate(222 193) rotate(100)"/>
+                  <use href="#snap-boid-2" transform="translate(232 176) rotate(80)"/>
+                  <use href="#snap-boid-2" transform="translate(16 193) rotate(120)"/>
+                  <use href="#snap-boid-2" transform="translate(330 150) rotate(240)"/>
+                  <text class="snap-note" x="0" y="214">The threshold trips and attackers scatter, but none leave.</text>
+
+                  <text class="snap-tier" x="0" y="234">Rate limiting and tarpitting</text>
+                  <rect class="snap-field" x="0" y="240" width="340" height="58" rx="4"/>
+                  <circle class="snap-ring" cx="170" cy="272" r="23"/>
+                  <text class="snap-ntag snap-ntag--left snap-ntag--shield" x="6" y="248">repulsion fired</text>
+                  <rect class="snap-node" x="34" y="263" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="65" y="275">SRV-1</text>
+                  <text class="snap-ntag" x="65" y="258">holding</text>
+                  <rect class="snap-node" x="139" y="263" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="170" y="275">SRV-2</text>
+                  <text class="snap-ntag" x="170" y="258">pushed back</text>
+                  <rect class="snap-node" x="244" y="263" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="275" y="275">SRV-3</text>
+                  <text class="snap-ntag" x="275" y="258">holding</text>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(28 272) rotate(90)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(102 272) rotate(270)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(238 272) rotate(90)"/>
+                  <use href="#snap-boid-2" class="snap-boid--locked" transform="translate(312 272) rotate(270)"/>
+                  <use href="#snap-boid-2" transform="translate(114 246) rotate(300)"/>
+                  <use href="#snap-boid-2" transform="translate(216 246) rotate(60)"/>
+                  <use href="#snap-boid-2" transform="translate(210 272) rotate(80)"/>
+                  <use href="#snap-boid-2" transform="translate(124 272) rotate(280)"/>
+                  <use href="#snap-boid-2" transform="translate(16 289) rotate(120)"/>
+                  <use href="#snap-boid-2" transform="translate(330 289) rotate(240)"/>
+                  <use href="#snap-boid-2" class="snap-boid--held" transform="translate(94 293) rotate(0)"/>
+                  <use href="#snap-boid-2" class="snap-boid--held" transform="translate(104 293) rotate(0)"/>
+                  <use href="#snap-boid-2" class="snap-boid--held" transform="translate(114 293) rotate(0)"/>
+                  <text class="snap-ntag snap-ntag--left" x="54" y="296">held:</text>
+                  <text class="snap-note" x="0" y="310">Same pushback, plus connections captured and held inert.</text>
+                </svg>
+                <figcaption>Frame 2 of 3. Static, hand-composed, and not a capture of the running
+                  simulation.</figcaption>
+              </figure>
+              <figure class="exhibit-snapshot">
+                <svg viewBox="0 0 340 316" role="img" aria-labelledby="snap-sw3-title snap-sw3-desc">
+                  <title id="snap-sw3-title">Swarm frame 3 of 3: where each defense ends up</title>
+                  <desc id="snap-sw3-desc">The same three fields later in the run. With no defense
+                    SRV-2 is offline and the attackers that killed it are gone with it, which is the
+                    only thing that ever clears them there. With rate limiting SRV-2 is offline too,
+                    because a wave arrived while the defense was still on cooldown, and the field
+                    around it is the most crowded of the three. With rate limiting and tarpitting
+                    all three servers are still answering and the held count keeps
+                    climbing.</desc>
+                  <defs>
+                    <path id="snap-boid-3" d="M0 -3.2 L2.6 3 L-2.6 3 Z"/>
+                  </defs>
+                  <text class="snap-head" x="0" y="11">Frame 3 of 3: where it ends up</text>
+                  <text class="snap-sub" x="0" y="24">The same swarm, further into the same attack.</text>
+
+                  <text class="snap-tier" x="0" y="42">No defense</text>
+                  <rect class="snap-field" x="0" y="48" width="340" height="58" rx="4"/>
+                  <rect class="snap-node" x="34" y="71" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="65" y="83">SRV-1</text>
+                  <text class="snap-ntag" x="65" y="66">filling</text>
+                  <rect class="snap-node snap-node--down" x="139" y="71" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel snap-nlabel--down" x="170" y="83">OFFLINE</text>
+                  <text class="snap-ntag snap-ntag--down" x="170" y="66">SRV-2 overwhelmed</text>
+                  <rect class="snap-node" x="244" y="71" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="275" y="83">SRV-3</text>
+                  <text class="snap-ntag" x="275" y="66">filling</text>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(28 80) rotate(90)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(102 80) rotate(270)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(60 97) rotate(20)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(238 80) rotate(90)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(312 80) rotate(270)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(280 97) rotate(30)"/>
+                  <use href="#snap-boid-3" transform="translate(120 54) rotate(300)"/>
+                  <use href="#snap-boid-3" transform="translate(222 54) rotate(60)"/>
+                  <use href="#snap-boid-3" transform="translate(16 54) rotate(120)"/>
+                  <use href="#snap-boid-3" transform="translate(330 97) rotate(240)"/>
+                  <text class="snap-note" x="0" y="118">SRV-2 goes down. Its swarm dies with it; both come back.</text>
+
+                  <text class="snap-tier" x="0" y="138">Rate limiting</text>
+                  <rect class="snap-field" x="0" y="144" width="340" height="58" rx="4"/>
+                  <rect class="snap-node" x="34" y="167" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="65" y="179">SRV-1</text>
+                  <text class="snap-ntag" x="65" y="162">filling</text>
+                  <rect class="snap-node snap-node--down" x="139" y="167" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel snap-nlabel--down" x="170" y="179">OFFLINE</text>
+                  <text class="snap-ntag snap-ntag--down" x="170" y="162">caught on cooldown</text>
+                  <rect class="snap-node" x="244" y="167" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="275" y="179">SRV-3</text>
+                  <text class="snap-ntag" x="275" y="162">filling</text>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(28 176) rotate(90)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(102 176) rotate(270)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(60 193) rotate(20)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(44 150) rotate(160)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(238 176) rotate(90)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(312 176) rotate(270)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(280 193) rotate(30)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(296 150) rotate(200)"/>
+                  <use href="#snap-boid-3" transform="translate(112 150) rotate(300)"/>
+                  <use href="#snap-boid-3" transform="translate(126 193) rotate(250)"/>
+                  <use href="#snap-boid-3" transform="translate(118 176) rotate(280)"/>
+                  <use href="#snap-boid-3" transform="translate(210 150) rotate(60)"/>
+                  <use href="#snap-boid-3" transform="translate(224 193) rotate(100)"/>
+                  <use href="#snap-boid-3" transform="translate(218 176) rotate(80)"/>
+                  <use href="#snap-boid-3" transform="translate(16 193) rotate(120)"/>
+                  <use href="#snap-boid-3" transform="translate(330 150) rotate(240)"/>
+                  <text class="snap-note" x="0" y="214">A wave landed during the cooldown. Fewer outages, not none.</text>
+
+                  <text class="snap-tier" x="0" y="234">Rate limiting and tarpitting</text>
+                  <rect class="snap-field" x="0" y="240" width="340" height="58" rx="4"/>
+                  <rect class="snap-node" x="34" y="263" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="65" y="275">SRV-1</text>
+                  <text class="snap-ntag" x="65" y="258">online</text>
+                  <rect class="snap-node" x="139" y="263" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="170" y="275">SRV-2</text>
+                  <text class="snap-ntag" x="170" y="258">online</text>
+                  <rect class="snap-node" x="244" y="263" width="62" height="18" rx="3"/>
+                  <text class="snap-nlabel" x="275" y="275">SRV-3</text>
+                  <text class="snap-ntag" x="275" y="258">online</text>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(28 272) rotate(90)"/>
+                  <use href="#snap-boid-3" class="snap-boid--locked" transform="translate(312 272) rotate(270)"/>
+                  <use href="#snap-boid-3" transform="translate(114 246) rotate(300)"/>
+                  <use href="#snap-boid-3" transform="translate(216 246) rotate(60)"/>
+                  <use href="#snap-boid-3" transform="translate(210 272) rotate(80)"/>
+                  <use href="#snap-boid-3" transform="translate(16 289) rotate(120)"/>
+                  <use href="#snap-boid-3" transform="translate(330 289) rotate(240)"/>
+                  <use href="#snap-boid-3" class="snap-boid--held" transform="translate(94 293) rotate(0)"/>
+                  <use href="#snap-boid-3" class="snap-boid--held" transform="translate(104 293) rotate(0)"/>
+                  <use href="#snap-boid-3" class="snap-boid--held" transform="translate(114 293) rotate(0)"/>
+                  <use href="#snap-boid-3" class="snap-boid--held" transform="translate(124 293) rotate(0)"/>
+                  <use href="#snap-boid-3" class="snap-boid--held" transform="translate(134 293) rotate(0)"/>
+                  <use href="#snap-boid-3" class="snap-boid--held" transform="translate(144 293) rotate(0)"/>
+                  <text class="snap-ntag snap-ntag--left" x="54" y="296">held:</text>
+                  <text class="snap-note" x="0" y="310">All three still answering. The held count keeps climbing.</text>
+                </svg>
+                <figcaption>Frame 3 of 3. Static, hand-composed, and not a capture of the running
+                  simulation. The live version never reaches a final state, which is why this is
+                  three frames rather than one.</figcaption>
+              </figure>
+            </div>
           </div>
         </div>
       </details>

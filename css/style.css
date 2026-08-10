@@ -1016,6 +1016,302 @@ section:last-of-type {
   color: var(--site-muted);
 }
 
+/*
+ * ---- exhibit fallback text equivalent ----
+ * Shared by .hero-mount-fallback and .swarm-mount-fallback, which is why it
+ * carries the exhibit-* prefix rather than either exhibit's name.
+ *
+ * Each fallback holds a full text equivalent of its exhibit's CONCLUSION -
+ * which tier fails and what it costs - not a one-line placeholder, because a
+ * visitor whose module never loads and an agent fetching the served HTML get
+ * nothing else. So the type has to read as prose rather than as a centered
+ * caption: left aligned, one measure, and the tier list marked up as a <dl>
+ * so the term/outcome pairing survives into a screen reader and into a
+ * plain-text read of the page.
+ *
+ * This block sits AFTER both fallback blocks deliberately. `.exhibit-fallback
+ * p` and `.hero-mount-fallback p` have identical specificity (0,1,1), so
+ * source order is the only thing letting the prose treatment win over the
+ * centered one those rules were written for. Moving it above them silently
+ * reverts the alignment.
+ */
+.exhibit-fallback {
+  max-width: 62ch;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: left;
+  color: var(--site-muted);
+}
+
+.exhibit-fallback p {
+  max-width: none;
+  margin: 0;
+  text-align: left;
+}
+
+.exhibit-fallback-tiers {
+  margin: 0;
+}
+
+.exhibit-fallback-tiers dt {
+  margin-top: 14px;
+  color: var(--site-text);
+}
+
+.exhibit-fallback-tiers dd {
+  margin: 4px 0 0;
+}
+
+/*
+ * ---- fallback snapshot SVGs ----
+ * Static, hand-composed frames inlined into both fallbacks. See the long
+ * comments beside them in index.html for what they are and for the
+ * maintenance tradeoff they carry; this block is only their appearance.
+ *
+ * INLINE SVG, not <img src>, and that is the whole point of the feature. An
+ * external image would put the labels behind a second request and outside the
+ * served HTML, so an agent reading the page as text would get an alt string
+ * and nothing else. Inline, every label and legend line is a <text> node in
+ * the document itself. Do not "optimize" these into separate .svg files.
+ *
+ * Tokens are scoped to the figure rather than added to :root, mirroring how
+ * topology.css scopes --topo-* to .topo-viz: they exist for this one
+ * component and should not leak into the site's namespace. Values are copied
+ * from --topo-* and --swarm-* so the frames read as the same system as the
+ * live exhibits - copied, not referenced, because those live on selectors
+ * that do not exist while the fallback is on screen.
+ */
+.exhibit-snapshot {
+  --snap-text: #0b0b0b;
+  --snap-muted: #76756f;
+  --snap-line: #c3c2b7;
+  --snap-node-fill: #f3f2ee;
+  --snap-node-border: #a9a79f;
+  --snap-ok: #1aa674;
+  --snap-warn: #c48704;
+  --snap-down: #d03b3b;
+  --snap-down-fill: #f9e4e4;
+  --snap-field-bg: #f4f4f2;
+  --snap-field-border: #dcdcd6;
+  --snap-spawner: #8a8a82;
+  --snap-hostile: #7c3fbf;
+  --snap-hostile-locked: #6a26b0;
+  --snap-shield: #2a9fd8;
+
+  margin: 20px 0 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .exhibit-snapshot {
+    --snap-text: #ffffff;
+    --snap-muted: #898781;
+    --snap-line: #45443f;
+    --snap-node-fill: #232321;
+    --snap-node-border: #5c5a54;
+    --snap-ok: #21c489;
+    --snap-warn: #fab219;
+    --snap-down: #e66767;
+    --snap-down-fill: #3a2222;
+    --snap-field-bg: #17171a;
+    --snap-field-border: #2e2e33;
+    --snap-spawner: #6e6e78;
+    --snap-hostile: #a97bea;
+    --snap-hostile-locked: #c39cf5;
+    --snap-shield: #5fc8f7;
+  }
+}
+
+.exhibit-snapshot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 480px;
+}
+
+.exhibit-snapshot figcaption {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--site-muted);
+}
+
+.exhibit-snapshot text {
+  font-family: var(--font-mono);
+  fill: var(--snap-text);
+}
+
+.snap-head {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.snap-sub {
+  font-size: 9px;
+  fill: var(--snap-muted);
+}
+
+.snap-tier {
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.snap-label {
+  font-size: 9.5px;
+  text-anchor: middle;
+}
+
+.snap-label--left { text-anchor: start; }
+.snap-label--right { text-anchor: end; }
+.snap-label--small { font-size: 8.5px; }
+.snap-label--down { fill: var(--snap-down); font-weight: 600; }
+.snap-label--live { fill: var(--snap-ok); font-weight: 600; }
+
+.snap-tag {
+  font-size: 8.5px;
+  text-anchor: end;
+  fill: var(--snap-muted);
+}
+
+/*
+ * The topology frame is a five-stage grid - uplink, firewall, switching,
+ * servers, desks - drawn once per tier, so that what the redundant designs
+ * add is visible at EVERY stage rather than looking like more firewalls.
+ * .snap-colhead names the stage columns once at the top; .snap-sublabel sits
+ * under each column and names that stage's redundancy in words, which is also
+ * what keeps the failure legible without relying on the red fill.
+ */
+.snap-colhead {
+  font-size: 7.5px;
+  text-anchor: middle;
+  fill: var(--snap-muted);
+  letter-spacing: 0.04em;
+}
+
+.snap-cell {
+  font-size: 7px;
+  text-anchor: middle;
+}
+
+.snap-cell--down { fill: var(--snap-down); font-weight: 600; }
+
+.snap-sublabel {
+  font-size: 6.5px;
+  text-anchor: middle;
+  fill: var(--snap-muted);
+}
+
+.snap-sublabel--down { fill: var(--snap-down); }
+
+.snap-status {
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.snap-status--ok { fill: var(--snap-ok); }
+.snap-status--down { fill: var(--snap-down); }
+
+.snap-note,
+.snap-legend {
+  font-size: 8.5px;
+  fill: var(--snap-muted);
+}
+
+.snap-box {
+  fill: var(--snap-node-fill);
+  stroke: var(--snap-node-border);
+  stroke-width: 1;
+}
+
+.snap-box--down {
+  fill: var(--snap-down-fill);
+  stroke: var(--snap-down);
+}
+
+.snap-box--live { stroke: var(--snap-ok); }
+
+/* The label sits outside the rect, so dimming the box never dims its text -
+   and the state is spelled out in the tag beside it regardless. */
+.snap-box--dim { opacity: 0.45; }
+
+.snap-link {
+  stroke: var(--snap-line);
+  stroke-width: 1.5;
+}
+
+.snap-link--live { stroke: var(--snap-ok); }
+.snap-link--dead { stroke-dasharray: 3 3; }
+
+.snap-field {
+  fill: var(--snap-field-bg);
+  stroke: var(--snap-field-border);
+  stroke-width: 1;
+}
+
+.snap-spawner { fill: var(--snap-spawner); }
+
+.snap-node {
+  fill: var(--snap-node-fill);
+  stroke: var(--snap-node-border);
+  stroke-width: 1;
+}
+
+.snap-node--warn { stroke: var(--snap-warn); }
+
+.snap-node--down {
+  fill: var(--snap-down-fill);
+  stroke: var(--snap-down);
+}
+
+.snap-nlabel {
+  font-size: 8.5px;
+  text-anchor: middle;
+}
+
+.snap-nlabel--down { fill: var(--snap-down); font-weight: 600; }
+
+.snap-ntag {
+  font-size: 7.5px;
+  text-anchor: middle;
+  fill: var(--snap-muted);
+}
+
+.snap-ntag--left { text-anchor: start; }
+.snap-ntag--right { text-anchor: end; }
+.snap-ntag--warn { fill: var(--snap-warn); }
+.snap-ntag--down { fill: var(--snap-down); }
+.snap-ntag--shield { fill: var(--snap-shield); }
+
+.snap-ring {
+  fill: none;
+  stroke: var(--snap-shield);
+  stroke-width: 1.2;
+  stroke-dasharray: 4 4;
+}
+
+/*
+ * Boids are <use> instances of one <path> in <defs>. The path carries NO
+ * class and NO fill on purpose: a class on the referenced element would win
+ * over a class on the <use>, since the cloned instance keeps the original's
+ * own declarations. Leaving fill unset lets it INHERIT from the <use>, which
+ * is what makes the three states below selectable per instance.
+ *
+ * The state rules repeat the `.exhibit-snapshot use` prefix for specificity,
+ * not for scoping. Written as bare `.snap-boid--locked` they lose to the
+ * default rule below (0,1,1 beats 0,1,0) and every boid renders in the same
+ * roaming fill - which looks plausible enough on screen that it was only
+ * caught by reading the computed fills back and counting distinct values.
+ */
+.exhibit-snapshot use { fill: var(--snap-hostile); }
+
+.exhibit-snapshot use.snap-boid--locked { fill: var(--snap-hostile-locked); }
+
+.exhibit-snapshot use.snap-boid--held {
+  fill: none;
+  stroke: var(--snap-hostile);
+  stroke-width: 0.9;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.001ms !important;
