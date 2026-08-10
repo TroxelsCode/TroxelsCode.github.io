@@ -96,6 +96,8 @@ Index only. Reasoning lives in `CLAUDE.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |
+| 2026-08-09 | `48f7ca4` | Swarm: light blue repulsor, per-node cooldown bars, boids drawn over node chrome |
+| 2026-08-09 | `d4cb2f7` | Exhibit documentation split out of `CLAUDE.md` into `_docs/` |
 | 2026-08-09 | `bad17b0` | Swarm spec migrated into documentation and deleted |
 | 2026-08-09 | `192e53f` | **Exhibit #2 live**: the botnet swarm (built in 32.6s) |
 | 2026-08-09 | `627914d` | Preview harness stops carrying its own stale copy of the captions |
