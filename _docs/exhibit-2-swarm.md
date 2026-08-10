@@ -158,8 +158,11 @@ The alternative would tick the scoreboard over a motionless field.
 rendering, so a reduced-motion visitor opens on a populated field mid-attack rather than
 three untouched nodes. Cheap (no draw calls, no rAF) and deterministic. Note the seed is
 **fixed**, so every such visitor sees the identical frame; the user reviewed the current one
-and accepted it (2026-08-09). A per-load random seed is possible - the host would pass one
-while tests keep fixed seeds - if variety is ever wanted.
+and accepted it (2026-08-09). **Re-raised and settled the same day: the fixed seed stays.** The
+reason is the authored opening frame, not testing - the suite passes its own seeds explicitly,
+and `js/swarm.js` passes none, so `20260809` is only the renderer's default at
+`swarm-render.js`. Randomizing it per load would make the paused first impression accidental,
+which is the exact thing the pre-seed exists to prevent. Do not re-propose it.
 
 ### Field layout: derived geometry, not hand-placed coordinates
 

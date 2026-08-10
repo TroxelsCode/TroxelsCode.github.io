@@ -571,6 +571,7 @@ where each row points and is not repeated here on purpose.
 | Packet throttle: deliberately removed, do not reinstate. | `_docs/exhibit-1-topology.md` |
 | Draggable topology nodes: out of scope. | `_docs/exhibit-1-topology.md` |
 | Swarm visitor interactivity, and a honeypot node for tier 3: benched, build as if the answer is no. | `_docs/exhibit-2-swarm.md` |
+| The swarm's fixed live seed: stays. Do not propose a per-load random seed again. | `_docs/exhibit-2-swarm.md` |
 | A dedicated Contact section or nav item: replaced by footer links. | this file, "Homepage build" |
 
 ## Maintaining these files
