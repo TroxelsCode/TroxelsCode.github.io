@@ -12,6 +12,58 @@
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="css/style.css">
+  <!-- The two exhibit modules and everything they import. Without these the
+       browser discovers the graph one level at a time - js/hero.js, then
+       topology-render.js, then topology-engine.js - and every hop is a round
+       trip during which the fallback is still the thing on screen. These are
+       the SAME files the <script type="module"> tags at the end of <body>
+       pull in, so this adds no bytes; it only flattens the waterfall.
+
+       Deliberately NOT preloading topology/render/topology.css. mount() holds
+       the component hidden until its injected <link> fires load, and a
+       stylesheet the browser has already finished fetching never fires it
+       again - the hero would stay invisible forever. See the data-topo-css
+       trap in _docs/exhibit-1-topology.md. -->
+  <link rel="modulepreload" href="js/hero.js">
+  <link rel="modulepreload" href="topology/render/topology-render.js">
+  <link rel="modulepreload" href="topology/engine/topology-engine.js">
+  <link rel="modulepreload" href="topology/tiers/tiers.js">
+  <link rel="modulepreload" href="js/swarm.js">
+  <link rel="modulepreload" href="swarm/render/swarm-render.js">
+  <link rel="modulepreload" href="swarm/engine/swarm-engine.js">
+  <link rel="modulepreload" href="swarm/tiers/tiers.js">
+  <!-- FIRST-PAINT SUPPRESSION. Classic, inline and parser-blocking on
+       purpose: it has to run before the parser reaches <body> so that the
+       very first paint is already the collapsed state.
+
+       Why it is needed. Both exhibits ship their <details> OPEN, because a
+       no-JS visitor must never be stranded behind a control that does
+       nothing (invariant #1 in CLAUDE.md), and js/hero.js and js/swarm.js
+       are ES modules - deferred BY DEFINITION, unable to run until the whole
+       document is parsed. So without this the browser paints something like
+       1500px of fallback and then yanks it a few hundred milliseconds later.
+
+       What this must NOT do is conclude that the exhibits work. "JavaScript
+       is enabled" is not "the module loaded": a 404, a blocked script or a
+       parse error would leave an empty box, which is the entire reason the
+       fallback is a real element rather than <noscript> (invariant #2). So
+       the suppression is cleared per exhibit BY THE MODULE ITSELF, which
+       sets data-ready on its own disclosure once it has taken control, and
+       the timer below is the backstop for a module that never arrives.
+
+       The timer is unconditional and needs no cleanup: once a disclosure
+       carries data-ready or has been collapsed, the CSS rule keyed on this
+       attribute is already inert, so removing it changes nothing. On a very
+       slow connection the modules can lose that race, in which case the
+       fallback appears and is then replaced - the conservative failure, and
+       still better than an empty box. -->
+  <script>
+    (function () {
+      var root = document.documentElement;
+      root.setAttribute('data-js', '1');
+      window.setTimeout(function () { root.removeAttribute('data-js'); }, 2500);
+    }());
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>

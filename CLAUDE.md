@@ -193,6 +193,12 @@ script, `hero.js` and `swarm.js` are ES modules - that split is deliberate and l
 (see the host notes in `_docs/exhibit-1-topology.md`), and the two modules are separate from
 each other so a throw in one exhibit cannot take the other down.
 
+There is a **fourth piece of script, inline in `index.html`'s `<head>`**, and it is the only
+JavaScript on the site that is neither deferred nor at the end of `<body>`: a few lines that
+suppress the exhibits' first-paint flash. It has to be classic, inline and parser-blocking to
+do its job. Do not move it, defer it, or fold it into `main.js`. See invariant #1 under
+"Expandable exhibit list" for the mechanism and for the failure it is carefully not causing.
+
 **Everything else about the two exhibits lives in `_docs/`, not here.** The topology
 diagram (`topology/`, exhibit #1) and the botnet swarm (`swarm/`, exhibit #2) share
 the exhibit shell described under "Expandable exhibit list" below, and nothing else:
@@ -479,6 +485,26 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
 
 1. **Ship `open` in the markup and let JS collapse it - never the reverse.** Shipping closed
    and opening with JS strands a no-JS visitor at a control that does nothing.
+   - **That guarantee costs a first-paint flash, and the fix has THREE parts that only work
+     together** (added 2026-08-13 after the user reported the fallback appearing for about
+     half a second on the live site). ES modules are deferred by definition, so a row that
+     ships open cannot be collapsed until the document has parsed - the browser paints the
+     whole fallback first. Since this repo's fallbacks became full text equivalents that is
+     roughly 1500px of content, so the flash went from unnoticeable to obvious.
+     1. A **classic, inline, parser-blocking `<script>` in `<head>`** sets `data-js` on
+        `<html>` before the parser reaches `<body>`, so no paint can precede it.
+     2. **One CSS rule** hides an open disclosure's contents while that attribute is set:
+        `html[data-js] .hero-disclosure[open]:not([data-ready]) > :not(summary)`.
+     3. **Each module sets `data-ready` on its OWN disclosure** once its `boot()` guards have
+        passed. **A new exhibit that forgets this renders nothing for 2.5 seconds** - that is
+        the one way to get this wrong, and the symptom looks like a broken exhibit rather
+        than a missing attribute.
+   - **Never simplify this to "hide the fallback when JavaScript is present".** Scripting
+     being enabled says nothing about whether the module arrived; a 404 or a parse error
+     would then render an empty box, which is what invariant #2 exists to prevent. The head
+     script's 2.5s timer is the backstop: it drops `data-js` unconditionally, which reveals
+     the fallback for any exhibit still open and not ready, and is a no-op for the ones that
+     collapsed. Verified across all three paths - working, module 404, and JS off.
 2. **Provide a real fallback element, not `<noscript>`.** `<noscript>` only covers scripting
    disabled; it does nothing for a 404'd module, a blocked script or a parse error, which would
    leave an empty box.

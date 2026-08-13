@@ -217,6 +217,13 @@ function boot() {
   };
   if (motionQuery.addEventListener) motionQuery.addEventListener('change', onMotionChange);
 
+  /* Clears the first-paint suppression for THIS exhibit, after the guards
+   * above have passed, so a module that loaded into markup it cannot use
+   * leaves the fallback to appear on the head script's timer. Per exhibit,
+   * not global: the topology module being blocked must not take this row's
+   * fallback down with it. See the <head> comment in index.html. */
+  disclosure.setAttribute('data-ready', '1');
+
   /* Collapse, then defer everything. No canvas is created, no simulation
    * state is allocated and no frame loop starts until a visitor actually
    * expands the row. Combined with the topology exhibit doing the same,

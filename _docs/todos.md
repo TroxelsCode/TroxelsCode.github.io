@@ -79,6 +79,11 @@ be done on hardware this environment cannot reach.
   dark-token override are all this environment can reach. Open
   `/_tests/fallback-preview.html` from the local preview to see it properly, and note the
   narrow-phone text size item above is the one open question worth a real look.
+- **First-paint suppression needs one real-browser confirmation.** All three paths were
+  verified headlessly - suppressed while the module is in flight, restored by the 2.5s
+  watchdog when the module 404s, and untouched with JavaScript off - but "the flash is gone"
+  is a perceptual claim this environment cannot make. The user reported the flash on the live
+  site, so they are the one who can confirm it is gone.
 
 **Standing constraints on how verification happens in this project**, both of which
 shape what can be checked and by whom:

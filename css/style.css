@@ -1017,6 +1017,39 @@ section:last-of-type {
 }
 
 /*
+ * ---- first-paint suppression ----
+ * Partner to the inline <script> in index.html's <head>; read the long comment
+ * there first, it carries the reasoning.
+ *
+ * Both exhibits ship their <details> open and both modules are deferred, so
+ * without this the first paint is a screenful of fallback that gets collapsed
+ * a few hundred milliseconds later. This hides the disclosure's contents for
+ * exactly that window, leaving the summary row - which is what the visitor
+ * ends up looking at anyway.
+ *
+ * Three conditions, and every one of them is load bearing:
+ *
+ *   html[data-js]     only when the head script ran. With JavaScript off the
+ *                     attribute never exists, so the fallback renders
+ *                     immediately, exactly as it did before this rule.
+ *   [open]            only before the module collapses the row. Once
+ *                     collapsed the rule is inert, so a mount that fails
+ *                     LATER - on first expand - still shows its fallback.
+ *   :not([data-ready])  each module sets this on its own disclosure once it
+ *                     has taken control. Per exhibit, not global, because the
+ *                     two are independent failure domains: one module being
+ *                     blocked must not suppress the other's fallback, and it
+ *                     must not un-suppress it early either.
+ *
+ * Do NOT reduce this to "hide the fallback when JS is present". That was the
+ * obvious version and it is wrong: scripting being enabled says nothing about
+ * whether the module loaded, and it would turn a 404 into an empty box.
+ */
+html[data-js] .hero-disclosure[open]:not([data-ready]) > :not(summary) {
+  display: none;
+}
+
+/*
  * ---- exhibit fallback text equivalent ----
  * Shared by .hero-mount-fallback and .swarm-mount-fallback, which is why it
  * carries the exhibit-* prefix rather than either exhibit's name.

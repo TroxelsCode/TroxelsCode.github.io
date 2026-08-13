@@ -592,6 +592,16 @@ function boot() {
   measureChrome(refs);
   watchChrome(refs);
 
+  /* Clears the first-paint suppression for THIS exhibit, and only once the
+     guards above have passed, so a module that loaded but found the markup it
+     needs missing leaves the fallback to appear on the head script's timer.
+     It is set before the collapse below rather than after because the two
+     happen in one task - nothing paints in between - and because the collapse
+     is conditional while taking control is not: with the pinned sequence on,
+     a desktop row stays open, and its contents must not stay hidden.
+     See the <head> comment in index.html and the rule in css/style.css. */
+  if (details) details.setAttribute('data-ready', '1');
+
   /* Collapse by default - at every width while the sequence is off, on narrow
      screens only while it is on. The markup ships open (see index.html), so
      this is the enhancement rather than the baseline: a no-JS visitor gets
