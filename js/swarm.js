@@ -230,6 +230,34 @@ function boot() {
    * the homepage still builds nothing on load. */
   disclosure.open = false;
   paintButton();
+  /*
+   * Build BEFORE the row opens. The <details> toggle event is fired
+   * asynchronously, so a toggle-only listener lets the browser expand and
+   * paint the fallback before anything mounts. Intercepting the opening
+   * click and doing both in one task means nothing paints in between.
+   * See the fuller note on the same pattern in js/hero.js.
+   *
+   * Safe to mount while closed: resize() bails on a zero clientWidth and the
+   * ResizeObserver fires on the transition to a real box, and its callback
+   * lands after layout and before paint, so the canvas is sized and drawn
+   * for the first frame the visitor actually sees.
+   */
+  const summary = disclosure.querySelector('summary');
+  if (summary) {
+    summary.addEventListener('click', (ev) => {
+      if (disclosure.open || instances) return;
+      ev.preventDefault();
+      try {
+        mountOnce();
+      } finally {
+        disclosure.open = true;
+      }
+    });
+  }
+
+  /* Backstop for the other ways a row opens - find-in-page, a programmatic
+     open, a UA that does not synthesize a summary click. mountOnce() returns
+     early once instances exist, so the two paths cannot double-mount. */
   disclosure.addEventListener('toggle', () => {
     if (disclosure.open) mountOnce();
   });

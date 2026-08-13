@@ -32,6 +32,17 @@
   <link rel="modulepreload" href="swarm/render/swarm-render.js">
   <link rel="modulepreload" href="swarm/engine/swarm-engine.js">
   <link rel="modulepreload" href="swarm/tiers/tiers.js">
+  <!-- Warming the two COMPONENT stylesheets, which is the one thing the
+       data-topo-css trap explicitly allows: the renderers look for a link
+       carrying their own data attribute and adopt it, and an adopted link
+       that already finished loading never fires load again, leaving the
+       component hidden forever. These carry no such attribute, so each
+       renderer still injects its own <link rel="stylesheet"> - which now
+       resolves from cache and fires load almost immediately instead of
+       after a fresh round trip. That matters because both renderers hold
+       the component at visibility:hidden until it does. -->
+  <link rel="preload" as="style" href="topology/render/topology.css">
+  <link rel="preload" as="style" href="swarm/render/swarm.css">
   <!-- FIRST-PAINT SUPPRESSION. Classic, inline and parser-blocking on
        purpose: it has to run before the parser reaches <body> so that the
        very first paint is already the collapsed state.

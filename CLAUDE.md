@@ -547,6 +547,22 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
    `.exhibit-directions`.
 5. **Defer all real work until the first expand.** No DOM building, no timers, no network while
    collapsed. The homepage currently builds zero SVG and starts zero timers on load.
+   - **Mount on the summary's CLICK, not on `toggle`** (added 2026-08-13, and this is the
+     second half of the flash fix under invariant #1). `<details>` fires `toggle`
+     **asynchronously**: the UA expands the row, the browser is free to paint it, and only
+     then does the handler run - so a toggle-only mount paints the fallback first. Both hosts
+     now intercept the opening click, call `preventDefault()`, mount, and set `open = true`
+     themselves, all in one task, so nothing paints in between. Keep a `toggle` listener as a
+     **backstop** for the other ways a row opens (find-in-page, a programmatic `open`, a UA
+     that does not synthesize a summary click), and make both paths idempotent.
+   - **Check whether your renderer can be built while the row is closed.** A closed
+     `<details>` gives its contents no box, so anything that measures reads zero. The topology
+     exhibit is width-driven SVG and measures nothing, so it does not care; the swarm's canvas
+     does, and survives only because its `resize()` bails on a zero width and its
+     `ResizeObserver` fires on the transition to a real box - and RO callbacks are delivered
+     after layout but **before paint**, so the canvas is sized and drawn for the first frame
+     the visitor sees. A renderer that measures in its constructor and never re-measures would
+     need the older toggle-mount ordering instead.
 6. **Write the summary as real copy, not a control label.** It is the only thing a visitor who
    never expands will read - on a phone especially. See the finalized-copy note in Open
    items/TODOs below; the topology summary is the template the rest will follow.

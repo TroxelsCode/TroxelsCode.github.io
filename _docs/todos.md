@@ -79,11 +79,12 @@ be done on hardware this environment cannot reach.
   dark-token override are all this environment can reach. Open
   `/_tests/fallback-preview.html` from the local preview to see it properly, and note the
   narrow-phone text size item above is the one open question worth a real look.
-- **First-paint suppression needs one real-browser confirmation.** All three paths were
-  verified headlessly - suppressed while the module is in flight, restored by the 2.5s
-  watchdog when the module 404s, and untouched with JavaScript off - but "the flash is gone"
-  is a perceptual claim this environment cannot make. The user reported the flash on the live
-  site, so they are the one who can confirm it is gone.
+- **First-paint suppression: CONFIRMED on the live site by the user (2026-08-13).** The
+  load-time flash is gone. The follow-on flash they then reported, on first expanding a row,
+  is fixed separately by mounting on the summary's click - see invariant #5 in `CLAUDE.md`.
+  That second fix is verified headlessly (state read synchronously after `dispatchEvent`
+  showed the row open, the fallback removed and three roots built before control returned)
+  but, like the first, "the flash is gone" is a perceptual claim only the user can close out.
 
 **Standing constraints on how verification happens in this project**, both of which
 shape what can be checked and by whom:

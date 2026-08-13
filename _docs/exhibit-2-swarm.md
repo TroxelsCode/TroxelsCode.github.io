@@ -142,6 +142,17 @@ mutate per frame. Consequences the renderer has to carry:
   moves.
 - `devicePixelRatio` handling is explicit, and repulsion rings are view-only state aged in
   **sim time** so pausing freezes them with everything else.
+- **`resize()` bailing on a zero `clientWidth`, plus the `ResizeObserver`, is what makes the
+  host's mount ordering legal - it is not just defensive coding.** Since 2026-08-13
+  `js/swarm.js` mounts on the summary's opening **click**, before the row expands, so that the
+  fallback is never painted (invariant #5 in `CLAUDE.md` has the reasoning). A closed
+  `<details>` gives its contents no box, so at mount time `clientWidth` is 0: `resize()`
+  returns early, the canvas keeps a zero buffer and `draw()` no-ops. The row then opens, the
+  `ResizeObserver` fires on the transition to a real box, and because RO callbacks land after
+  layout but **before paint**, the canvas is sized and drawn for the first frame the visitor
+  actually sees. Measured after a click-driven open: buffers `918x551` on all three tiers.
+  **If you ever make sizing eager, or drop the observer, the exhibit will expand blank** -
+  fix the host's ordering in the same change, do not leave it to chance.
 
 ### Motion and the play/pause control
 

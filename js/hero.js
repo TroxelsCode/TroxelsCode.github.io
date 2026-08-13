@@ -611,6 +611,44 @@ function boot() {
   if (details && !details.open) {
     /* Defer everything while collapsed: the visitor does no module work,
        builds no SVG and starts no gremlin timers until the first expand. */
+
+    /*
+     * Build BEFORE the row opens, not after. The <details> toggle event is
+     * fired asynchronously by the UA, so on a plain toggle listener the
+     * browser has already expanded - and painted the fallback - by the time
+     * the handler runs. That is a second flash, in the same family as the
+     * first-paint one the head script fixes, and it needs its own answer
+     * because the head script's rule goes inert once data-ready is set.
+     *
+     * So intercept the opening click, cancel the UA's own toggle, mount, and
+     * open the row ourselves in the SAME task. Nothing paints in between, so
+     * the row expands with the real exhibit already in it.
+     *
+     * Mounting while the row is still closed is safe for both exhibits and
+     * that was checked, not assumed: this component is width-driven SVG and
+     * measures nothing, and the swarm's canvas gets its size from a
+     * ResizeObserver whose callback is delivered after layout but before
+     * paint, so it is sized and drawn by the time the expanded row is shown.
+     *
+     * The open is in a finally so a throw still expands the row - which then
+     * correctly shows the fallback, since a failed mount never removes it.
+     */
+    if (refs.summary) {
+      refs.summary.addEventListener('click', (ev) => {
+        if (details.open || mounted) return;
+        ev.preventDefault();
+        try {
+          start(refs);
+        } finally {
+          details.open = true;
+        }
+      });
+    }
+
+    /* Backstop for every other way a row can open: find-in-page, a
+       programmatic details.open = true, or any UA that does not route
+       keyboard activation through a click on the summary. start() is guarded
+       by `mounted`, so the two paths cannot double-mount. */
     details.addEventListener('toggle', () => {
       if (details.open && !mounted) start(refs);
     });

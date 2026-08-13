@@ -506,10 +506,23 @@ come free, and it degrades to plain visible content with no JS. Points that are 
   with a control that does nothing. Verified across five states (narrow/wide x JS/no-JS, plus
   expand), and re-verified at four widths after the sequence was switched off.
 - **The mount is deferred while collapsed** - no module work, no SVG construction and no
-  gremlin timers until the first expand. `boot()` in `js/hero.js` attaches a `toggle` listener
-  instead of mounting. Confirmed by counting zero `.topo-viz` nodes on load; since the
-  collapse now applies everywhere, that saving applies to desktop too (measured `roots=0` at
-  1400px, 1000px, 760px and 375px).
+  gremlin timers until the first expand. Confirmed by counting zero `.topo-viz` nodes on load;
+  since the collapse now applies everywhere, that saving applies to desktop too (measured
+  `roots=0` at 1400px, 1000px, 760px and 375px).
+- **It mounts on the summary's CLICK, not on `toggle`, and the ordering is the point**
+  (changed 2026-08-13; the shared rule is invariant #1 in `CLAUDE.md`). `<details>` fires
+  `toggle` **asynchronously**, so a toggle-only listener lets the browser expand and paint the
+  fallback before any handler runs - the user saw exactly that as a brief flash on first
+  expand. `boot()` now intercepts the opening click, calls `preventDefault()`, mounts, and
+  sets `details.open = true` itself, all in one task, so nothing paints in between. The
+  `toggle` listener is still attached as a **backstop** for the other ways a row opens
+  (find-in-page, a programmatic `open`, a UA that does not synthesize a summary click);
+  `mounted` guards both paths against double-mounting. **Mounting while the row is still
+  closed is safe here because this renderer measures nothing** - it is width-driven SVG with
+  viewBox scaling. Do not copy that assumption to an exhibit that measures; see the swarm's
+  note on the `ResizeObserver` for the canvas version of the same problem.
+  Verified by reading state synchronously after `dispatchEvent`: `open=true`, fallback
+  `removed`, `topoRoots=3` before control returned, with `defaultPrevented=true`.
 - **The summary is `display: none` above the breakpoint** so the disclosure reads as a plain
   wrapper on a desktop - which is why `watchLayout()` force-opens it when crossing upward: a
   details left closed with its summary hidden would strand the diagram with no control to
