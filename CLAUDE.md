@@ -545,8 +545,24 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
 4. **Ship interactive controls `[hidden]` and unhide them on successful mount.** A control that
    cannot do anything is never shown. Same for interaction directions. See `.hero-controls` and
    `.exhibit-directions`.
-5. **Defer all real work until the first expand.** No DOM building, no timers, no network while
-   collapsed. The homepage currently builds zero SVG and starts zero timers on load.
+5. **Defer all real work until the first expand.** No DOM building while collapsed: the
+   homepage still builds zero SVG, allocates no simulation state and starts no gremlin or
+   animation timers on load.
+   - **Two documented exceptions, both bought deliberately on 2026-08-13 to kill the flashes,
+     and this list is the whole of it.** The blanket "no timers, no network" this invariant
+     used to claim is no longer true, and pretending otherwise is how a doc goes quietly
+     wrong:
+     - **One timer**: the head script's 2.5s watchdog. It exists so a module that never
+       arrives cannot leave the fallback suppressed forever.
+     - **About 14KB of CSS**: `topology.css` (8.9KB) and `swarm.css` (5.1KB) are now warmed
+       with `rel="preload"` at load instead of being fetched at first mount, because both
+       renderers hold their component at `visibility: hidden` until that stylesheet fires
+       `load`. The `modulepreload` hints beside them add **no** requests - the module graph
+       was always fetched by the `<script type="module">` tags; those only flatten the
+       waterfall.
+   - The principle still holds and still governs anything new: the expensive work - SVG
+     construction, canvas allocation, simulation state, timers, observers - waits for the
+     visitor to ask.
    - **Mount on the summary's CLICK, not on `toggle`** (added 2026-08-13, and this is the
      second half of the flash fix under invariant #1). `<details>` fires `toggle`
      **asynchronously**: the UA expands the row, the browser is free to paint it, and only

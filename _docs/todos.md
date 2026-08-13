@@ -79,12 +79,11 @@ be done on hardware this environment cannot reach.
   dark-token override are all this environment can reach. Open
   `/_tests/fallback-preview.html` from the local preview to see it properly, and note the
   narrow-phone text size item above is the one open question worth a real look.
-- **First-paint suppression: CONFIRMED on the live site by the user (2026-08-13).** The
-  load-time flash is gone. The follow-on flash they then reported, on first expanding a row,
-  is fixed separately by mounting on the summary's click - see invariant #5 in `CLAUDE.md`.
-  That second fix is verified headlessly (state read synchronously after `dispatchEvent`
-  showed the row open, the fallback removed and three roots built before control returned)
-  but, like the first, "the flash is gone" is a perceptual claim only the user can close out.
+- **Fallback flashes: BOTH CONFIRMED FIXED on the live site by the user (2026-08-13),
+  nothing owed.** The load-time flash went with the head-script suppression, and the
+  follow-on flash on first expanding a row went with mounting on the summary's click. Kept
+  here only as the record that a perceptual claim was actually closed by a human rather than
+  inferred from a headless run - see invariants #1 and #5 in `CLAUDE.md` for the mechanisms.
 
 **Standing constraints on how verification happens in this project**, both of which
 shape what can be checked and by whom:
@@ -119,6 +118,8 @@ Index only. Reasoning lives in `CLAUDE.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |
+| 2026-08-13 | `01ad56a` | Exhibits mount on the summary's opening click, killing the flash on first expand; component stylesheets warmed |
+| 2026-08-13 | `b664c53` | First-paint suppression: head script, one CSS rule, per-exhibit `data-ready`, 2.5s watchdog |
 | 2026-08-10 | `c71bbda` | Both exhibit fallbacks rewritten as text equivalents carrying each tier's outcome, plus four static labelled SVG frames (one topology, three swarm) and `_tests/fallback-preview.html` |
 | 2026-08-09 | `48f7ca4` | Swarm: light blue repulsor, per-node cooldown bars, boids drawn over node chrome |
 | 2026-08-09 | `d4cb2f7` | Exhibit documentation split out of `CLAUDE.md` into `_docs/` |
