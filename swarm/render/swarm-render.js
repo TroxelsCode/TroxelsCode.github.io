@@ -1,29 +1,20 @@
 /*
- * swarm-render.js
- *
  * Canvas renderer and frame loop for the botnet swarm exhibit. Consumes
- * swarm-engine.js state; contains no simulation logic whatsoever. The
- * split is the same one topology-engine / topology-render keeps, and it
- * is not negotiable: if a rule about how the swarm BEHAVES ends up in
- * this file, it is in the wrong file.
+ * swarm-engine.js state and contains no simulation logic: if a rule about how
+ * the swarm BEHAVES ends up here, it is in the wrong file.
  *
- * Canvas rather than SVG, unlike the topology component. That is forced
- * by the numbers: a few hundred agents per tier across three tiers means
- * mutating many hundreds of DOM nodes every frame, which SVG handles
- * badly. Two consequences this file has to carry as a result:
+ * Canvas rather than SVG because a few hundred agents per tier across three
+ * tiers means mutating hundreds of DOM nodes a frame. Two consequences:
  *
- *   1. Canvas cannot read CSS custom properties, so readTokens() pulls
- *      every --swarm-* value off the component root with getComputedStyle
- *      at mount and again whenever the color scheme changes. The tokens
- *      still live in swarm.css. Do not move color values into this file.
- *   2. A canvas is opaque to assistive tech, so the scoreboard above it
- *      is not a layout preference - it is the accessible representation
- *      of the simulation. It is real DOM text for that reason.
+ *   1. Canvas cannot read CSS custom properties, so readTokens() pulls every
+ *      --swarm-* value off the root with getComputedStyle at mount and on every
+ *      scheme change. The tokens live in swarm.css - do not move colors here.
+ *   2. A canvas is opaque to assistive tech, so the scoreboard above it is the
+ *      accessible representation of the simulation, not a layout preference.
  *
- * TIMING. The engine only advances in fixed FIXED_DT increments, so this
- * file accumulates real elapsed time and steps a whole number of times
- * per frame. Never pass a raw frame delta into step(): that would make
- * every run irreproducible and break the seeded test suite's premise.
+ * Timing: the engine advances in fixed FIXED_DT increments only, so this file
+ * accumulates real elapsed time and steps a whole number of times per frame.
+ * Never pass a raw frame delta into step().
  */
 
 import {
@@ -95,22 +86,17 @@ const METER_GAP = 3;
 const RING_LIFE = 0.85;
 
 /*
- * Chrome (labels, meters, node boxes) is drawn in simulation units and
- * therefore shrinks with the canvas. At a 900px-wide canvas that is
- * fine; at 496px the scale factor is about 0.5 and a 14-unit label
- * renders at 7px, which is unreadable - measured, not guessed.
+ * Chrome is drawn in simulation units and so shrinks with the canvas: at 496px
+ * the scale factor is about 0.5 and a 14-unit label renders at an unreadable
+ * 7px. The fix is rendering-only - scale chrome UP in simulation units as the
+ * canvas narrows, so rendered pixel size stays roughly constant.
  *
- * The fix is rendering-only: scale the chrome UP in simulation units as
- * the canvas gets narrower, so its RENDERED pixel size stays roughly
- * constant. Deliberately NOT a second portrait field geometry, which is
- * how the topology component solved the equivalent problem. Every length
- * in this simulation - acquisition radius, separation distance, speeds -
- * is in the same units as the field, so reshaping the field would change
- * the physics and invalidate every tuned constant and every seeded test.
- * Text has no such coupling, so text is what moves.
- *
- * Node boxes scale less aggressively than text, since at full text scale
- * they would occupy an absurd share of the field.
+ * Deliberately not a second portrait field geometry, the way the topology
+ * component solved its equivalent problem. Every length here - acquisition
+ * radius, separation, speeds - is in field units, so reshaping the field would
+ * change the physics and invalidate every tuned constant and seeded test. Text
+ * has no such coupling, so text is what moves. Node boxes scale less than text,
+ * which at full text scale would occupy an absurd share of the field.
  */
 const CHROME_REF_W = 900;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -131,9 +117,8 @@ export const SwarmViz = {
     const root = document.createElement('div');
     root.className = 'swarm-viz';
     root.dataset.tier = tier.id;
-    /* Held hidden until the injected stylesheet lands, so the first
-     * paint is never an unstyled scoreboard. Mirrors the topology
-     * component. */
+    /* Held hidden until the injected stylesheet lands, so the first paint is
+     * never an unstyled scoreboard. */
     root.style.visibility = 'hidden';
 
     /* ---- scoreboard ---- */
@@ -185,12 +170,9 @@ export const SwarmViz = {
     const canvas = document.createElement('canvas');
     canvas.className = 'swarm-canvas';
     canvas.setAttribute('role', 'img');
-    /* Describes the field without instructing an interaction, since
-     * there is none: this exhibit is observational. The live numbers are
-     * carried by the scoreboard above, which is real text. Deliberately
-     * NOT aria-live - the values change every few frames and would
-     * produce a torrent of announcements, the same reasoning that keeps
-     * aria-live off the topology status bar. */
+    /* Describes the field without instructing an interaction, since there is
+     * none. Deliberately not aria-live: the values change every few frames and
+     * would produce a torrent of announcements. */
     canvas.setAttribute(
       'aria-label',
       'Animated field showing a botnet swarming three servers. Live counts for each server appear above.'
@@ -232,12 +214,9 @@ export const SwarmViz = {
     if (schemeQuery.addEventListener) schemeQuery.addEventListener('change', onScheme);
 
     /* ---- view-only animation state ----
-     * Repulsion rings belong to the renderer, not the engine. The engine
-     * flags a repulsion for exactly one step (repulseFlash) and forgets
-     * it; drawing an expanding ring is a presentation concern. Ring age
-     * is measured in SIM time so that pausing freezes rings along with
-     * everything else, rather than letting them keep expanding over a
-     * frozen field. */
+     * The engine flags a repulsion for exactly one step and forgets it; drawing
+     * the expanding ring is a presentation concern. Ring age is measured in SIM
+     * time so pausing freezes rings along with everything else. */
     let rings = [];
 
     function drawBoid(b) {
@@ -275,13 +254,11 @@ export const SwarmViz = {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
-      /* Acquisition radius. It earns its place - it is the only visible
-       * explanation for why a boid suddenly turns, and since the radius
-       * grows with attacker count it makes the pile-on legible while it
-       * happens. Drawn as a DASHED STROKE, not a filled disc: filled, at
-       * any alpha low enough to be unobtrusive against light mode, it
-       * still read as three enormous lavender blobs that dominated the
-       * whole field and buried the swarm they were meant to explain. */
+      /* Acquisition radius: the only visible explanation for why a boid
+       * suddenly turns, and since it grows with attacker count it makes the
+       * pile-on legible. A dashed stroke rather than a filled disc - filled, at
+       * any alpha unobtrusive enough for light mode, it read as three enormous
+       * blobs that buried the swarm they were meant to explain. */
       ctx.save();
       ctx.setLineDash([7, 9]);
       ctx.lineWidth = 1.5;
@@ -313,21 +290,13 @@ export const SwarmViz = {
         ctx.fillText(s.label, s.x, s.y + spawnR + 19 * textScale);
       }
 
-      /* Nodes: body, label and both meters, ALL drawn before the swarm
-       * so a pile-on visibly buries its target whole.
+      /* Nodes: body, label and both meters, ALL drawn before the swarm so a
+       * pile-on visibly buries its target whole. Holding chrome above the swarm
+       * would undersell the exact moment the exhibit makes its point, and
+       * nothing is lost - the scoreboard carries every per-node number as text.
        *
-       * This reverses the original order (user decision, 2026-08-09),
-       * which repainted the label and capacity meter on top of the boids
-       * so the readable parts survived a heavy attack. The trade was made
-       * knowingly: a node smothered by two dozen attackers is the moment
-       * the exhibit is making its point, and holding chrome above the
-       * swarm at exactly that moment undersold it. Nothing is lost that
-       * has only one home - the scoreboard above the canvas carries every
-       * per-node number as real text, and is the accessible copy anyway.
-       *
-       * Body and chrome merged into one pass now that they are adjacent.
-       * Safe because node boxes provably never overlap: minimum server
-       * separation is 280 units against a 92-unit box. */
+       * Body and chrome are one pass. Safe because node boxes provably never
+       * overlap: minimum server separation is 280 units against a 92-unit box. */
       const nw = NODE_W * nodeScale;
       const nh = NODE_H * nodeScale;
       const meterH = METER_H * nodeScale;
@@ -348,12 +317,10 @@ export const SwarmViz = {
         const pad = 8 * nodeScale;
         const mx = node.x - nw / 2 + pad;
         const mw = nw - pad * 2;
-        /* Capacity keeps the bottom slot it has always had; the cooldown
-         * bar stacks above it and the label lifts to make room. The lift
-         * applies to EVERY tier, including the unprotected one with no
-         * cooldown bar to show, so the boxes stay identical across tiers
-         * and the only visible difference between them remains the
-         * defense itself. */
+        /* Capacity keeps the bottom slot, the cooldown bar stacks above it and
+         * the label lifts to make room. The lift applies to EVERY tier,
+         * including the unprotected one with no cooldown bar, so the only
+         * visible difference between tiers stays the defense itself. */
         const capY = node.y + nh / 2 - meterH - 7 * nodeScale;
         const repY = capY - meterH - METER_GAP * nodeScale;
 
@@ -362,19 +329,14 @@ export const SwarmViz = {
         ctx.fillStyle = down ? tokens.down : tokens['node-text'];
         ctx.fillText(down ? 'OFFLINE' : node.label, node.x, node.y - 6 * nodeScale);
 
-        /* Repulsor readiness, tiers 2 and 3 only. Full means the defense
-         * can fire; it empties the instant it does and refills across the
-         * cooldown, so the bar answers the question the expanding ring
-         * raises - when can that happen again. Same colour as the ring by
-         * construction, since both read one token.
+        /* Repulsor readiness, tiers 2 and 3 only. Full means the defense can
+         * fire; it empties the instant it does and refills across the cooldown,
+         * answering the question the expanding ring raises. Absent rather than
+         * permanently empty on the unprotected tier, where a bar that could
+         * never fill would read as a broken defense rather than an unbought one.
          *
-         * ABSENT rather than permanently empty on the unprotected tier: a
-         * bar that could never fill would read as a defense that is
-         * broken rather than one that was never bought.
-         *
-         * No special case is needed for "has not fired yet" or for a node
-         * that just came back up - the engine leaves lastRepulse at
-         * -Infinity in both, which clamps straight to ready. */
+         * "Has not fired yet" and "just came back up" need no special case - the
+         * engine leaves lastRepulse at -Infinity, which clamps to ready. */
         if (defense.repulsion) {
           drawMeterTrack(mx, repY, mw, meterH);
           if (!down) {
@@ -502,24 +464,15 @@ export const SwarmViz = {
     }
 
     /*
-     * NO PER-INSTANCE VISIBILITY GATING, and that is a correctness
-     * requirement rather than a simplification. This renderer used to
-     * carry its own IntersectionObserver and suspend simulation while
-     * its tier was off screen, which is a fine instinct and was wrong
-     * here: the exhibit's whole claim is a comparison BETWEEN tiers, and
-     * the scoreboard totals are cumulative. Gating per tier meant each
-     * one accrued simulation time only while it happened to be in the
-     * viewport, so parking the page mid-exhibit let the middle tier run
-     * for minutes while the outer two sat frozen. The counters then
-     * invited a comparison they could not support - reported from the
-     * live page as tier 2 showing roughly four times tier 1, which no
-     * amount of simulating reproduces (measured over 800 simulated
-     * seconds, the ordering is stable at about 184 / 92 / 27).
+     * No per-instance visibility gating, which is a correctness requirement
+     * rather than a simplification. The scoreboard totals are cumulative and the
+     * exhibit's claim is a comparison BETWEEN tiers, so a per-tier gate has each
+     * tier accruing simulation time only while it personally sits in the
+     * viewport - and the totals then measure screen time instead of defenses.
      *
-     * Suspension now happens one level up, in js/swarm.js, against the
-     * whole exhibit at once. All three tiers therefore always share an
-     * identical clock, which is what makes their totals comparable.
-     * Do not reintroduce a per-instance observer here.
+     * Suspension happens one level up, in js/swarm.js, against the whole exhibit
+     * at once, so all three tiers always share one clock. Do not reintroduce a
+     * per-instance observer here.
      */
     let ro = null;
     try {
@@ -532,14 +485,10 @@ export const SwarmViz = {
     }
     window.addEventListener('resize', resize);
 
-    /* Pre-seed. A visitor whose system asks for reduced motion loads
-     * this paused, and an empty field is the weakest possible first
-     * impression for an exhibit whose job is to be arresting. Stepping
-     * with no rendering is cheap (no draw calls, no rAF, pure
-     * arithmetic) and deterministic, so the opening frame is authored
-     * rather than accidental: a populated field mid-attack, meters part
-     * filled, possibly a node already down. Pressing play continues from
-     * there instead of restarting. */
+    /* Pre-seed, so a visitor who loads this paused under reduced motion gets a
+     * populated field mid-attack rather than an empty one. Stepping without
+     * rendering is cheap and deterministic, so the opening frame is authored
+     * rather than accidental. Play continues from there instead of restarting. */
     for (let i = 0; i < preSeedSteps; i++) step(state, rng);
 
     container.appendChild(root);

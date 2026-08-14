@@ -180,7 +180,54 @@ which is the exact thing the pre-seed exists to prevent. Do not re-propose it.
 Two spawners outside left and right, three servers inside as an equilateral triangle with a
 horizontal base. Coordinates come from `LAYOUT` plus `buildLayout()` in `swarm/tiers/tiers.js`,
 with six geometry invariants asserted in the suite so a later edit cannot silently break a
-property the comments claim. **Read the long comment in that file before changing any of it.**
+property this section claims. **This is the whole derivation - read it before changing any
+value in `LAYOUT`.**
+
+**Why this shape.** Three servers and two spawners share exactly one mirror axis, the
+vertical one, so the two base vertices are provably equivalent and the apex is the odd node
+out. That is unavoidable at this cardinality; the goal is not to make all three identical but
+to stop the odd one being penalized for its position. A horizontal base with left/right
+spawners aligns the triangle's mirror axis with the spawner pair's, which is the most symmetry
+available. Rotating so a vertex points at a spawner is far worse.
+
+**Why the rows straddle the centerline** rather than putting the centroid at canvas center.
+An equilateral triangle's centroid is also its circumcenter, so centroid-at-center makes all
+three servers equidistant from the field center - but the field is a rectangle, and what feeds
+the edge-steering band is distance to the nearest **wall**. Centroid-centered leaves the apex
+R/2 closer to its wall than the base row is to its own. Straddling (apex row and base row
+equidistant from y = 300) equalizes wall clearance, at the cost of a centroid sitting
+`side/(4*sqrt(3))` below canvas center, about 40 units, which still reads as centered.
+
+**Do not re-derive the layout from focal sums.** The straddle would also have equalized total
+distance to the two spawners, to within 0.9% against 5.2% for a centroid-centered triangle,
+and the spawner drop gives that up (it runs about 13% now). That is the right trade: equal
+focal sums are an elegant invariant but not an operative one, because boids roam rather than
+fly spawner-to-target, so arrival is a diffusive hitting rate rather than a function of path
+length. Catchment is what actually moves the split.
+
+**The measured sweep behind `spawnerDrop: 75`**, outage split per drop value:
+
+| drop | 0 | 25 | 50 | 75 | 100 |
+| --- | --- | --- | --- | --- | --- |
+| split | 30/39/31 | 32/37/31 | 30/36/34 | 31/34/35 | 33/34/33 |
+
+75 is inside the noise floor of a perfect split (about 3 points at this sample size) while
+keeping visible separation between the spawners and the base row.
+
+**The binding constraint** is that no spawner may sit inside a node's grown acquisition ring.
+A node dies at 20 attackers, so the practical grown radius is about 158 rather than the 178
+cap; nearest spawner-to-server distance here is 242.
+
+**`srv2` is deliberately the apex.** The odd node keeps the identity it carries throughout the
+docs, the tests and the analysis harness, and it stays out of array index 0 - which matters
+because `runAcquisition` breaks on the first ring it finds and so favours the earlier index
+anywhere two rings overlap.
+
+**Ranges for the other knobs.** `side` satisfies every constraint anywhere from about 240 to
+300 (bigger spreads the cluster and reduces ring overlap, smaller keeps grown rings further
+off the walls). `spawnerInset: 150` must stay well clear of the edge-steering band, which
+starts 70 units in. `apexUp` is a free choice - the field is symmetric about its horizontal
+centerline, so apex up and apex down are geometrically identical.
 
 - **The original bug this replaced:** spawners at y=118/482 sat dead level with srv1 (128)
   and srv3 (472), launching the swarm down those two lanes, while srv2 sat 230 units behind

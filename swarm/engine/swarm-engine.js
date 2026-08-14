@@ -1,40 +1,24 @@
 /*
- * swarm-engine.js
+ * Pure simulation for the botnet swarm exhibit. No DOM, no rendering, no timers,
+ * and no direct calls to Math.random or Date.now. The renderer owns the frame
+ * loop and drives this by calling step() with an injected random source.
  *
- * Pure simulation for the botnet swarm exhibit. No DOM access, no
- * rendering, no timers, no requestAnimationFrame, and no direct calls to
- * Math.random or Date.now. The renderer owns the frame loop and drives
- * this by calling step() with an injected random source.
+ * Determinism is the point, and two rules protect it:
  *
- * DETERMINISM IS THE POINT. Given the same seed, the same config and the
- * same number of steps, this produces byte-identical state every time.
- * That is what makes _tests/swarm-tests.html able to assert things about
- * whole runs ("tier 1 is overwhelmed more often than tier 3 over 3000
- * steps") rather than just single transitions, and it is what makes the
- * pre-seeded paused frame reproducible. Two rules protect it:
+ *   1. Randomness arrives as an injected rng() argument. Never import or call a
+ *      global random source from this file.
+ *   2. Time advances in FIXED_DT increments only. A variable frame delta would
+ *      make every run irreproducible and every test flaky.
  *
- *   1. Randomness arrives as an injected rng() argument. Never import or
- *      call a global random source from this file.
- *   2. Time advances in FIXED_DT increments only. The renderer
- *      accumulates real elapsed time and calls step() a whole number of
- *      times; it never passes a variable frame delta through. A variable
- *      dt would make every run irreproducible and every test flaky.
- *
- * On mutation: step() mutates state in place and returns it, unlike
- * topology-engine.js which is genuinely pure. That is deliberate. The
- * topology engine recomputes on a click; this one runs 60 times a second
- * against hundreds of agents across three tiers, where allocating fresh
- * arrays and objects per step would generate real GC pressure for no
- * benefit. Determinism and testability are unaffected, since they come
- * from the two rules above rather than from immutability.
+ * step() mutates state in place and returns it, unlike topology-engine.js which
+ * is genuinely pure. Deliberate: this runs 60 times a second against hundreds of
+ * agents across three tiers, where per-step allocation would be real GC pressure
+ * for no benefit. Determinism comes from the two rules above, not immutability.
  */
 
 export const FIXED_DT = 1 / 60;
 
-/*
- * mulberry32. Small, fast, and good enough for visual simulation; the
- * requirement here is reproducibility, not cryptographic quality.
- */
+/* mulberry32. The requirement is reproducibility, not cryptographic quality. */
 export function makeRng(seed) {
   let a = seed >>> 0;
   return function rng() {
@@ -49,10 +33,9 @@ function randRange(rng, min, max) {
   return min + rng() * (max - min);
 }
 
-/* Live occupancy, not a draining meter: capacity is consumed by the
- * boids currently acquired and released the instant they stop being
- * acquired, whether that is by scatter, tarpit or the node's own death.
- * This is a connection-table-exhaustion model. */
+/* Live occupancy, not a draining meter: capacity is consumed by the boids
+ * currently acquired and released the instant they stop being, whether by
+ * scatter, tarpit or the node's own death. A connection-exhaustion model. */
 export function capacityOf(node, shared) {
   return node.attackers * shared.perBoidCost;
 }
@@ -64,11 +47,10 @@ export function acquisitionRadiusOf(node, shared) {
 }
 
 /*
- * The shared constants come off the tier itself (tier.shared), so this
- * file imports nothing from swarm/tiers/. The engine is generic
- * machinery: hand it any tier-shaped object and it runs. An explicit
- * options.shared override exists for tests that want to vary the field
- * without authoring a whole tier.
+ * Shared constants come off the tier itself, so this file imports nothing from
+ * swarm/tiers/ - hand the engine any tier-shaped object and it runs. The
+ * options.shared override exists for tests that vary the field without
+ * authoring a whole tier.
  */
 export function createState(tier, options) {
   const opts = options || {};
@@ -80,11 +62,9 @@ export function createState(tier, options) {
     steps: 0,
     nextBoidId: 1,
     spawnCredit: 0,
-    /* Diagnostic only, not scoreboard surface. Worth tracking because it
-     * is the number that explains an otherwise misleading observation:
-     * the unprotected tier carries a SMALL live swarm, not a large one,
-     * because it keeps detonating and taking twenty attackers with it
-     * each time. Population alone cannot tell "winning" from "dying". */
+    /* Diagnostic only, not scoreboard surface. Explains an otherwise misleading
+     * observation: the unprotected tier carries a SMALL live swarm because it
+     * keeps detonating. Population alone cannot tell "winning" from "dying". */
     destroyed: 0,
     boids: [],
     spawners: shared.spawners.map((s) => ({ ...s })),
@@ -138,15 +118,14 @@ function runSpawning(state, rng, dt) {
 }
 
 /*
- * One O(n^2) pass over boid pairs, visiting each pair once and applying
- * both halves symmetrically. Separation applies between every pair so an
- * attacking cluster stays legible instead of collapsing onto one point;
- * alignment and cohesion apply only between two ROAMING boids, since a
- * boid locked onto a target should not be dragged off it by the flock.
+ * One O(n^2) pass over boid pairs, visiting each once and applying both halves
+ * symmetrically. Separation applies between every pair so an attacking cluster
+ * stays legible instead of collapsing onto a point; alignment and cohesion apply
+ * only between two ROAMING boids, since a boid locked onto a target should not
+ * be dragged off it by the flock.
  *
- * Do not pre-optimize this with a spatial hash. At the current ceiling it
- * is a few thousand pair checks per tier per step and the renderer only
- * steps visible tiers. Measure before believing it is a problem.
+ * Do not pre-optimize with a spatial hash. At the current ceiling this is a few
+ * thousand pair checks per tier per step. Measure first.
  */
 function accumulateFlocking(state) {
   const f = state.shared.flock;
@@ -280,11 +259,10 @@ function recountAttackers(state) {
 }
 
 /*
- * FIRST-SEEN-WINS. A roaming boid locks onto the first live node whose
- * acquisition radius it is inside, and never re-evaluates that choice
- * afterwards. Seeing a second, closer or more heavily attacked node
- * changes nothing. Ties within a single step resolve in node config
- * order, which keeps the run deterministic.
+ * First-seen-wins. A roaming boid locks onto the first live node whose
+ * acquisition radius it is inside and never re-evaluates: a second, closer or
+ * more heavily attacked node changes nothing. Ties within a step resolve in node
+ * config order, which keeps the run deterministic.
  */
 function runAcquisition(state) {
   for (const b of state.boids) {
@@ -324,10 +302,9 @@ function scatterFrom(state, node, impulse) {
 }
 
 /*
- * Repulsion never removes a boid from play, and that is the entire
- * lesson of tier 2: dropping traffic over a threshold buys time but the
- * same attackers are still out there, still looking. Only overwhelm and
- * tarpit remove boids from the field.
+ * Repulsion never removes a boid from play, which is the entire lesson of tier
+ * 2: dropping traffic over a threshold buys time but the same attackers are
+ * still out there. Only overwhelm and tarpit remove boids from the field.
  */
 function runRepulsion(state) {
   const rep = state.tier.defense.repulsion;
@@ -341,10 +318,10 @@ function runRepulsion(state) {
 }
 
 /*
- * Tier 3 only. A boid sits as a normal attacker for the identification
- * dwell, costing real capacity the whole time, then leaves the field and
- * becomes a held slot. Held slots do not consume capacity, which is why
- * tarpitting is the only defense that actually drains the swarm.
+ * Tier 3 only. A boid sits as a normal attacker for the identification dwell,
+ * costing real capacity the whole time, then leaves the field and becomes a held
+ * slot. Held slots do not consume capacity, which is why tarpitting is the only
+ * defense that actually drains the swarm.
  */
 function runTarpit(state) {
   const tar = state.tier.defense.tarpit;
@@ -379,14 +356,11 @@ function runTarpit(state) {
 
 /*
  * A node whose connection table is full stops answering, and every boid
- * currently attacking it dies with it - successful attackers, mission
- * complete. This is the second of the two removal paths, and the one
- * that gives tiers 1 and 2 their boom-bust rhythm.
+ * attacking it dies with it. The second removal path, and the one that gives
+ * tiers 1 and 2 their boom-bust rhythm.
  *
- * Held slots are dropped rather than counted as neutralized: the node is
- * down, so its connection table is gone, and those connections did not
- * time out on their own. In practice this is near-unreachable, since a
- * tier with tarpit rarely reaches capacity at all.
+ * Held slots are dropped rather than counted as neutralized: the node is down,
+ * so its table is gone and those connections did not time out on their own.
  */
 function runOverwhelm(state, rng) {
   const doomed = new Set();
@@ -443,10 +417,9 @@ export function step(state, rng, dt) {
 }
 
 /*
- * Run many steps with no rendering. Used by the test suite and by the
- * renderer's mount-time pre-seed, which exists so a visitor who loads
- * the exhibit paused (because their system asks for reduced motion) sees
- * a populated field mid-attack rather than an empty one.
+ * Run many steps with no rendering. Used by the test suite and by the renderer's
+ * mount-time pre-seed, so a visitor who loads the exhibit paused sees a
+ * populated field mid-attack rather than an empty one.
  */
 export function advance(state, rng, steps) {
   for (let i = 0; i < steps; i++) step(state, rng);

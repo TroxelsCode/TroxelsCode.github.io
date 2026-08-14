@@ -1,24 +1,15 @@
 /*
- * swarm.css
+ * Every visual value the swarm exhibit uses is a --swarm-* custom property
+ * declared here, with light defaults and a prefers-color-scheme: dark override.
  *
- * Every visual value the botnet swarm exhibit uses is a --swarm-* custom
- * property declared here, with light defaults and a
- * prefers-color-scheme: dark override block. A host retheme is a matter
- * of overriding properties; it never touches component internals.
+ * Unlike topology.css, most of these are consumed by canvas drawing code, which
+ * cannot read custom properties: swarm-render.js reads them off the component
+ * root with getComputedStyle. The tokens still live here - do not move any of
+ * these values into JS.
  *
- * The twist versus topology.css: most of these tokens are consumed by
- * CANVAS drawing code, which cannot read custom properties directly.
- * swarm-render.js reads them off the component root with
- * getComputedStyle at mount and re-reads them when the color scheme
- * changes. The tokens still live here, so the contract holds; only the
- * delivery differs. Do not move any of these values into JS.
- *
- * ONE RULE THAT IS NOT NEGOTIABLE: the hostile swarm is PURPLE, never
- * red-devil imagery. This matches the gremlin badge in the topology
- * component, which is deliberately a purple imp rather than a red devil.
- * A field of malicious agents is an easy place to drift into demonic
- * visual language. Red is reserved for node status here, and appears
- * nowhere on the attackers.
+ * One rule that is not negotiable: the hostile swarm is PURPLE, never red-devil
+ * imagery, matching the purple imp on the topology gremlin badge. Red is
+ * reserved for node status and appears nowhere on the attackers.
  */
 
 .swarm-viz {
@@ -44,13 +35,11 @@
   --swarm-spawner: #8a8a82;
   /* Stroked, not filled - see the note in swarm-render.js. */
   --swarm-radius-ring: rgba(124, 63, 191, 0.42);
-  /* ONE token for TWO elements on purpose: the expanding repulsion wave
-   * and the per-node cooldown bar that says when the next one can fire.
-   * They are the same mechanism seen twice, so they are the same colour
-   * by construction rather than by two values kept in sync by hand.
-   * Light blue reads as a shield rather than as a status: it has to sit
-   * next to the capacity meter without joining the teal/amber/red
-   * health scale, and it must not be mistaken for the purple swarm. */
+  /* One token for two elements on purpose: the expanding repulsion wave and the
+   * cooldown bar saying when the next one can fire are the same mechanism seen
+   * twice, so they share a colour by construction. Light blue reads as a shield
+   * rather than a status - it sits next to the capacity meter without joining
+   * the teal/amber/red health scale, and is not mistakable for the swarm. */
   --swarm-repulse: #2a9fd8;
 
   display: block;
@@ -83,11 +72,9 @@
 
 /* ---- scoreboard ----
  *
- * Off-field by design. The canvas carries only spawners, targets and
- * boids; all text lives here, above it. This mirrors how the topology
- * component keeps .topo-status out of its SVG, and it is also what makes
- * the exhibit legible to assistive tech at all, since a canvas is
- * otherwise opaque. */
+ * Off-field by design: the canvas carries only spawners, targets and boids, and
+ * all text lives here above it. This is what makes the exhibit legible to
+ * assistive tech at all, since a canvas is otherwise opaque. */
 
 .swarm-scoreboard {
   display: grid;

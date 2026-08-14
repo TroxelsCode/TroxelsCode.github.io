@@ -69,6 +69,30 @@ Three things about this arrangement are load-bearing.
 - **No em dashes and no non-ASCII characters anywhere**, in code, comments, or docs. ASCII only: use "->" not arrows, "x" not multiplication signs, plain hyphens for punctuation.
   - **Carve-out for binary image assets** (added 2026-08-06 with the favicon): `favicon.ico` and `apple-touch-icon.png` are binary and cannot be ASCII. The rule is about code, comments and docs, and about catching accidental PowerShell BOMs - it is not a claim that the repo contains no binary files. Any byte-level ASCII scan must skip `*.png` / `*.ico` / `*.jpg`. `.gitattributes` already marks those `binary` (verified: `git check-attr` reports `text: unset`, and `git diff --numstat` reports `-`/`-`), so the `eol=lf` rule does not mangle them.
 - **Never commit/push unprompted.** After applying a change, ask the user whether to commit and push now or whether they have more changes to batch into the commit. The user tests locally (`python -m http.server 8123`) before approving; wait for that approval.
+- **Served source files carry ordinary working comments, not design rationale** (user
+  directive, 2026-08-13). Everything under this repo's served paths is world-readable twice
+  over - on the live domain via devtools, and on github.com - and the user does not want the
+  site's source reading as a working notebook. A sweep on 2026-08-13 cut the fourteen served
+  files from 43% comment bytes to 30%, and the register is the point more than the volume:
+  - **Keep** the notes that stop a bug: a trap whose symptom does not point at its cause, a
+    line that looks wrong but is not, an ordering or specificity constraint, a "do not
+    'simplify' this back". Ordinary API and semantic comments are fine and expected.
+  - **Cut** dates, `user decision` / `user request` attributions, arguments against designs
+    that were never built, second-person notes addressed to whoever edits next, changelog
+    narration ("this used to...", "reversed on..."), and anything restating what the code
+    plainly does.
+  - **Rationale moves to `_docs/`, it does not get deleted.** Most of what came out was
+    already duplicated there, which is the one-home-per-fact rule below being violated in
+    the other direction - and the duplicates had started to drift (the topology snapshot
+    comment still described a five-column frame as collapsed to one stage, superseded
+    2026-08-10). If a comment is the only record of something, migrate it first: the
+    `.exhibit-description` draft-copy flag moved to `_docs/todos.md` this way.
+  - **Do not go further and strip comments entirely.** Zero-comment source plus opaque
+    reference codes was designed in full and rejected by the user as unusual enough to read
+    worse than the problem it solved. Minification was rejected for the same session's
+    reasons: it needs either committed build artifacts or an Actions migration (which would
+    start publishing `_tests/` and `_docs/` - see Deploy), and it does not deliver privacy
+    anyway while github.com serves the same files.
 
 ## Environment
 

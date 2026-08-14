@@ -21,6 +21,12 @@ left here.
 Nothing on this list is broken. All of it is taste, polish, or a check that can only
 be done on hardware this environment cannot reach.
 
+- **The topology exhibit's `.exhibit-description` copy is still a draft** (exhibit #1).
+  It is the paragraph in `index.html` beginning "Three types of networks", and it wants
+  workshopping alongside the disclosure summary above it - the summary was finalized in
+  `152917c` but this paragraph was not. Recorded here because it used to be flagged by an
+  inline `draft copy` comment in `index.html`, which was removed with the rest of the
+  comment sweep; this list is now the only record.
 - **Swarm tuning constants are provisional** (exhibit #2). All of them sit in
   `SHARED` and the per-tier `defense` blocks in `swarm/tiers/tiers.js`, deliberately
   in one place so a pass is cheap. The triangle rearrangement moved tier totals
@@ -118,6 +124,7 @@ Index only. Reasoning lives in `CLAUDE.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |
+| 2026-08-13 | this commit | Comment sweep across all fourteen served files: design rationale consolidated into `_docs/`, source left with ordinary working comments (43% -> 30% comment bytes, 277KB -> 251KB) |
 | 2026-08-13 | `01ad56a` | Exhibits mount on the summary's opening click, killing the flash on first expand; component stylesheets warmed |
 | 2026-08-13 | `b664c53` | First-paint suppression: head script, one CSS rule, per-exhibit `data-ready`, 2.5s watchdog |
 | 2026-08-10 | `c71bbda` | Both exhibit fallbacks rewritten as text equivalents carrying each tier's outcome, plus four static labelled SVG frames (one topology, three swarm) and `_tests/fallback-preview.html` |

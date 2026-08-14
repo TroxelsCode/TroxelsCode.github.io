@@ -1,15 +1,12 @@
 /*
- * tiers.js
+ * Concrete tier configurations: small / medium / large. Pure data. Layout
+ * coordinates are in viewBox units. The structure block names each site's fabric
+ * roles so the engine can dispatch the right redundancy algorithm per group
+ * instead of inferring it from the graph.
  *
- * Concrete tier configurations: small / medium / large, per the
- * prototype spec. Pure data. Layout coordinates are in viewBox units
- * (fixed layout, no dragging). The structure block names each site's
- * fabric roles so the engine can dispatch the right redundancy
- * algorithm per group instead of inferring from the graph.
- *
- * Edge "bow" is a lateral offset for a quadratic curve, used where a
- * straight line would collide with an unrelated node, and on sync
- * lines to signal "logical relationship, not a literal cable".
+ * Edge "bow" is a lateral offset for a quadratic curve, used where a straight
+ * line would collide with an unrelated node, and on sync lines to signal
+ * "logical relationship, not a literal cable".
  */
 
 export const tiers = {
@@ -56,17 +53,10 @@ export const tiers = {
     nodeSize: { w: 124, h: 52, label: 15, sub: 11 },
     gremlin: { breakMin: 2200, breakMax: 5500, fixMin: 1300, fixMax: 3300 },
     nodes: [
-      /*
-       * Ids match the rendered labels one-for-one (isp1 -> ISP-1, fw2 -> FW-2)
-       * and match the large tier's isp1..isp4 / sw1..sw3 scheme, so a node can
-       * be found in this file by reading its box on screen. They used to be
-       * wan-a / fw-b style; renamed 2026-08-08 along with the labels.
-       *
-       * The one place id and label still diverge is deliberate: the large
-       * tier's firewall SUB-labels read "cluster A/B" while its ids are
-       * fwa1..fwb2, because a sub-label is prose about the design rather than
-       * a name for the box. Node labels themselves always match their id.
-       */
+      /* Ids match the rendered labels one-for-one (isp1 -> ISP-1), so a node can
+       * be found in this file by reading its box on screen. The only place they
+       * diverge is the large tier's firewall SUB-labels, which are prose about
+       * the design rather than a name for the box. */
       { id: 'isp1', label: 'ISP-1', sub: 'primary', class: 'isp', redundancy: 'pair', group: 'isp', x: 105, y: 125 },
       { id: 'isp2', label: 'ISP-2', sub: 'backup', class: 'isp', redundancy: 'pair', group: 'isp', x: 105, y: 250 },
       { id: 'fw1', label: 'FW-1', sub: 'primary', class: 'firewall', redundancy: 'pair', group: 'fw', x: 330, y: 125 },
@@ -158,19 +148,12 @@ function buildLargeTier() {
     n('isp2', 'ISP-2', '', 'isp', 'mesh', 'isp', 62, 120);
     n('isp3', 'ISP-3', '', 'isp', 'mesh', 'isp', 62, 195);
     n('isp4', 'ISP-4', '', 'isp', 'mesh', 'isp', 62, 270);
-    /*
-     * "cluster A/B" is the term everywhere now - sub-label, comments, docs.
-     * It is doing a specific job: this tier resolves as a mesh so both
-     * groups light at once, and "cluster" is what makes that read as the
-     * intended clustered / ECMP design rather than an HA pair that has
-     * somehow gone active/active. ("stack" was the old word for it and
-     * survives nowhere.) The ids stay fwa1..fwb2 because A/B is the group
-     * letter, which is exactly what the labels FW-A1..FW-B2 show.
+    /* "cluster" is load-bearing: this tier resolves as a mesh so both groups
+     * light at once, and the word is what makes that read as the intended
+     * clustered/ECMP design rather than an HA pair gone active/active.
      *
-     * Kept to 9 characters because SVG <text> neither wraps nor truncates
-     * and the portrait node box is only 57px wide - measure before
-     * lengthening.
-     */
+     * Kept to 9 characters because SVG <text> neither wraps nor truncates and
+     * the portrait node box is only 57px wide - measure before lengthening. */
     n('fwa1', 'FW-A1', 'cluster A', 'firewall', 'mesh', 'fwa', 250, 45);
     n('fwa2', 'FW-A2', 'cluster A', 'firewall', 'mesh', 'fwa', 250, 120);
     n('fwb1', 'FW-B1', 'cluster B', 'firewall', 'mesh', 'fwb', 250, 195);
@@ -234,14 +217,12 @@ function buildLargeTier() {
   }
 
   /*
-   * Site-to-site bridges: dedicated point-to-point links (fixed
-   * wireless/optical), physically independent of any ISP, paired
-   * cluster-to-cluster: cluster A to cluster A, and cluster B to cluster B,
-   * so the bridge tier has the same redundancy as the clusters themselves.
-   * Each drawn edge anchors on one firewall per cluster, but the engine
-   * treats the endpoints as the whole cluster: a bridge is usable while at
-   * least one firewall of its cluster is up at both ends. When a site falls
-   * back to the bridges, every usable bridge carries (active/active).
+   * Site-to-site bridges: dedicated point-to-point links independent of any ISP,
+   * paired cluster-to-cluster so the bridge tier has the same redundancy as the
+   * clusters. Each drawn edge anchors on one firewall per cluster, but the
+   * engine treats the endpoints as the whole cluster - a bridge is usable while
+   * at least one firewall of its cluster is up at both ends, and every usable
+   * bridge carries.
    */
   edges.push({ a: 's1-fwa2', b: 's2-fwa1', kind: 'bridge', bow: -170, label: 'site link A' });
   edges.push({ a: 's1-fwb2', b: 's2-fwb1', kind: 'bridge', bow: 170, label: 'site link B' });
@@ -279,32 +260,25 @@ function buildLargeTier() {
 /*
  * ---- portrait layouts ----
  *
- * Narrow-screen variants of the same three tiers. These exist because
- * scaling a landscape diagram down to phone width does not merely make it
- * small, it makes it unusable: the small tier at a ~319px SVG width renders
- * 41x18px node boxes (against a ~44px touch-target minimum) with 5px labels.
- * A portrait viewBox ~340-360 wide instead puts viewBox units at roughly 1:1
- * with CSS pixels on a phone, so the node geometry below can be read as
- * device pixels.
+ * Narrow-screen variants of the same three tiers. Scaling a landscape diagram to
+ * phone width does not merely make it small, it makes it unusable: the small
+ * tier at a ~319px SVG width renders 41x18px node boxes against a ~44px
+ * touch-target minimum. A portrait viewBox ~340-360 wide puts viewBox units at
+ * roughly 1:1 with CSS pixels, so the geometry below reads as device pixels.
  *
- * These are LAYOUT ONLY. withPortraitLayout() overrides viewBox, nodeSize,
- * node coordinates, and specific edge bows and edge labels; it carries
- * `edges`, `structure` and `gremlin` through from the landscape config
- * untouched - so the engine
- * sees an identical graph in either orientation and failover behavior cannot
- * drift between them. The renderer needs no changes at all.
+ * LAYOUT ONLY. withPortraitLayout() overrides viewBox, nodeSize, coordinates and
+ * specific edge bows and labels, carrying `edges`, `structure` and `gremlin`
+ * through untouched - so the engine sees an identical graph in either
+ * orientation and failover behavior cannot drift between them.
  *
- * Two things that do NOT survive the rotation and have to be re-tuned here:
+ * Two things do not survive rotation and have to be re-tuned here:
  *
  * 1. Edge bows. A bow is a lateral offset perpendicular to the a-to-b
- *    direction, so a value tuned for a horizontal run means something
- *    completely different on a vertical one. Overrides live in `bows`,
- *    keyed by the same `a + '--' + b` the renderer uses.
- * 2. Vertical edges that pass through an intervening node box. Stacking
- *    rows in a narrow column creates collisions that simply do not exist
- *    in a wide layout - see the medium tier's switch-to-workstation links
- *    below. For a vertical edge the curve's lateral extreme is at t=0.5 and
- *    equals 0.5 * bow, which is how the values here were sized.
+ *    direction, so a value tuned for a horizontal run means something else
+ *    entirely on a vertical one.
+ * 2. Vertical edges passing through an intervening node box, a collision that
+ *    does not exist in a wide layout. For a vertical edge the curve's lateral
+ *    extreme is at t=0.5 and equals 0.5 * bow, which is how these were sized.
  */
 
 /* Large is two structurally identical sites, so its coordinates are
@@ -322,15 +296,11 @@ function largePortraitCoords() {
   const SITE_OFFSET = { s1: 40, s2: 675 };
   const coords = {};
 
-  /*
-   * Firewall column order differs between the two sites, on purpose. The
-   * site bridges land on s1-fwa2/s2-fwa1 and s1-fwb2/s2-fwb1, so putting
-   * each of those on the OUTERMOST column of its own site turns both site
-   * links into straight vertical runs down the left and right margins
-   * instead of long diagonals dragged across the whole diagram. Cluster
-   * members are interchangeable - which one sits outboard is a drawing
-   * decision with no structural meaning - so this costs nothing.
-   */
+  /* Firewall column order differs between the two sites on purpose. Putting each
+   * bridge-anchored firewall on the OUTERMOST column of its own site turns both
+   * site links into straight vertical runs down the margins instead of long
+   * diagonals across the diagram. Cluster members are interchangeable, so which
+   * one sits outboard has no structural meaning. */
   const FW_X = {
     s1: { fwa2: COL4[0], fwa1: COL4[1], fwb1: COL4[2], fwb2: COL4[3] },
     s2: { fwa1: COL4[0], fwa2: COL4[1], fwb2: COL4[2], fwb1: COL4[3] },
@@ -414,33 +384,20 @@ const portraitLayouts = {
       /* Short horizontal hop in portrait; see the medium tier note. */
       's1-srv-a--s1-srv-b': 0,
       's2-srv-a--s2-srv-b': 0,
-      /*
-       * Site bridges. Both endpoints sit on the outermost column of their
-       * own site (see FW_X above), so each of these is a straight vertical
-       * run and the bow only has to push it sideways into the margin.
-       * A vertical edge's lateral extreme is 0.5 * bow at t=0.5, putting
-       * the midpoint at x=17 and x=343 in a 360-wide viewBox; the tighter
-       * constraint is the quarter-points, which land about 9 units clear
-       * of the 3-across rows they pass. Do not increase these much further
-       * - the edge label is drawn at the curve midpoint and will start
-       * clipping against the viewBox edge.
-       */
+      /* Site bridges. Both endpoints sit on the outermost column of their own
+       * site (see FW_X), so each is a straight vertical run and the bow only
+       * pushes it into the margin. The tight constraint is the quarter-points,
+       * about 9 units clear of the 3-across rows they pass. Do not increase
+       * these much - the midpoint reaches x=17 and x=343 in a 360-wide viewBox. */
       's1-fwa2--s2-fwa1': -110,
       's1-fwb2--s2-fwb1': 110,
     },
     labels: {
-      /*
-       * Dropped in portrait, not renamed. The renderer draws an edge label
-       * centered on the curve midpoint, and these midpoints sit ~17 units
-       * from the viewBox edge, so anything longer than about three
-       * characters clips - "site link A" rendered as "te link A". Widening
-       * the viewBox to buy the room drops the scale far enough that node
-       * height falls under the 44px touch target, which is a worse trade.
-       *
-       * Losing the text costs little here: these are the only two long
-       * curves in the diagram, they are visually unmistakable, and the
-       * status bar already announces "via site link" whenever they carry.
-       */
+      /* Dropped in portrait, not renamed. Edge labels are centered on the curve
+       * midpoint, and these midpoints sit ~17 units from the viewBox edge, so
+       * the text clips. Widening the viewBox drops the scale until node height
+       * falls under the 44px touch target, which is the worse trade. Little is
+       * lost: the status bar announces "via site link" whenever they carry. */
       's1-fwa2--s2-fwa1': '',
       's1-fwb2--s2-fwb1': '',
     },

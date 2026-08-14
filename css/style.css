@@ -1,13 +1,10 @@
 /*
- * style.css - site-wide styles.
- *
- * Tokens mirror topology/render/topology.css's pattern: light defaults on
+ * Site-wide styles. Tokens mirror the component stylesheets: light defaults on
  * :root, overridden in prefers-color-scheme: dark. The site respects system
- * preference rather than forcing a theme, so it never needs to override any
- * --topo-* custom property - the hero component already themes itself the
- * same way. (The component injects its stylesheet at mount time, after any
- * host <link>, so a host override would need extra specificity to win. Not
- * needed here - don't add one without a reason.)
+ * preference rather than forcing a theme, so it never needs to override a
+ * --topo-* or --swarm-* property - both components already theme themselves the
+ * same way. (Each injects its stylesheet at mount, after any host <link>, so a
+ * host override would need extra specificity to win. Do not add one lightly.)
  */
 
 :root {
@@ -81,22 +78,15 @@ button:focus-visible {
 /* ---- header / nav ---- */
 
 /*
- * Pinned so the wordmark and the Home/Resume links are always reachable
- * (user request, 2026-08-05). Needs no JS - sticky is pure CSS and works on
- * every page including /resume/.
- *
- * It is the TOP of a sticky CHAIN, though, and the rest of the chain has to
- * offset itself below it or things overlap:
+ * The TOP of a sticky CHAIN - the rest has to offset below it or things overlap:
  *
  *   .site-header                top: 0                     z-index 4
  *   .hero-disclosure-summary    top: --site-nav-h          z-index 3
  *   .hero-pin / .topo-status    top: nav + summary         z-index 2
  *
- * js/hero.js measures this element and publishes --site-nav-h, because the
- * nav wraps to two lines on a very narrow screen and a hardcoded height
- * would be wrong exactly where the chrome budget is tightest. The fallback
- * 0px in every consumer is deliberate: if hero.js never runs, nothing else
- * in the chain exists either.
+ * js/main.js measures this element and publishes --site-nav-h, because the nav
+ * wraps to two lines on a very narrow screen and a hardcoded height would be
+ * wrong exactly where the chrome budget is tightest.
  *
  * The background must be opaque or page content scrolls through it.
  */
@@ -342,54 +332,35 @@ section:last-of-type {
 }
 
 /*
- * #hero-mount is the live slot for the topology component
- * (topology/render/topology-render.js, mounted by js/hero.js). It has two
- * jobs, and deliberately does not have a third.
+ * The live slot for the topology component. Two jobs, and deliberately not a
+ * third.
  *
- * 1. Reserve the component's height before it mounts, so the page does not
- *    reflow when the module lands. The reservation is a FLOOR, via an empty
- *    ::before spacer in a shared grid cell - NOT aspect-ratio on .hero-mount
- *    itself. aspect-ratio on a block box SETS the used height rather than
- *    establishing a minimum, and the component's height is a width-driven
- *    ratio term PLUS ~44px of fixed chrome, so any single ratio is only
- *    correct at one viewport width. Everywhere else the component would
- *    overflow and overlap the stats strip below, because nothing would push
- *    the following section down. Do not "simplify" this back.
+ * 1. Reserve the component's height before it mounts so the page does not
+ *    reflow. The reservation is a FLOOR, via an empty ::before spacer in a
+ *    shared grid cell - NOT aspect-ratio on .hero-mount itself. aspect-ratio on
+ *    a block box SETS the used height rather than establishing a minimum, and
+ *    the component's height is a width-driven ratio term PLUS ~44px of fixed
+ *    chrome, so one ratio is only correct at one viewport width; everywhere else
+ *    the component overflows into the stats strip. Do not "simplify" this back.
  *
- * 2. Stay out of the component's way visually. The component brings its own
- *    background and radius, and --topo-bg is byte-identical to --site-bg, so
- *    the diagram sits flush on the page with no card (deliberate). All
- *    placeholder chrome lives on .hero-mount-fallback, which js/hero.js
- *    removes on a successful mount, so it can never frame the real diagram.
+ * 2. Stay out of the component's way. It brings its own background and radius,
+ *    and --topo-bg is byte-identical to --site-bg, so the diagram sits flush
+ *    with no card. All placeholder chrome lives on .hero-mount-fallback.
  *
- * Parameterized so the scroll-pin / tier-swap work can retarget the
- * reservation by writing custom properties:
- *   --hero-tier-w  the tier's viewBox WIDTH. Landscape tiers are all 1000,
- *   --hero-tier-h  and the height varies (small 300, medium 375, large 745).
- *                  The portrait layouts change BOTH (small 340x500, medium
- *                  340x580, large 360x1290), which is exactly why the width
- *                  is a property and not the literal 1000 it used to be -
- *                  the aspect ratio is meaningless with only one axis.
- *                  js/hero.js re-asserts both from the live tier config on
- *                  every mount and re-orientation, so the values here only
- *                  have to be right for first paint.
- *   --hero-chrome  the component's fixed non-SVG vertical space: .topo-viz
- *                  padding 10px top + 6px bottom, plus the status bar (13px
- *                  text at the inherited line-height 1.5 = 19.5px, over its
- *                  18px min-height) and its 8px bottom margin = 43.5px.
- *                  Rounded up to 44 so the reservation errs slightly tall:
- *                  a hair of dead space beats a visible shift on mount.
- *   --hero-gutter  .topo-viz's own 12px horizontal padding, subtracted from
- *                  the spacer's width so the reserved ratio measures the box
- *                  the SVG actually occupies, not the panel around it.
+ * The four custom properties below parameterize the reservation:
+ *   --hero-tier-w  the tier's viewBox width and height. Both are properties
+ *   --hero-tier-h  because the portrait layouts change both, and an aspect
+ *                  ratio is meaningless with only one axis. js/hero.js
+ *                  re-asserts them per mount, so these only need to be right
+ *                  for first paint.
+ *   --hero-chrome  the component's fixed non-SVG vertical space, measured at
+ *                  43.5px and rounded up so the reservation errs slightly tall.
+ *   --hero-gutter  .topo-viz's horizontal padding, subtracted so the reserved
+ *                  ratio measures the SVG's box rather than the panel.
  *
- * If a height cap is ever needed (the large tier on a wide monitor), cap the
- * mount's WIDTH, not its height - the SVG is width-driven, so max-height
- * would make it overflow rather than scale down:
- *   max-width: calc((640px - var(--hero-chrome))
- *                   * var(--hero-tier-w) / var(--hero-tier-h));
- * The portrait block below already caps width for its own reason (keeping a
- * phone layout phone-sized on a tablet), so that is a worked example.
+ * If a height cap is ever needed, cap the mount's WIDTH - the SVG is
+ * width-driven, so max-height makes it overflow rather than scale down. The
+ * portrait block below is a worked example.
  */
 .hero-mount {
   --hero-tier-w: 1000;
@@ -467,24 +438,19 @@ section:last-of-type {
 
 /*
  * ---- exhibit intro ----
- * Shared shell, not topology - the first piece to carry the exhibit-* prefix
- * (see the naming decision in CLAUDE.md), and the block every future exhibit
- * row reuses unchanged. It renders directly under the disclosure summary and
- * ABOVE the controls and the exhibit itself, so a visitor reads what the piece
- * is and how to work it on expanding rather than discovering the instructions
- * below the thing they were meant to instruct.
+ * Shared shell, reused unchanged by every exhibit row. Renders under the
+ * disclosure summary and ABOVE both the controls and the exhibit, so a visitor
+ * reads what the piece is before meeting it.
  *
  * The two halves differ in visibility on purpose. The description is real copy
  * that always renders - with no JS it is the only account of the exhibit a
- * visitor gets, alongside the fallback text. The directions describe an
- * interaction that does not exist until the exhibit mounts, so they follow the
- * .hero-controls rule: [hidden] in the markup, unhidden by JS on success.
+ * visitor gets besides the fallback. The directions describe an interaction that
+ * does not exist until the exhibit mounts, so they follow the .hero-controls
+ * rule: [hidden] in the markup, unhidden by JS on success.
  *
- * For the topology exhibit the directions are also a POINTER affordance
- * specifically - the nodes carry a click listener but no tabindex and no key
- * handler, so this deliberately is not offered as a keyboard instruction. A
- * future exhibit that is keyboard-operable should word its own directions
- * accordingly.
+ * The topology directions are a POINTER affordance specifically, since its nodes
+ * have a click listener but no tabindex. A keyboard-operable exhibit should word
+ * its own accordingly.
  */
 .exhibit-intro {
   margin-top: 16px;
@@ -519,40 +485,23 @@ section:last-of-type {
 }
 
 /*
- * ---- scrollytelling: the tier sequence (Phase 2b) ----
+ * ---- the tier sequence ----
  *
- * Two INDEPENDENT axes, and conflating them is a real bug that shipped once
- * in the prototype:
+ * Two INDEPENDENT axes, and conflating them shipped as a real bug once:
  *
  *   which tier DATA   landscape vs portrait  -> width only
  *   which LAYOUT      pinned vs stacked      -> width OR reduced motion
  *
- * PINNED (wide screen, motion allowed): the three tiers share one grid cell
- * and cross-fade as the visitor scrolls through the track's extra height.
- * STACKED (narrow screen, or prefers-reduced-motion): the pin is dropped and
- * all three render at full size in normal flow.
+ * PINNED: the three tiers share one grid cell and cross-fade as the visitor
+ * scrolls the track's extra height. STACKED: the pin is dropped and all three
+ * render at full size in normal flow.
  *
- * The stacked trigger is a JS-set data-hero-mode attribute rather than a
- * media query, because "narrow OR reduced motion" cannot be expressed as one
- * CSS media block without duplicating every rule.
+ * The stacked trigger is a JS-set data-hero-mode attribute rather than a media
+ * query, because "narrow OR reduced motion" cannot be expressed as one CSS media
+ * block without duplicating every rule.
  *
- * Why stacked at all on narrow screens - measured, do not re-derive. A pinned
- * slide must fit the viewport, and the SVG is width-driven, so fitting it
- * shrinks node boxes below the ~44px touch minimum the portrait layouts exist
- * to protect. On a 375x667 phone the pin has about 506px to work with:
- *   small   340x500,  natural ~513px -> fits, nodes 111x48px   OK
- *   medium  340x580,  natural ~589px -> squeezed to 247px wide,
- *                                       nodes 81x38px          FAILS
- *   large   360x1290, natural ~1187px -> needs a 155px width,
- *                                       nodes ~28x22px         FAILS BADLY
- * Only small survives, and medium misses by only ~80px, so any rescue would
- * depend on the visitor's phone being taller than roughly 700px. Stacking is
- * the answer, not a smaller scale.
- *
- * Why stacked under reduced motion: the preference means suppress MOTION, not
- * content. Settling on the first tier and never advancing hides medium and
- * large entirely, which is the whole payoff of the sequence. Stacking shows
- * all three with no scroll-driven swapping at all.
+ * Stacking on narrow screens and under reduced motion is not a fallback, it is
+ * the measured correct answer in both cases - do not "restore" the pin there.
  */
 
 /*
@@ -930,25 +879,16 @@ section:last-of-type {
 /*
  * ---- exhibit list ----
  *
- * Generic shell, added with exhibit #2 (2026-08-09). Everything the two
- * rows share visually already lives on .hero-disclosure /
- * .hero-disclosure-summary, which the swarm exhibit reuses verbatim - those
- * ARE the shared shell, they just have not been renamed and deliberately
- * will not be (see CLAUDE.md). This class carries only what is specific to
- * being a row in a LIST rather than a lone strip.
+ * Generic shell. Everything the two rows share visually already lives on
+ * .hero-disclosure / .hero-disclosure-summary, which the swarm exhibit reuses
+ * verbatim. This class carries only what is specific to being a row in a LIST
+ * rather than a lone strip.
  *
- * CLAUDE.md flagged two cosmetic problems that would appear the moment a
- * second row existed, and both are fixed here in one declaration. The
- * summary carries border-top AND border-bottom plus margin-top: 32px, so
- * two rows in sequence would sit 32px apart instead of forming a continuous
- * list, and their facing borders would render as a 2px line. Pulling every
- * row after the first up by 1px collapses the two 1px borders into one and
- * closes the gap. The list look was the intent: the user liked how the
- * single bordered strip read and wants future pieces to populate the same
- * list downward.
- *
- * Robust in every open/closed combination, since it does not care what is
- * between the two summaries - only that one row follows another.
+ * The summary carries border-top AND border-bottom plus margin-top: 32px, so two
+ * rows in sequence would sit apart with a doubled 2px line between them. Pulling
+ * every row after the first up by 1px collapses the borders and closes the gap.
+ * Robust in every open/closed combination, since it only cares that one row
+ * follows another.
  */
 .exhibit-disclosure + .exhibit-disclosure > .hero-disclosure-summary,
 .hero-disclosure + .exhibit-disclosure > .hero-disclosure-summary {
@@ -958,18 +898,15 @@ section:last-of-type {
 /*
  * ---- exhibit #2: botnet swarm ----
  *
- * Only layout lives here. Every COLOR the exhibit uses is a --swarm-*
- * custom property in swarm/render/swarm.css, read out by the canvas
- * renderer; the site never overrides one, exactly as it never overrides a
- * --topo-* property, because both components already follow system color
- * scheme the same way this site does.
+ * Only layout lives here. Every COLOR is a --swarm-* custom property in
+ * swarm/render/swarm.css; the site never overrides one, exactly as it never
+ * overrides a --topo-* property, because both components already follow system
+ * color scheme the same way this site does.
  *
- * No height reservation, unlike .hero-mount. The topology component needed
- * one because its SVG height is a width-driven ratio plus fixed chrome; the
- * canvas here declares its own aspect ratio and the scoreboard above it is
- * ordinary flow content, so the row simply sizes itself. Do not add an
- * aspect-ratio or a min-height to .swarm-stack - see the long derivation in
- * the .hero-mount comment above for what that costs.
+ * No height reservation, unlike .hero-mount: the canvas declares its own aspect
+ * ratio and the scoreboard is ordinary flow content, so the row sizes itself.
+ * Do not add an aspect-ratio or min-height here - see the .hero-mount comment
+ * above for what that costs.
  */
 .swarm-stack {
   display: flex;
@@ -978,10 +915,9 @@ section:last-of-type {
   margin-top: 16px;
 }
 
-/* Caption above its own tier, matching the stacked topology layers. The
-   ::before ordering is deliberate and was a user decision on 2026-08-08:
-   the caption is the setup for the graphic, so it lands before the visitor
-   meets it, not after. */
+/* Caption above its own tier, matching the stacked topology layers. ::before
+   rather than ::after because the caption is the setup for the graphic, so it
+   lands before the visitor meets it. */
 .swarm-layer[data-caption]::before {
   content: attr(data-caption);
   display: block;
@@ -1018,32 +954,23 @@ section:last-of-type {
 
 /*
  * ---- first-paint suppression ----
- * Partner to the inline <script> in index.html's <head>; read the long comment
- * there first, it carries the reasoning.
+ * Partner to the inline <script> in index.html's <head>. Both exhibits ship
+ * their <details> open and both modules are deferred, so without this the first
+ * paint is a screenful of fallback that gets collapsed moments later.
  *
- * Both exhibits ship their <details> open and both modules are deferred, so
- * without this the first paint is a screenful of fallback that gets collapsed
- * a few hundred milliseconds later. This hides the disclosure's contents for
- * exactly that window, leaving the summary row - which is what the visitor
- * ends up looking at anyway.
+ * Three conditions, every one load bearing:
  *
- * Three conditions, and every one of them is load bearing:
+ *   html[data-js]       only when the head script ran. With JavaScript off the
+ *                       attribute never exists and the fallback renders at once.
+ *   [open]              only before the module collapses the row, so a mount
+ *                       that fails later still shows its fallback.
+ *   :not([data-ready])  each module sets this on its own disclosure once it has
+ *                       taken control. Per exhibit, not global: the two are
+ *                       independent failure domains.
  *
- *   html[data-js]     only when the head script ran. With JavaScript off the
- *                     attribute never exists, so the fallback renders
- *                     immediately, exactly as it did before this rule.
- *   [open]            only before the module collapses the row. Once
- *                     collapsed the rule is inert, so a mount that fails
- *                     LATER - on first expand - still shows its fallback.
- *   :not([data-ready])  each module sets this on its own disclosure once it
- *                     has taken control. Per exhibit, not global, because the
- *                     two are independent failure domains: one module being
- *                     blocked must not suppress the other's fallback, and it
- *                     must not un-suppress it early either.
- *
- * Do NOT reduce this to "hide the fallback when JS is present". That was the
- * obvious version and it is wrong: scripting being enabled says nothing about
- * whether the module loaded, and it would turn a 404 into an empty box.
+ * Do NOT reduce this to "hide the fallback when JS is present". Scripting being
+ * enabled says nothing about whether the module loaded, and that version turns a
+ * 404 into an empty box.
  */
 html[data-js] .hero-disclosure[open]:not([data-ready]) > :not(summary) {
   display: none;
@@ -1054,19 +981,14 @@ html[data-js] .hero-disclosure[open]:not([data-ready]) > :not(summary) {
  * Shared by .hero-mount-fallback and .swarm-mount-fallback, which is why it
  * carries the exhibit-* prefix rather than either exhibit's name.
  *
- * Each fallback holds a full text equivalent of its exhibit's CONCLUSION -
- * which tier fails and what it costs - not a one-line placeholder, because a
- * visitor whose module never loads and an agent fetching the served HTML get
- * nothing else. So the type has to read as prose rather than as a centered
- * caption: left aligned, one measure, and the tier list marked up as a <dl>
- * so the term/outcome pairing survives into a screen reader and into a
- * plain-text read of the page.
+ * Each fallback holds a full text equivalent of its exhibit's CONCLUSION, not a
+ * one-line placeholder, because a visitor whose module never loads gets nothing
+ * else. So it has to read as prose rather than a centered caption.
  *
- * This block sits AFTER both fallback blocks deliberately. `.exhibit-fallback
- * p` and `.hero-mount-fallback p` have identical specificity (0,1,1), so
- * source order is the only thing letting the prose treatment win over the
- * centered one those rules were written for. Moving it above them silently
- * reverts the alignment.
+ * This block sits AFTER both fallback blocks deliberately. `.exhibit-fallback p`
+ * and `.hero-mount-fallback p` have identical specificity (0,1,1), so source
+ * order is the only thing letting the prose treatment win. Moving it above them
+ * silently reverts the alignment.
  */
 .exhibit-fallback {
   max-width: 62ch;

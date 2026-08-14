@@ -1,16 +1,13 @@
 /*
- * topology-render.js
+ * SVG renderer and interaction for the topology component. Consumes the engine's
+ * computed state and contains no failover logic of its own.
  *
- * SVG renderer + interaction for the topology component. Consumes the
- * engine's computed state; contains no failover logic of its own.
- *
- * Usage:
  *   import { TopologyViz } from './topology-render.js';
  *   const instance = TopologyViz.mount(containerEl, tierConfig);
  *
- * The component sizes to its container (percentage width + viewBox
- * scaling). All colors come from --topo-* custom properties defined in
- * topology.css; nothing here hardcodes a color value.
+ * Sizes to its container via percentage width plus viewBox scaling. All colors
+ * come from --topo-* custom properties in topology.css; nothing here hardcodes
+ * a color value.
  */
 
 import { computeState, edgeKey } from '../engine/topology-engine.js';
@@ -96,12 +93,10 @@ function curveMidpoint(na, nb, bow) {
 }
 
 /*
- * Packet dot timing. The phase step used to be a flat 0.65s, which was fine
- * for the 7 dots the old throttle produced but bands badly at 50:
- * 0.65 * 3 = 1.95, so every third dot landed within 0.05s of the same phase
- * and neighbouring edges pulsed in unison. Stepping by the duration times the
- * golden ratio conjugate spreads any number of dots about as evenly as a
- * fixed step can, and never repeats a phase at realistic edge counts.
+ * Packet dot timing. A flat phase step bands badly at 50 dots - at 0.65s every
+ * third one landed within 0.05s of the same phase and neighbouring edges pulsed
+ * in unison. Stepping by the duration times the golden ratio conjugate spreads
+ * any number of dots about as evenly as a fixed step can.
  */
 const PACKET_DUR = 2;
 const PACKET_PHASE_STEP = PACKET_DUR * 0.6180339887;
@@ -178,13 +173,11 @@ export const TopologyViz = {
     svg.appendChild(gBadges);
 
     /*
-     * Bridge edges anchor visually on one firewall per cluster, but the
-     * engine (see the comment in tiers.js above the bridge edges) treats
-     * a bridge as usable while ANY firewall of its cluster is up at both
-     * ends - activeEdgeIds already respects this. The dead/standby checks
-     * below must use the same cluster-wide view, or a bridge whose drawn
-     * endpoint happens to be the down one dims/stops marching even though
-     * its cluster mate keeps the link genuinely alive.
+     * Bridge edges anchor visually on one firewall per cluster, but the engine
+     * treats a bridge as usable while ANY firewall of its cluster is up at both
+     * ends. The dead/standby checks below must use that same cluster-wide view,
+     * or a bridge whose drawn endpoint happens to be the down one dims even
+     * though its cluster mate keeps the link genuinely alive.
      */
     const bridgeEnds = new Map();
     for (const bridge of (config.structure.bridges || [])) {
@@ -346,39 +339,17 @@ export const TopologyViz = {
 
     function renderPackets(state) {
       /*
-       * EVERY active edge carries a packet (sync links excepted - they are a
-       * cosmetic heartbeat, not a traffic path).
+       * EVERY active edge carries a packet, sync links excepted - they are a
+       * cosmetic heartbeat, not a traffic path. Do not reintroduce a throttle:
+       * the argument the redundant tiers make is "traffic keeps flowing along
+       * the other paths", and animating a subset undersells exactly that.
        *
-       * This used to keep only one edge per (site, section), which on the
-       * large tier animated 7 of 50 active edges and always the same ones:
-       * the tie-break was a lexicographic compare on the edge id, so the
-       * alphabetically-first edge won and the dots clustered on the top and
-       * leftmost paths. That throttle was tuned when the hero only ever
-       * showed the small tier. Once the scroll sequence made medium and
-       * large reachable the tradeoff inverted - the whole argument those
-       * tiers make is "traffic keeps flowing along the other paths", and
-       * showing a seventh of them undersold exactly that.
-       *
-       * Edge COLORING was always accurate; only the dots were subsetted.
-       *
-       * ---- why this reconciles instead of rebuilding ----
-       * It used to clear gPackets and recreate every dot on every update, and
-       * take each dot's phase from its index among the ACTIVE edges. Both
-       * halves of that leaked unrelated state into the animation, and the
-       * combination was visible: toggling any node restarted every packet on
-       * the diagram, and removing an edge re-indexed every edge AFTER it in
-       * config order onto a different phase while leaving earlier ones alone.
-       *
-       * On the small tier (edges isp--fw, fw--sw, sw--srv, sw--ws) that made
-       * the coupling asymmetric and easy to spot: toggling Workstations
-       * dropped the LAST edge, so the Server dot kept its index and barely
-       * moved, but toggling Server shifted the Workstations dot from index 3
-       * to 2 and visibly jumped it. Nothing about the engine or the state was
-       * wrong - it was purely a rendering artifact.
-       *
-       * So: phases key off the edge's fixed config index, and dots for edges
-       * that are still active are LEFT ALONE. Only the difference is applied,
-       * so a packet is never disturbed by a change elsewhere in the network.
+       * This reconciles rather than rebuilding, which matters. Clearing and
+       * recreating every dot per update, with each phase taken from the dot's
+       * index among the ACTIVE edges, meant toggling any node restarted every
+       * packet and re-indexed every later edge onto a different phase. So:
+       * phases key off the edge's FIXED config index, and dots for edges that
+       * are still active are left alone. Only the difference is applied.
        */
       const wanted = new Set();
       for (const ev of edgeViews) {
@@ -453,12 +424,10 @@ export const TopologyViz = {
 
     /*
      * ---- gremlin mode ----
-     * Ambient auto-play: a "gremlin" breaks a random up node every
-     * breakMin..breakMax ms; each strike gets its own randomized repair
-     * timer (fixMin..fixMax ms), so repairs overlap naturally and the
-     * gremlin can occasionally get two nodes ahead. This is pure
-     * presentation layered on the same downSet a click uses: failover
-     * itself stays instant, only the toggle timing is randomized.
+     * Ambient auto-play: breaks a random up node every breakMin..breakMax ms,
+     * each strike getting its own repair timer so repairs overlap and the
+     * gremlin can get two nodes ahead. Pure presentation layered on the same
+     * downSet a click uses - failover itself stays instant.
      */
     const gremlinBroken = new Set();
     const gremlinBadges = new Map();
@@ -517,16 +486,12 @@ export const TopologyViz = {
 
     /*
      * ---- viewport-biased victim selection ----
-     * The portrait tier layouts are much taller than they are wide (the
-     * large tier renders around 1190px tall on a phone), so a uniformly
-     * random victim is usually a node the visitor has scrolled past. The
-     * gremlin would break something invisible and the only evidence would
-     * be a status bar changing for no apparent reason.
-     *
-     * So node groups are observed and strikes are drawn preferentially
-     * from whatever is actually on screen. Entirely an enhancement: if
-     * IntersectionObserver is missing or throws, visibleNodeIds stays
-     * empty and selection degrades to the original uniform-random pick.
+     * Portrait tiers are far taller than they are wide (the large tier runs
+     * around 1190px on a phone), so a uniformly random victim is usually a node
+     * the visitor has scrolled past, and the only evidence would be a status bar
+     * changing for no apparent reason. Strikes are therefore drawn preferentially
+     * from whatever is on screen. Entirely an enhancement: without
+     * IntersectionObserver this degrades to the uniform-random pick.
      */
     const visibleNodeIds = new Set();
     let nodeObserver = null;

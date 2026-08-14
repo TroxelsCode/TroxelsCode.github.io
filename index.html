@@ -5,25 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sean Troxel</title>
   <meta name="description" content="Sean Troxel - Chief Technology Officer. Network and infrastructure engineering, team leadership, and resilient systems design.">
-  <!-- Icon paths are ROOT-RELATIVE on purpose, unlike the stylesheet below.
-       This is a GitHub Pages user site, so the repo root is the domain root and
-       one identical block works from / and from /resume/. Keep them in sync. -->
+  <!-- Root-relative on purpose, unlike the stylesheet below: one identical
+       block works from / and from /resume/. Keep them in sync. -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="css/style.css">
   <!-- The two exhibit modules and everything they import. Without these the
-       browser discovers the graph one level at a time - js/hero.js, then
-       topology-render.js, then topology-engine.js - and every hop is a round
-       trip during which the fallback is still the thing on screen. These are
-       the SAME files the <script type="module"> tags at the end of <body>
-       pull in, so this adds no bytes; it only flattens the waterfall.
-
-       Deliberately NOT preloading topology/render/topology.css. mount() holds
-       the component hidden until its injected <link> fires load, and a
-       stylesheet the browser has already finished fetching never fires it
-       again - the hero would stay invisible forever. See the data-topo-css
-       trap in _docs/exhibit-1-topology.md. -->
+       browser discovers the graph one level at a time and every hop is a round
+       trip with the fallback still on screen. Same files the module tags at the
+       end of <body> pull in, so this adds no bytes, only flattens the waterfall. -->
   <link rel="modulepreload" href="js/hero.js">
   <link rel="modulepreload" href="topology/render/topology-render.js">
   <link rel="modulepreload" href="topology/engine/topology-engine.js">
@@ -32,42 +23,30 @@
   <link rel="modulepreload" href="swarm/render/swarm-render.js">
   <link rel="modulepreload" href="swarm/engine/swarm-engine.js">
   <link rel="modulepreload" href="swarm/tiers/tiers.js">
-  <!-- Warming the two COMPONENT stylesheets, which is the one thing the
-       data-topo-css trap explicitly allows: the renderers look for a link
-       carrying their own data attribute and adopt it, and an adopted link
-       that already finished loading never fires load again, leaving the
-       component hidden forever. These carry no such attribute, so each
-       renderer still injects its own <link rel="stylesheet"> - which now
-       resolves from cache and fires load almost immediately instead of
-       after a fresh round trip. That matters because both renderers hold
-       the component at visibility:hidden until it does. -->
+  <!-- Warming the component stylesheets. These must NOT carry data-topo-css or
+       data-swarm-css: a renderer adopts a link with its own attribute, and an
+       adopted link that already finished loading never fires load again, leaving
+       the component hidden forever. Without the attribute each renderer still
+       injects its own link, which now resolves from cache and fires load almost
+       immediately - which matters, because both hold at visibility:hidden until
+       it does. -->
   <link rel="preload" as="style" href="topology/render/topology.css">
   <link rel="preload" as="style" href="swarm/render/swarm.css">
-  <!-- FIRST-PAINT SUPPRESSION. Classic, inline and parser-blocking on
-       purpose: it has to run before the parser reaches <body> so that the
-       very first paint is already the collapsed state.
+  <!-- FIRST-PAINT SUPPRESSION. Classic, inline and parser-blocking on purpose:
+       it must run before the parser reaches <body> so the first paint is already
+       the collapsed state. Do not defer it or fold it into main.js.
 
-       Why it is needed. Both exhibits ship their <details> OPEN, because a
-       no-JS visitor must never be stranded behind a control that does
-       nothing (invariant #1 in CLAUDE.md), and js/hero.js and js/swarm.js
-       are ES modules - deferred BY DEFINITION, unable to run until the whole
-       document is parsed. So without this the browser paints something like
-       1500px of fallback and then yanks it a few hundred milliseconds later.
+       Both exhibits ship their <details> open so a no-JS visitor is never
+       stranded behind a dead control, and both modules are deferred by
+       definition, so without this the browser paints ~1500px of fallback and
+       yanks it moments later.
 
-       What this must NOT do is conclude that the exhibits work. "JavaScript
-       is enabled" is not "the module loaded": a 404, a blocked script or a
-       parse error would leave an empty box, which is the entire reason the
-       fallback is a real element rather than <noscript> (invariant #2). So
-       the suppression is cleared per exhibit BY THE MODULE ITSELF, which
-       sets data-ready on its own disclosure once it has taken control, and
-       the timer below is the backstop for a module that never arrives.
-
-       The timer is unconditional and needs no cleanup: once a disclosure
-       carries data-ready or has been collapsed, the CSS rule keyed on this
-       attribute is already inert, so removing it changes nothing. On a very
-       slow connection the modules can lose that race, in which case the
-       fallback appears and is then replaced - the conservative failure, and
-       still better than an empty box. -->
+       This must NOT conclude that the exhibits work - "JavaScript is enabled" is
+       not "the module loaded", and a 404 would leave an empty box. Suppression
+       is cleared per exhibit by each MODULE, which sets data-ready on its own
+       disclosure. The timer is only the backstop for a module that never
+       arrives; it needs no cleanup, since the CSS rule is already inert once a
+       disclosure is ready or collapsed. -->
   <script>
     (function () {
       var root = document.documentElement;
@@ -102,36 +81,17 @@
            collapsed summary. The summary is hidden by CSS above the
            breakpoint, so this reads as a plain container on a desktop. -->
       <details id="hero-disclosure" class="hero-disclosure" open>
-        <!-- Finalized copy (2026-08-08). Load-bearing: on a phone this is
-             the ONLY thing a visitor who never expands the diagram will
-             read, so it has to carry the claim in words rather than just
-             label a control. Deliberately inviting-but-mysterious, meant
-             to drive curiosity and clicks rather than explain up front -
-             this is also the template future exhibit summaries will
-             follow. -->
+        <!-- Load-bearing copy: on a phone this is the ONLY thing a visitor who
+             never expands the diagram will read, so it carries the claim in
+             words rather than labelling a control. -->
         <summary class="hero-disclosure-summary">See what one missing piece costs a network</summary>
-        <!-- Exhibit intro, and it sits FIRST on purpose: what the piece is
-             and how to work it have to be readable before the visitor meets
-             the diagram, not found underneath it after scrolling past three
-             tiers.
-
-             Named exhibit-* rather than hero-* because this is shell, not
-             topology - it is the first piece of the shared exhibit shell to
-             be built, and every future exhibit row gets the same two-part
-             block (see the naming decision in CLAUDE.md). The two halves
-             have deliberately different visibility rules:
-
-               .exhibit-description  always renders, including with no JS at
-                                     all - it is the only account of the
-                                     exhibit a visitor gets when the module
-                                     never loads.
-               .exhibit-directions   describes an interaction that does not
-                                     exist until the exhibit mounts, so it
-                                     ships hidden and js/hero.js unhides it
-                                     on success, same rule as .hero-controls
-                                     below. -->
+        <!-- Sits FIRST on purpose: what the piece is and how to work it have to
+             be readable before the visitor meets the diagram. The two halves
+             have deliberately different visibility rules - the description
+             always renders, including with no JS, while the directions describe
+             an interaction that does not exist until the exhibit mounts, so
+             they ship hidden and js/hero.js unhides them on success. -->
         <div class="exhibit-intro">
-          <!-- draft copy, workshop alongside the summary above -->
           <p class="exhibit-description">Three types of networks, each with more redundancy
             than the last: a single path from the internet to the desks, then a firewall pair with a
             backup ready to take over, then a two-site design with clustered firewalls and multiple
@@ -139,25 +99,16 @@
             parts of the business it takes with it.</p>
           <p class="exhibit-directions" hidden>Click any node to take it offline and watch the status change.</p>
         </div>
-        <!-- Controls governing every tier at once (deliberate - the old harness
-             page had one set per tier, but the tiers are stacked now and three
-             switches for one behavior reads as clutter). Ships hidden because
+        <!-- One set of controls for all three tiers. Ships hidden because
              neither does anything without the module; js/hero.js unhides the
-             whole block on a successful mount, same pattern as
-             .exhibit-directions above. Real <button>s, so keyboard operation
-             and pressed-state semantics come free - unlike the diagram nodes
-             themselves, which are still pointer-only.
-
-             Two notes, one per toggle (changed 2026-08-08, user request,
-             reversing the original one-shared-note decision) - each
-             toggle's explanation now starts its own line rather than
-             running into the other's.
+             block on a successful mount, same pattern as .exhibit-directions.
+             Real <button>s, so keyboard operation and pressed-state semantics
+             come free - unlike the diagram nodes, which are pointer-only.
 
              The packets button's markup state is only a starting guess for the
-             common case (reduced motion off). js/hero.js derives the real
-             initial state from the visitor's prefers-reduced-motion setting and
-             repaints the label before the block is ever unhidden, so nothing
-             wrong is on screen at any point. -->
+             common case. js/hero.js derives the real initial state from
+             prefers-reduced-motion and repaints the label before the block is
+             ever unhidden, so nothing wrong is on screen at any point. -->
         <div class="hero-controls" hidden>
           <div class="hero-toggle-row">
             <button type="button" id="gremlin-toggle" class="hero-toggle" aria-pressed="true">
@@ -182,35 +133,22 @@
         <div id="hero-scroll" class="hero-scroll">
           <div class="hero-pin">
             <div id="hero-mount" class="hero-mount">
-              <!-- Live mount point for the topology component. js/hero.js
-                   mounts one instance per .hero-layer and removes the
-                   fallback below only after ALL of them succeed, so any
-                   failure (no JS, module blocked, 404) leaves the described
-                   placeholder rather than an empty box. The height is
-                   reserved in css/style.css so this does not reflow when the
-                   module lands - see the derivation there before changing
-                   anything about this element's sizing.
-
-                   The three layers share one grid cell and are cross-faded
-                   when pinned; on narrow screens and under reduced motion
-                   they stack in flow instead. Empty until JS fills them, so
-                   they contribute nothing without it. -->
+              <!-- js/hero.js mounts one instance per .hero-layer and removes the
+                   fallback below only after ALL of them succeed, so any failure
+                   leaves the placeholder rather than an empty box. Height is
+                   reserved in css/style.css so this does not reflow on mount -
+                   read the derivation there before changing this element's
+                   sizing. The layers are empty until JS fills them. -->
               <div class="hero-layer" data-tier="small"></div>
               <div class="hero-layer" data-tier="medium"></div>
               <div class="hero-layer" data-tier="large"></div>
-              <!-- This is a TEXT EQUIVALENT, not a placeholder. It has to
-                   carry the exhibit's conclusion - which tier fails first,
-                   what it takes down, and why the other two survive the
-                   same failure - because a visitor without the module (or
-                   an agent reading the served HTML) gets no other account
-                   of it. Every claim below is a claim about
-                   topology-engine.js: the status strings are its own
-                   ('All systems normal' / 'Services affected' / 'Business
-                   down'), the single-homed workstation groups are the
-                   documented asymmetry with the server pair, and the site
-                   bridge reading degraded rather than green is the
-                   engine's rule. Re-verify against the engine before
-                   rewording any of it. -->
+              <!-- A TEXT EQUIVALENT, not a placeholder: it carries the exhibit's
+                   conclusion, because a visitor without the module gets no other
+                   account of it. Every claim below is a claim about
+                   topology-engine.js - the status strings are its own, and the
+                   single-homed workstation asymmetry and the bridge reading
+                   degraded rather than green are its rules. Re-verify against
+                   the engine before rewording any of it. -->
               <div class="hero-mount-fallback">
                 <div class="exhibit-fallback">
                   <p>An interactive network diagram belongs here: three networks doing the
@@ -243,29 +181,25 @@
                       single-homed workstation groups remain the weakest thing on the diagram at
                       every tier: redundancy stops where the last cable stops.</dd>
                   </dl>
-                  <!-- ============================================================
-                       STATIC SNAPSHOT - DECOUPLED FROM THE LIVE ENGINE.
-                       ============================================================
-                       Hand-composed SVG. It is NOT rendered from
-                       topology-engine.js and nothing recomputes it: if the
-                       engine's failover behavior, status wording or tier
-                       structure changes, this frame will keep asserting the
-                       old outcome until someone edits it by hand. That is a
-                       known tradeoff taken on purpose - the alternative is
-                       running the real renderer, which is exactly the thing
-                       that is unavailable in the state this markup exists to
-                       serve. Treat it like the prose above it: a claim about
-                       the engine, to be re-checked against the engine.
+                  <!-- STATIC SNAPSHOT - DECOUPLED FROM THE LIVE ENGINE.
 
-                       It is deliberately NOT a replica of the live diagram.
-                       It collapses each tier to the firewall stage, because
-                       the firewall is where the three designs actually differ
-                       under the one failure being shown.
+                       Hand-composed SVG. Nothing recomputes it, so if failover
+                       behavior, status wording or tier structure changes, this
+                       frame keeps asserting the old outcome until someone edits
+                       it. Known tradeoff: the alternative is running the real
+                       renderer, which is the thing unavailable in the state this
+                       markup exists to serve. Treat it like the prose above it -
+                       a claim about the engine, to be re-checked against it.
 
-                       Every fact in it is carried by a <text> element, not by
-                       color or stroke weight, so a text-only agent that never
-                       rasterizes the image still reads the whole outcome.
-                       Keep it that way: no meaning in the palette alone. -->
+                       It draws all five stages per tier (uplink, firewall,
+                       switching, servers, desks), which is load-bearing rather
+                       than decorative: the redundant tiers widen EVERY stage,
+                       and cropping to the firewall made them read as the fragile
+                       design with more firewalls bolted on.
+
+                       Every fact is carried by a <text> element, never by color
+                       or stroke weight alone, so a text-only agent that never
+                       rasterizes the image still reads the whole outcome. -->
                   <figure class="exhibit-snapshot">
                       <svg viewBox="0 0 340 382" role="img" aria-labelledby="snap-topo-title snap-topo-desc">
                         <title id="snap-topo-title">One failure, three network designs</title>
@@ -409,20 +343,14 @@
         </div>
       </details>
 
-      <!-- Exhibit #2: the botnet swarm. Second row of the exhibit list, and
-           the first one built against that direction rather than
-           retrofitted into it (see CLAUDE.md). It reuses the topology
-           exhibit's shell classes verbatim - .hero-disclosure,
-           .hero-disclosure-summary, .hero-controls - because those ARE the
-           shared shell, just not renamed yet. The generic
-           .exhibit-disclosure class carries only what is specific to being
-           a row in a list: closing the gap to the row above. Do NOT rename
-           the hero-* names to match; that is churn with no visible benefit
-           and js/hero.js genuinely is the topology host.
+      <!-- Exhibit #2: the botnet swarm. Reuses the topology exhibit's shell
+           classes verbatim - .hero-disclosure, .hero-disclosure-summary,
+           .hero-controls - because those ARE the shared shell, just not renamed.
+           .exhibit-disclosure carries only what is specific to being a row in a
+           list: closing the gap to the row above.
 
-           Ships OPEN and js/swarm.js collapses it, never the reverse -
-           shipping closed would strand a no-JS visitor at a control that
-           does nothing. -->
+           Ships OPEN and js/swarm.js collapses it, never the reverse - shipping
+           closed would strand a no-JS visitor at a dead control. -->
       <details id="swarm-disclosure" class="hero-disclosure exhibit-disclosure" open>
         <!-- Same load-bearing role as the topology summary: this is the
              only thing a visitor who never expands will read. The second
@@ -439,12 +367,9 @@
             pushes attackers back, and one that holds them inert until they give up. Nothing about
             the attack changes between them. The only variable is what the network does when the
             swarm arrives.</p>
-          <!-- Deliberately NO .exhibit-directions paragraph. That half of the
-               intro block describes an interaction, and this exhibit is
-               observational - there is nothing to click. Interactivity was
-               benched by the user on 2026-08-08; if it is ever built, the
-               directions paragraph comes back with it. Filling it with
-               filler copy now would be worse than its absence. -->
+          <!-- Deliberately NO .exhibit-directions paragraph: that half of the
+               intro describes an interaction, and this exhibit is observational.
+               If interactivity is ever built, it comes back with it. -->
         </div>
         <!-- Ships hidden, unhidden by js/swarm.js on a successful mount, so
              a control that cannot do anything is never shown and a no-JS
@@ -470,25 +395,19 @@
                being disabled and nothing else, so a 404'd module, a blocked
                script or a parse error would leave an empty box. Removed by
                js/swarm.js only after ALL THREE tiers mount. -->
-          <!-- Text equivalent, not a placeholder - same rule as the
-               topology fallback above. It states the outcome for each
-               defense, since a reader without the module never sees the
-               scoreboard the outcome is written in.
+          <!-- Text equivalent, not a placeholder - same rule as the topology
+               fallback above. It states the outcome for each defense, since a
+               reader without the module never sees the scoreboard.
 
-               Every sentence here is an assertion about swarm-engine.js
-               and was checked against it: only DESTROYED and HELD remove
-               a boid from the field (runRepulsion removes nobody), the
-               stopped count therefore moves on the layered tier alone,
-               the rate limited tier really does carry the largest live
-               swarm because it detonates least, and no tier's swarm
-               shrinks - spawning refills against the ceiling. Deliberately
-               NO run totals: the tuning constants in swarm/tiers/tiers.js
-               are provisional, so a hardcoded number here would go stale
-               while the ordering it illustrates would not. The ordering
-               itself is stable and does not invert. See the copy rulings
-               in _docs/exhibit-2-swarm.md before rewording; "delay" must
-               not leak into tier 3 nor "capture" into tier 2, and "inert"
-               is shared with the description above on purpose. -->
+               Every sentence is an assertion about swarm-engine.js and was
+               checked against it: only DESTROYED and HELD remove a boid
+               (runRepulsion removes nobody), so the stopped count moves on the
+               layered tier alone, and no tier's swarm shrinks because spawning
+               refills against the ceiling. Deliberately NO run totals - the
+               tuning constants are provisional, so a hardcoded number would go
+               stale while the ordering it illustrates would not. Keep "delay"
+               out of tier 3 and "capture" out of tier 2; "inert" is shared with
+               the description above on purpose. -->
           <div class="swarm-mount-fallback">
             <div class="exhibit-fallback">
               <p>A swarm simulation belongs here: a botnet wandering a field of servers, piling
@@ -519,30 +438,24 @@
                   during a heavy pile-on. The claim stops there: a captured connection is not a
                   captured machine, and none of the three swarms gets smaller.</dd>
               </dl>
-              <!-- ============================================================
-                   STATIC SNAPSHOTS - DECOUPLED FROM THE LIVE SIMULATION.
-                   ============================================================
-                   Three hand-composed SVGs. NOTHING here runs swarm-engine.js
-                   or reads its output: the positions are drawn by hand, the
-                   per-node words are chosen, and the counts are illustrative.
-                   If the tuning constants, the defense blocks or the outcomes
-                   change, these frames will go on asserting the old story
-                   until someone edits them. Known tradeoff, taken on purpose,
-                   and the reason the counts are words ("near full", "OFFLINE")
-                   rather than numbers - a wrong number reads as a measurement,
-                   a wrong word reads as prose and is likelier to be caught.
+              <!-- STATIC SNAPSHOTS - DECOUPLED FROM THE LIVE SIMULATION.
 
-                   THREE frames rather than one because the simulation never
-                   resolves: a single frame of an attack still in progress
-                   would show the tiers looking alike, which is the opposite
-                   of the exhibit's point. The differentiation only exists
+                   Three hand-composed SVGs. Nothing here runs swarm-engine.js:
+                   positions are drawn by hand and the counts are illustrative,
+                   so if the tuning constants or outcomes change these frames go
+                   on asserting the old story until someone edits them. That is
+                   why the counts are words ("near full", "OFFLINE") rather than
+                   numbers - a wrong number reads as a measurement, a wrong word
+                   reads as prose and is likelier to be caught.
+
+                   Three frames rather than one because the simulation never
+                   resolves, and a single frame of an attack in progress would
+                   show the tiers looking alike. The differentiation only exists
                    across time, so the snapshot has to have time in it.
 
-                   Frame 1 is deliberately ONE field, not three. At first
-                   contact the tiers are identical - same swarm, same field,
-                   same capacity cost - and drawing three identical panels
-                   would imply a difference that does not exist yet. That
-                   identity is the exhibit's honesty rule made visible.
+                   Frame 1 is deliberately ONE field, not three: at first contact
+                   the tiers are identical, and three panels would imply a
+                   difference that does not exist yet.
 
                    All meaning is carried by <text>, never by color alone. -->
               <figure class="exhibit-snapshot">
@@ -859,10 +772,8 @@
        script so the footer email still renders over file:// and without the
        deferred-execution flash. See the header comment in js/hero.js. -->
   <script type="module" src="js/hero.js"></script>
-  <!-- A third independent failure domain, for the same reason hero.js is
-       separate from main.js: a throw while building the swarm must not take
-       the topology exhibit down with it, and vice versa. Each exhibit owns
-       its own module and its own fallback. -->
+  <!-- A third independent failure domain: a throw while building the swarm must
+       not take the topology exhibit down, and vice versa. -->
   <script type="module" src="js/swarm.js"></script>
 </body>
 </html>

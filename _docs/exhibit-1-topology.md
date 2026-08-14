@@ -534,6 +534,12 @@ come free, and it degrades to plain visible content with no JS. Points that are 
 - Three places share the 800px breakpoint and must move together: `PORTRAIT_MAX_WIDTH` in
   `js/hero.js`, the `max-width: 800px` portrait block and the `min-width: 801px` summary block
   in `css/style.css`.
+- **800 is derived, not borrowed from a device breakpoint.** The landscape tiers set node
+  labels at 16 viewBox units against a 1000-unit viewBox, so labels stay at or above 12px
+  only while the rendered SVG is roughly 750px wide or more. Allowing for page padding and
+  the component's own 12px gutters puts the crossover at 800. Below it the landscape layouts
+  do not merely look small: tap targets drop under the ~44px minimum and sub-labels fall to
+  a few pixels, which is what the portrait layouts exist to prevent.
 
 **The summary copy is finalized** (`index.html`, confirmed 2026-08-08 alongside the hero
 tagline - the user reviewed the original draft and kept it as-is). It is **load-bearing**:

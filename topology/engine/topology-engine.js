@@ -1,16 +1,12 @@
 /*
- * topology-engine.js
+ * Pure state computation for the network topology visualization. No DOM, no
+ * rendering: it takes a tier config plus a Set of node ids currently toggled
+ * down, and returns a plain result object.
  *
- * Pure state computation for the network topology visualization.
- * No DOM access, no rendering concerns. Everything operates on plain
- * data: a tier config (nodes, edges, structure) plus a Set of node ids
- * currently toggled down, and returns a plain result object.
- *
- * Redundancy is dispatched per class (single / pair / mesh) plus the
- * site-level bridge fallback. Do NOT replace these with one generic
- * shortest-path pass over the whole graph: pair (active/standby) and
- * mesh (active/active) are different real-world behaviors, and a single
- * generic pass incorrectly lights both members of a pair at once.
+ * Redundancy is dispatched per class (single / pair / mesh) plus the site-level
+ * bridge fallback. Do NOT replace these with one generic shortest-path pass over
+ * the whole graph: pair (active/standby) and mesh (active/active) are different
+ * real-world behaviors, and a generic pass lights both members of a pair at once.
  */
 
 export function edgeKey(a, b) {
@@ -145,12 +141,10 @@ export function rollupGlobal(siteStatuses) {
  * {
  *   nodes: Map<id, { down, reachable, role }>,   role: 'active'|'standby'|null
  *
- * `role` stays 'active'/'standby' on purpose, and deliberately does NOT
- * track the node sub-labels the tiers render. It is the generic outcome of
- * resolvePair() and applies to every pair kind at once - ISP, firewall and
- * server - whose sub-labels now read "backup", "backup" and "secondary"
- * respectively. No single display word is correct for all three, so the
- * engine keeps its own neutral term. Nothing renders this value as text.
+ * `role` deliberately does not track the sub-labels the tiers render. It is the
+ * generic outcome of resolvePair() and applies to ISP, firewall and server pairs
+ * at once, whose sub-labels differ, so the engine keeps a neutral term. Nothing
+ * renders this value as text.
  *   activeEdgeIds: Set<edgeKey>,
  *   sinks: [{ id, label, siteId, reachable }],
  *   sites: [{ id, label, status, viaBridge }],

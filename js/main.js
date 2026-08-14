@@ -1,8 +1,8 @@
 // Entry point for site behavior.
 
-// Renders the contact email at runtime so the address isn't sitting in the
-// static HTML/DOM for scrapers to lift. Not a security boundary - just
-// raises the bar above trivial regex harvesting of the rendered page.
+// Renders the contact email at runtime so the address is not sitting in the
+// static HTML for scrapers to lift. Not a security boundary - it just raises the
+// bar above trivial regex harvesting of the rendered page.
 (function renderEmailLink() {
   const el = document.getElementById('email-link');
   if (!el) return;
@@ -19,15 +19,10 @@
 /*
  * Publishes the sticky nav's measured height as --site-nav-h.
  *
- * This lives here rather than in js/hero.js because the nav is site-wide
- * chrome: /resume/ has the same sticky header and the same #main
- * scroll-margin depending on this value, but no hero and therefore no
- * hero.js. Measuring it in the hero module left the resume page falling back
- * to 0px, so a skip-link jump landed underneath the nav.
- *
- * Measured rather than hardcoded because the nav wraps to two lines on a
- * very narrow screen. See the sticky-chain comment on .site-header in
- * css/style.css for who consumes this.
+ * Lives here rather than in js/hero.js because the nav is site-wide chrome:
+ * /resume/ has the same sticky header and the same #main scroll-margin depending
+ * on this value, but no hero and therefore no hero.js. Measured rather than
+ * hardcoded because the nav wraps to two lines on a very narrow screen.
  */
 (function publishNavHeight() {
   const header = document.querySelector('.site-header');
@@ -39,9 +34,8 @@
   };
   measure();
 
-  /* The nav re-wraps at arbitrary widths, so fire on the actual height
-     change rather than on every resize frame. Feature-detected: without it
-     the load-time measurement simply stands. */
+  /* Fire on the actual height change rather than on every resize frame.
+     Feature-detected: without it the load-time measurement stands. */
   if (typeof ResizeObserver !== 'function') return;
   try {
     new ResizeObserver(measure).observe(header);
