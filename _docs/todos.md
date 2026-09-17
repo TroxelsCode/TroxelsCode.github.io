@@ -124,6 +124,8 @@ Index only. Reasoning lives in `AGENTS.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |
+| 2026-09-17 | this commit | `/codex-review` skill and the review command recorded; first Codex review of this repo returned no blocking findings |
+| 2026-09-17 | `93cb8af` | `AGENTS.md` becomes the shared instruction file, `CLAUDE.md` becomes its import plus Claude-only notes, both excluded from the built site |
 | 2026-08-13 | this commit | Comment sweep across all fourteen served files: design rationale consolidated into `_docs/`, source left with ordinary working comments (43% -> 30% comment bytes, 277KB -> 251KB) |
 | 2026-08-13 | `01ad56a` | Exhibits mount on the summary's opening click, killing the flash on first expand; component stylesheets warmed |
 | 2026-08-13 | `b664c53` | First-paint suppression: head script, one CSS rule, per-exhibit `data-ready`, 2.5s watchdog |

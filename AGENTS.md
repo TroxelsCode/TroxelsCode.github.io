@@ -8,8 +8,8 @@ described under the documentation map below.
 
 **Agent roles and the cross-agent review protocol are defined outside this repository**, in the
 user's global agent instructions, not here. In short: one agent owns the work and the other
-reviews it read-only. If you have no global instructions telling you which you are, ask the
-user before editing anything.
+reviews it read-only, and the owner runs a round with the `/codex-review` skill. If you have no
+global instructions telling you which you are, ask the user before editing anything.
 
 ## THIS FILE IS PUBLIC, and so is everything else committed here
 
