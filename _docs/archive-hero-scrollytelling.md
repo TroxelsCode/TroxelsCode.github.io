@@ -15,7 +15,7 @@ information kept, not loaded.
 
 Otherwise do not read it, and **do not raise the pin as an option, a TODO, or a
 "could be revisited"**. That is a standing user instruction from 2026-08-08, and it
-is recorded in `CLAUDE.md` as well so it survives without this file being opened.
+is recorded in `AGENTS.md` as well so it survives without this file being opened.
 
 **The gated code stays in the tree.** A "simplify", dead-code or cleanup pass must
 leave the flag, everything it gates, the pinned CSS block and the prototype page
@@ -130,7 +130,7 @@ pin-only.
 reveal, `--hero-summary-h`, sticky positions and the no-JS baseline are all confirmed
 headlessly across desktop/laptop/phone x motion/reduced-motion plus two no-JS widths.
 **The live scroll sequencing itself is NOT headlessly verifiable** - `requestAnimationFrame`
-never fires under `--virtual-time-budget` (see Environment in `CLAUDE.md`), so the driver
+never fires under `--virtual-time-budget` (see Environment in `AGENTS.md`), so the driver
 cannot advance.
 The identical logic was verified in `_tests/scroll-prototype.html`, which carries a
 `window.__proto` debug hook for exactly this reason. Confirm the cross-fade in a real browser.

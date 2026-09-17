@@ -752,7 +752,7 @@ section:last-of-type {
 }
 
 /* ---- resume page ---- */
-/* Classes here match the contract in CLAUDE.md ("Resume page + cross-repo
+/* Classes here match the contract in AGENTS.md ("Resume page + cross-repo
    pipeline") that the resume repo's generator targets - don't rename
    without updating that contract on both sides. */
 

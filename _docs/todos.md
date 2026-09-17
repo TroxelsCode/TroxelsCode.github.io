@@ -2,14 +2,14 @@
 
 Not loaded automatically. Read this file when the question is "what is open", "what
 was deferred", or "when did X ship". Rules, environment notes and exhibit internals
-live elsewhere - see the documentation map in `CLAUDE.md`.
+live elsewhere - see the documentation map in `AGENTS.md`.
 
-**Add new items here, not to `CLAUDE.md`.** Three ways an item leaves this list:
+**Add new items here, not to `AGENTS.md`.** Three ways an item leaves this list:
 
-- It turns into a standing rule -> graduates into `CLAUDE.md` or the relevant
+- It turns into a standing rule -> graduates into `AGENTS.md` or the relevant
   `_docs/` exhibit file, and comes off this list.
 - The user closes it for good -> gets one row in "Settled - do not reopen" in
-  `CLAUDE.md`, reasoning in the exhibit file, and comes off this list.
+  `AGENTS.md`, reasoning in the exhibit file, and comes off this list.
 - It ships -> moves to the "Shipped" index at the bottom, one line, no reasoning.
 
 **This file is not where reasoning lives.** An entry that grows a paragraph of
@@ -46,11 +46,11 @@ be done on hardware this environment cannot reach.
   more. Only affects the no-JS path, where the prose above carries everything the frames say.
   Options if it ever matters: drop the frames below a breakpoint, or narrow the viewBox.
 - **The snapshots do not track their engines.** By construction, not by omission - see
-  invariant #2 in `CLAUDE.md`. Listed here only so it is visible at TODO-scan time: changing a
+  invariant #2 in `AGENTS.md`. Listed here only so it is visible at TODO-scan time: changing a
   simulation outcome means editing `index.html` too (grep `STATIC SNAPSHOT`).
 - **No LinkedIn link in the footer**, because there is no profile URL yet. Add one
   if a profile appears, with `target="_blank" rel="noopener noreferrer"` per the
-  external-link convention in `CLAUDE.md`.
+  external-link convention in `AGENTS.md`.
 - **JetBrains Mono is not self-hosted.** The site loads zero webfonts and uses a mono
   system stack. Self-hosting a woff2 subset is the documented follow-up if the
   fallback ever looks insufficiently distinctive. Do NOT use the Google Fonts CDN.
@@ -62,8 +62,8 @@ be done on hardware this environment cannot reach.
 - **MCP architecture card: TABLED.** The concept inherited from the retired homepage
   handoff doc did not land with the user. It needs a fresh brainstorm from scratch;
   do not design or build against the old phrasing. See "Homepage build" in
-  `CLAUDE.md`.
-- **No build step, revisit at around 5 pages.** See "Homepage build" in `CLAUDE.md`
+  `AGENTS.md`.
+- **No build step, revisit at around 5 pages.** See "Homepage build" in `AGENTS.md`
   for the reasoning, and for the rule that growth extends the Python + Jinja2
   pipeline already owned in the resume repo rather than adopting Node or Jekyll.
 
@@ -89,7 +89,7 @@ be done on hardware this environment cannot reach.
   nothing owed.** The load-time flash went with the head-script suppression, and the
   follow-on flash on first expanding a row went with mounting on the summary's click. Kept
   here only as the record that a perceptual claim was actually closed by a human rather than
-  inferred from a headless run - see invariants #1 and #5 in `CLAUDE.md` for the mechanisms.
+  inferred from a headless run - see invariants #1 and #5 in `AGENTS.md` for the mechanisms.
 
 **Standing constraints on how verification happens in this project**, both of which
 shape what can be checked and by whom:
@@ -107,20 +107,20 @@ shape what can be checked and by whom:
 
 Short index of things that were once on this list and are now closed by evidence
 rather than by decision. Anything closed by *decision* is in "Settled - do not
-reopen" in `CLAUDE.md` instead.
+reopen" in `AGENTS.md` instead.
 
 | resolved | where the detail is |
 | --- | --- |
 | Bridge dim/standby bug: site link followed one drawn endpoint instead of the whole cluster. Fixed `546cb4f`, deployed. | `_docs/exhibit-1-topology.md` |
 | 320px fallback taller than the reserved hero box. Dead once the exhibit shipped collapsed with a deferred mount; re-measured `shift=0.0px`. | `_docs/exhibit-1-topology.md` |
 | Sticky `.topo-status` in stacked mode. Pure CSS, no renderer change. | `_docs/exhibit-1-topology.md` |
-| Sticky handoff between stacked exhibit summaries. Needs no code - each summary is constrained by its own `<details>`. Measured across twelve scroll positions. | `CLAUDE.md`, "Expandable exhibit list" |
+| Sticky handoff between stacked exhibit summaries. Needs no code - each summary is constrained by its own `<details>`. Measured across twelve scroll positions. | `AGENTS.md`, "Expandable exhibit list" |
 | Placeholder copy (disclosure summary, hero tagline, small-tier caption). All finalized `152917c`. | `_docs/exhibit-1-topology.md` |
 | `dvh` vs `vh` for the hero pin. | `_docs/archive-hero-scrollytelling.md` |
 
 ## Shipped
 
-Index only. Reasoning lives in `CLAUDE.md` or the exhibit files.
+Index only. Reasoning lives in `AGENTS.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |

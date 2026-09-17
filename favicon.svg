@@ -17,7 +17,7 @@
     unreliable and simply falls back to the light value.
 
     Raster siblings (favicon.ico, apple-touch-icon.png) are generated from
-    _icons/mark-light.svg and _icons/mark-apple.svg - see CLAUDE.md.
+    _icons/mark-light.svg and _icons/mark-apple.svg - see AGENTS.md.
   -->
   <style>
     .mark { stroke: #1aa674; }

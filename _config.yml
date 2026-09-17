@@ -23,9 +23,9 @@
 # is public, so they remain readable on github.com, including in history. The
 # goal is "not served from the professional domain", not "secret".
 #
-# Do NOT move or rename CLAUDE.md to solve this. It has to stay at the repo
-# root for Claude Code to find it, which is precisely why an exclude is the
-# right tool.
+# Do NOT move or rename AGENTS.md or CLAUDE.md to solve this. They have to
+# stay at the repo root for Codex and Claude Code to find them, which is
+# precisely why an exclude is the right tool.
 #
 # Never add a .nojekyll file. It bypasses the Jekyll build entirely, which
 # would start publishing _tests/ and _icons/ AND would make this list inert.
@@ -42,5 +42,6 @@
 # JS references it, so it does not belong in the published site.
 
 exclude:
+  - AGENTS.md
   - CLAUDE.md
   - scripts/

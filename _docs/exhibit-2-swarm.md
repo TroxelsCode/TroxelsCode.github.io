@@ -3,11 +3,11 @@
 **Read this file before editing any of:** `swarm/`, `js/swarm.js`, the swarm blocks
 in `index.html`, or `_tests/swarm-*.html`.
 
-`CLAUDE.md` carries only a pointer to this file, deliberately - it is dead weight in
+`AGENTS.md` carries only a pointer to this file, deliberately - it is dead weight in
 a session that never touches this exhibit. **Site-wide rules still apply and are NOT
 repeated here**: the ASCII-only style rule, the public-repo warning, the environment
 notes, the deploy mechanics, and the exhibit shell invariants every exhibit must
-honor all live in `CLAUDE.md`. Read that first; this file assumes it.
+honor all live in `AGENTS.md`. Read that first; this file assumes it.
 
 ## What it is
 
@@ -145,7 +145,7 @@ mutate per frame. Consequences the renderer has to carry:
 - **`resize()` bailing on a zero `clientWidth`, plus the `ResizeObserver`, is what makes the
   host's mount ordering legal - it is not just defensive coding.** Since 2026-08-13
   `js/swarm.js` mounts on the summary's opening **click**, before the row expands, so that the
-  fallback is never painted (invariant #5 in `CLAUDE.md` has the reasoning). A closed
+  fallback is never painted (invariant #5 in `AGENTS.md` has the reasoning). A closed
   `<details>` gives its contents no box, so at mount time `clientWidth` is 0: `resize()`
   returns early, the canvas keeps a zero buffer and `draw()` no-ops. The row then opens, the
   `ResizeObserver` fires on the transition to a real box, and because RO callbacks land after
@@ -301,7 +301,7 @@ play/pause labels). What is not recoverable from the strings themselves:
   `_tests/swarm-analysis.html` answers that class of question in one headless run.
 
 - **The fallback in `index.html` is a full text equivalent of the RESULT, not a placeholder**
-  (rewritten 2026-08-10; the shared rule is invariant #2 in `CLAUDE.md`). It matters more here
+  (rewritten 2026-08-10; the shared rule is invariant #2 in `AGENTS.md`). It matters more here
   than on the topology exhibit: a canvas is opaque, so a reader without the module gets no
   scoreboard, no meters and no field - the fallback prose is the entire exhibit for them. It
   states the outcome per defense in the same vocabulary the captions use, and it repeats the
@@ -316,7 +316,7 @@ play/pause labels). What is not recoverable from the strings themselves:
   the tier that detonates least keeps the most attackers on the field.
 
 - **The fallback carries THREE static SVG frames, and the count is the point** (added
-  2026-08-10; the shared rules are under invariant #2 in `CLAUDE.md`). The topology exhibit
+  2026-08-10; the shared rules are under invariant #2 in `AGENTS.md`). The topology exhibit
   gets one frame because it has a payoff moment; this one does not - the simulation is
   designed never to resolve, so a single frame of an attack in progress would show three tiers
   that look alike, which is the opposite of the argument. The differentiation exists only

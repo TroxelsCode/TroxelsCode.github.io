@@ -7,7 +7,7 @@ Personal professional/resume-style website, hosted on GitHub Pages at
 The homepage is a real static site: nav, intro banner, an interactive
 hero, a stats strip, and a promotion timeline. The `/resume/` route has
 real content, synced in from a separate private repo that owns the
-resume's content and generator (see `CLAUDE.md` for the sync mechanic).
+resume's content and generator (see `AGENTS.md` for the sync mechanic).
 
 The hero is a network topology / failover visualization built in the open
 under `topology/`: a pure engine (no DOM) computing reachability and

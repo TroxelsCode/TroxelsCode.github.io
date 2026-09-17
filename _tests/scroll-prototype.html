@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Phase 2b scroll-pin prototype</title>
 <!--
-  Standalone prototype for the Phase 2b scrollytelling hero, per CLAUDE.md
+  Standalone prototype for the Phase 2b scrollytelling hero, per AGENTS.md
   ("prototype the scroll-pin behavior standalone, against the existing hero
   markup, not the full page, before wiring it into the rest of the homepage").
 
@@ -569,7 +569,7 @@ boot();
 
 /*
  * Prototype-only debug hook. Headless Edge never fires requestAnimationFrame
- * under --virtual-time-budget (see CLAUDE.md), so the rAF-gated scroll driver
+ * under --virtual-time-budget (see AGENTS.md), so the rAF-gated scroll driver
  * cannot be exercised by scrolling alone. This lets a harness page scroll the
  * iframe and then advance the state machine synchronously. Do NOT carry this
  * into js/hero.js.
