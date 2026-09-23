@@ -307,9 +307,10 @@ systems) and its wording didn't land with the user. Don't design or build agains
 doc's current phrasing - revisit the concept from scratch in a future session before doing
 anything with it.
 
-**Resume page + cross-repo pipeline.** Resume content (markdown) and the Python generator
-(`generate_html.py` + a Jinja template) live in a separate private repo, not this one - keep
-it that way so resume content edits don't require touching site code. This repo presents the
+**Resume page + cross-repo pipeline.** Resume content and the Python generators live in a
+separate private repo, `TroxelsCode/troxeltech-resume`, checked out on this machine as the
+sibling directory `../Resume and CV Construction/`. Keep it that way so resume content edits
+don't require touching site code. This repo presents the
 resume as a live rendered HTML page (not a PDF/docx download link), and it **shares this
 site's nav/footer/theme chrome** (user decision, 2026-08-04) rather than being a standalone
 document - so the resume repo's generator must output a content-only fragment, not a full
@@ -352,10 +353,27 @@ python scripts/sync_resume.py <path-to-fragment.html>
 
 It validates the markers exist exactly once, warns (but doesn't block) if the fragment looks
 like a full document rather than a fragment, then rewrites `resume/index.html` in place.
-Workflow when resume content changes: run the generator in the resume repo, run this script
-against its output, review the diff here, commit and push both repos. No new infrastructure -
-matches this project's no-CI/no-build-step pattern, just a small Python helper consistent with
-the rest of this repo's tooling.
+No new infrastructure - matches this project's no-CI/no-build-step pattern, just a small
+Python helper consistent with the rest of this repo's tooling.
+
+**Ownership is split, and this repo owns only the sync** (user decision, 2026-09-22). The
+resume repo and its own agent own every word of resume content - wording, trims, what is
+public-safe - plus the generators and the regenerated fragment. This repo takes the finished
+fragment and puts it on the site, nothing more. So:
+
+- **"Run the resume sync" means**: once the resume repo's agent has regenerated it, run
+  `python scripts/sync_resume.py "../Resume and CV Construction/exports/resume-fragment.html"`,
+  review the diff, and commit and push only `resume/index.html`, with the user's approval as
+  for any commit.
+- **Never edit files in the resume repo from a session here**, and never hand-edit the content
+  between the markers in `resume/index.html`, which the next sync would silently overwrite.
+  If the content needs to change - including a public-exposure concern spotted during the
+  review - raise it with the user and hand them a prompt for the resume repo's agent. How that
+  repo stores and generates its content is documented in its own `CLAUDE.md`, not here.
+- **Still check the fragment before splicing it in**, since it lands on a public page: read it,
+  byte-scan it for ASCII, and confirm it carries no `<script>`, `<style>` or `<link>`. Windows
+  (CRLF) line endings in the fragment are harmless - the script reads with universal newlines
+  and writes LF.
 
 Automating this further (a GitHub Action in the resume repo that runs the generator and
 commits output here via a PAT, so Pages redeploys automatically) is a future option, only
