@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toolcall engine tests</title>
+  <style>
+    /* THROWAWAY test scaffolding - not part of the deliverable. */
+    :root { color-scheme: light dark; }
+    body {
+      font-family: ui-monospace, Consolas, monospace;
+      font-size: 14px;
+      padding: 20px;
+    }
+    li { margin: 3px 0; }
+    .pass { color: #0ca30c; }
+    .fail { color: #d03b3b; font-weight: bold; }
+    #summary { font-size: 18px; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+  <div id="summary">running...</div>
+  <ol id="results"></ol>
+
+  <script type="module">
+    import { frameAt, runRecord, usableCount, cycleLength } from '../toolcall/engine/toolcall-engine.js';
+    import {
+      SHARED, TIERS, tierById, GENERATED, OVERREACH, COMPLIANCE, COMPLIANCE_LINES,
+      TOOL_CALL, TOOL_LOG
+    } from '../toolcall/tiers/tiers.js';
+
+    const tests = [];
+    const t = (name, fn) => tests.push({ name, fn });
+    const tier = (id) => tierById(id);
+    const runs = SHARED.runs;
+    const T = SHARED.timing;
+    const at = (run, rt) => run * SHARED.runLength + rt;
+    const range = (n) => Array.from({ length: n }, (_, i) => i);
+
+    // ---- honesty: the tiers differ only in how the work is done ----
+
+    t('all tiers share one SHARED object by reference', () =>
+      TIERS.every((x) => x.shared === SHARED));
+
+    t('tier order is improvised, prompted, tooled', () =>
+      TIERS.map((x) => x.id).join(',') === 'improvised,prompted,tooled');
+
+    t('prompted tier writes the same base code as improvised on every run', () =>
+      range(runs).every((r) => {
+        const a = runRecord(tier('improvised'), r).code;
+        const b = runRecord(tier('prompted'), r).code;
+        return a.every((line, i) => b[i] === line);
+      }));
+
+    t('prompted tier only ever appends the compliance lines', () =>
+      range(runs).every((r) => {
+        const b = runRecord(tier('prompted'), r).code;
+        const extra = b.slice(GENERATED[r].length);
+        return JSON.stringify(extra) === JSON.stringify(COMPLIANCE_LINES[COMPLIANCE[r]]);
+      }));
+
+    // ---- the thesis ----
+
+    t('usable undo records per cycle: 0 / 6 / 10', () =>
+      usableCount(tier('improvised')) === 0 &&
+      usableCount(tier('prompted')) === 6 &&
+      usableCount(tier('tooled')) === 10);
+
+    t('generated code differs from the previous run on every run, including the wrap', () =>
+      ['improvised', 'prompted'].every((id) =>
+        range(runs).every((r) => runRecord(tier(id), r).changed.some(Boolean))));
+
+    t('no two generated runs are identical', () =>
+      new Set(GENERATED.map((g) => g.join('\n'))).size === GENERATED.length);
+
+    t('tool call is identical on every run and never marked changed', () =>
+      range(runs).every((r) => {
+        const rec = runRecord(tier('tooled'), r);
+        return rec.code.join('\n') === TOOL_CALL.join('\n') && !rec.changed.some(Boolean);
+      }));
+
+    t('tooled tier never overreaches; exactly one generated run does', () =>
+      range(runs).every((r) => !runRecord(tier('tooled'), r).overreach) &&
+      OVERREACH.filter(Boolean).length === 1);
+
+    t('every tier completes the request: Guest off once the change lands', () =>
+      TIERS.every((x) => range(runs).every((r) =>
+        frameAt(x, at(r, T.toTargetEnd + 0.01)).ssids.Guest.on === false)));
+
+    t('overreach run takes Staff down on both generated tiers, marked unintended', () => {
+      const r = OVERREACH.indexOf(true);
+      return ['improvised', 'prompted'].every((id) => {
+        const s = frameAt(tier(id), at(r, T.logEnd)).ssids.Staff;
+        return s.on === false && s.unintended === true;
+      });
+    });
+
+    t('Staff stays on through every tooled run at every sampled moment', () =>
+      range(runs).every((r) => range(90).every((k) =>
+        frameAt(tier('tooled'), at(r, k / 10)).ssids.Staff.on)));
+
+    // ---- undo ----
+
+    t('tooled undo restores Guest and stamps the log as reverted', () =>
+      range(runs).every((r) => {
+        const f = frameAt(tier('tooled'), at(r, T.undoEnd + 0.01));
+        return f.ssids.Guest.on && f.log.reverted && f.undo === 'done';
+      }));
+
+    t('tooled undo sends a dot back along the work-target edge', () => {
+      const f = frameAt(tier('tooled'), at(0, (T.undoPress + T.undoEnd) / 2));
+      return f.undo === 'pressed' && f.dots.some((d) => d.reverse && d.edge === 'work-target');
+    });
+
+    t('improvised never offers undo; Guest stays off to the end of the run', () =>
+      range(runs).every((r) => {
+        const f = frameAt(tier('improvised'), at(r, SHARED.runLength - 0.01));
+        return f.undo === 'none' && f.ssids.Guest.on === false;
+      }));
+
+    t('prompted undo matches compliance: full=untested, partial=nolog, none=none', () => {
+      const want = { full: 'untested', partial: 'nolog', none: 'none' };
+      return range(runs).every((r) =>
+        frameAt(tier('prompted'), at(r, SHARED.runLength - 0.01)).undo === want[COMPLIANCE[r]]);
+    });
+
+    t('undo reads "waiting" on every tier until the log is complete', () =>
+      TIERS.every((x) => frameAt(x, at(3, T.logEnd - 0.01)).undo === 'waiting'));
+
+    // ---- timeline ----
+
+    t('timing marks are strictly increasing and inside one run', () => {
+      const v = Object.values(T);
+      return v.every((x, i) => i === 0 || x > v[i - 1]) && v[v.length - 1] < SHARED.runLength;
+    });
+
+    t('prompt is fully typed by typeEnd and empty at run start', () => {
+      const len = SHARED.request.join(' ').length;
+      return frameAt(tier('tooled'), at(2, T.typeEnd)).prompt.chars === len &&
+        frameAt(tier('tooled'), at(2, 0)).prompt.chars === 0;
+    });
+
+    t('generated code types out; tool call appears whole at workStart', () => {
+      const mid = (T.workStart + T.workEnd) / 2;
+      const g = frameAt(tier('improvised'), at(0, mid)).code;
+      const k = frameAt(tier('tooled'), at(0, T.workStart)).code;
+      const gShown = g.lines.join('').length;
+      const gFull = g.full.join('').length;
+      return gShown > 0 && gShown < gFull && k.lines.join('') === k.full.join('');
+    });
+
+    /* Rounded, because t + cycle is not exactly representable: the wrapped
+       runTime differs in the last float digit while every visible field agrees. */
+    const snap = (f) => JSON.stringify(f, (k, v) =>
+      typeof v === 'number' ? Math.round(v * 1e6) / 1e6 : v);
+
+    t('frameAt is deterministic and wraps on the cycle length', () =>
+      TIERS.every((x) => [0, 3.3, 41.7, 88.9].every((s) =>
+        snap(frameAt(x, s)) === snap(frameAt(x, s)) &&
+        snap(frameAt(x, s)) === snap(frameAt(x, s + cycleLength(x))))));
+
+    /* Every timing mark, every run, three cycles. Before the engine moved to
+       integer microseconds, t=67.6 (run 8 at toTargetEnd) and t=94.6 (run 1,
+       second cycle) both left Guest on at the exact mark. */
+    t('every timing mark resolves identically in every run and every cycle', () =>
+      TIERS.every((x) => Object.values(T).every((m) => range(runs).every((r) => {
+        const first = snap(frameAt(x, at(r, m)));
+        return [1, 2].every((c) => snap(frameAt(x, c * cycleLength(x) + at(r, m))) === first);
+      }))));
+
+    t('at the exact marks: work starts, change applies, undo resolves', () =>
+      TIERS.every((x) => range(runs).every((r) => [0, 1].every((c) => {
+        const base = c * cycleLength(x) + at(r, 0);
+        return frameAt(x, base + T.workStart).code.started &&
+          frameAt(x, base + T.toTargetEnd).ssids.Guest.on === false &&
+          frameAt(x, base + T.logEnd).undo !== 'waiting' &&
+          frameAt(x, base + T.logEnd).run === r;
+      }))));
+
+    t('pips at the reduced-motion opening frame show 0 / 6 / 10 usable', () => {
+      const s = at(runs - 1, T.logEnd + 0.2);
+      const counts = TIERS.map((x) => frameAt(x, s).pips.filter((p) => p === 'usable').length);
+      return counts.join(',') === '0,6,10' &&
+        TIERS.every((x) => !frameAt(x, s).pips.includes('pending'));
+    });
+
+    t('pips reset at the start of a new cycle', () =>
+      TIERS.every((x) => frameAt(x, cycleLength(x)).pips.every((p) => p === 'pending')));
+
+    t('prompted log shows the logged messages, not the log() calls', () => {
+      const r = COMPLIANCE.indexOf('full');
+      const lines = frameAt(tier('prompted'), at(r, T.logEnd)).log.lines;
+      return lines.join('|') === 'Guest SSID disabled|undo: re-enable Guest';
+    });
+
+    t('tool log fills in the run number', () =>
+      frameAt(tier('tooled'), at(3, T.logEnd)).log.lines.some((l) => l[1] === 'run 4, t+4.6s'));
+
+    // ---- fit and repo rules ----
+
+    t('code lines fit the code panel (at most 36 characters)', () =>
+      GENERATED.concat([TOOL_CALL], Object.values(COMPLIANCE_LINES))
+        .every((g) => g.every((l) => l.length <= 36)));
+
+    t('code never exceeds the panel line count (6)', () =>
+      TIERS.every((x) => range(runs).every((r) => runRecord(x, r).code.length <= 6)));
+
+    t('tool log fits: at most 5 rows, values at most 26 characters', () =>
+      TOOL_LOG.length <= 5 && TOOL_LOG.every(([, v]) =>
+        v.replace('{run}', '10').replace('{at}', '4.6').length <= 26));
+
+    t('every scripted string is ASCII', () => {
+      const all = JSON.stringify([SHARED, TIERS.map((x) => [x.title, x.caption]),
+        GENERATED, COMPLIANCE_LINES, TOOL_CALL, TOOL_LOG]);
+      return /^[\x20-\x7e]*$/.test(all);
+    });
+
+    // ---- run ----
+    const ol = document.getElementById('results');
+    let pass = 0;
+    for (const { name, fn } of tests) {
+      let ok = false;
+      let err = '';
+      try { ok = fn() === true; } catch (e) { err = ' (' + e.message + ')'; }
+      if (ok) pass += 1;
+      const li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = (ok ? 'PASS ' : 'FAIL ') + name + err;
+      ol.appendChild(li);
+    }
+    const summary = 'TESTS: ' + pass + '/' + tests.length + (pass === tests.length ? ' PASS' : ' FAIL');
+    document.getElementById('summary').textContent = summary;
+    document.title = summary;
+  </script>
+</body>
+</html>

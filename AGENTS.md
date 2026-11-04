@@ -45,6 +45,7 @@ never answer a question about an exhibit from memory or from this file alone.
 | --- | --- |
 | `_docs/exhibit-1-topology.md` | `topology/`, `js/hero.js`, `.hero-*` / `.topo-*` in `css/style.css`, `#hero-mount` / `#hero-disclosure` in `index.html`, `_tests/engine-tests.html` |
 | `_docs/exhibit-2-swarm.md` | `swarm/`, `js/swarm.js`, the swarm blocks in `index.html`, `_tests/swarm-*.html` |
+| `_docs/exhibit-3-toolcall.md` | `toolcall/`, `_tests/toolcall-*.html` (prototype, not yet on the homepage) |
 | `_docs/todos.md` | any question about what is open, deferred, or already shipped |
 | `_docs/archive-hero-scrollytelling.md` | only when reviving the pinned hero sequence, or touching `HERO_PINNED_SEQUENCE` / `.hero-scroll[data-hero-mode="pinned"]` / `_tests/scroll-prototype.html` |
 
@@ -301,11 +302,10 @@ edit/preview loop would mean pushing blind to see results - worse than hand-main
 across 2-3 static HTML files. If the site outgrows that, extend the Python + Jinja2 pipeline
 already owned in the resume repo (see below) rather than adopting Node or Jekyll.
 
-**MCP architecture card: TABLED, needs a fresh brainstorm.** The handoff doc's concept (a
-second "proof in pictures" flow diagram: Claude -> fail-closed auth layer -> core business
-systems) and its wording didn't land with the user. Don't design or build against the handoff
-doc's current phrasing - revisit the concept from scratch in a future session before doing
-anything with it.
+**MCP architecture card: superseded by exhibit #3** (user decision, 2026-11-03). The handoff
+doc's flow-diagram concept never landed; the fresh brainstorm it needed became the AI-integrator
+exhibits, starting with the generate-vs-call prototype in `_docs/exhibit-3-toolcall.md`. Do not
+revive the card as a separate piece.
 
 **Resume page + cross-repo pipeline.** Resume content and the Python generators live in a
 separate private repo, `TroxelsCode/troxeltech-resume`, checked out on this machine as the

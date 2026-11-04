@@ -1,0 +1,159 @@
+/*
+ * All visual tokens for the generate-vs-call component, as --call-* custom
+ * properties on .call-viz with light and dark defaults. Values follow the
+ * topology component's palette so the exhibits read as one system: teal is
+ * enforced by code, amber is advisory, red is reserved for something that
+ * went down. Every selector is scoped under .call-viz.
+ */
+
+.call-viz {
+  --call-bg: #fcfcfb;
+  --call-text: #0b0b0b;
+  /* Every TEXT color here clears 4.5:1 against each surface it sits on (page,
+     node fill, both tinted fills); the stroke colors only need 3:1, which is
+     why enforced/advisory have separate -text variants. Re-measure any change. */
+  --call-muted: #6e6d68;
+  --call-line: #c3c2b7;
+  --call-node-fill: #f3f2ee;
+  --call-node-border: #a9a79f;
+
+  --call-enforced: #1aa674;
+  --call-enforced-text: #137c57;
+  --call-enforced-fill: #e3f4ec;
+  --call-advisory: #c48704;
+  --call-advisory-text: #936503;
+  --call-advisory-fill: #fbf1dc;
+  --call-down: #ca3939;
+  --call-changed: #f6e3b4;
+  --call-dot: #76756f;
+
+  position: relative;
+  background: var(--call-bg);
+  color: var(--call-text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  border-radius: 10px;
+  padding: 10px 12px 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .call-viz {
+    --call-bg: #1a1a19;
+    --call-text: #ffffff;
+    --call-muted: #999792;
+    --call-line: #45443f;
+    --call-node-fill: #232321;
+    --call-node-border: #5c5a54;
+
+    --call-enforced: #21c489;
+    --call-enforced-text: #21c489;
+    --call-enforced-fill: #173329;
+    --call-advisory: #fab219;
+    --call-advisory-text: #fab219;
+    --call-advisory-fill: #3a2f17;
+    --call-down: #e66767;
+    --call-changed: #4a3b16;
+    --call-dot: #c3c2b7;
+  }
+}
+
+.call-viz svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.call-viz text {
+  fill: var(--call-text);
+  font-size: 12px;
+}
+
+.call-viz .call-title { font-size: 13px; font-weight: 600; }
+.call-viz .call-counter { fill: var(--call-muted); font-size: 12px; }
+.call-viz .call-label { fill: var(--call-muted); font-size: 11px; letter-spacing: 0.02em; }
+.call-viz .call-sub { fill: var(--call-muted); font-size: 11px; }
+.call-viz .call-mono {
+  font-family: ui-monospace, "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 11px;
+  /* code indentation is meaningful; SVG collapses spaces without this */
+  white-space: pre;
+}
+
+/* ---- boxes ---- */
+
+.call-viz .call-box {
+  fill: var(--call-node-fill);
+  stroke: var(--call-node-border);
+  stroke-width: 1;
+}
+
+.call-viz .call-box--enforced {
+  fill: var(--call-enforced-fill);
+  stroke: var(--call-enforced);
+  stroke-width: 1.5;
+}
+
+.call-viz .call-box--advisory {
+  fill: var(--call-advisory-fill);
+  stroke: var(--call-advisory);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 3;
+}
+
+.call-viz .call-box--absent {
+  fill: none;
+  stroke: var(--call-node-border);
+  stroke-dasharray: 4 3;
+}
+
+.call-viz .call-box--thinking {
+  stroke: var(--call-text);
+  stroke-width: 1.6;
+}
+
+.call-viz .call-changed { fill: var(--call-changed); }
+
+/* ---- edges and packets ---- */
+
+.call-viz .call-edge {
+  stroke: var(--call-line);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.call-viz .call-edge--enforced { stroke: var(--call-enforced); }
+.call-viz .call-edge--faint { stroke-dasharray: 3 3; }
+
+.call-viz .call-dot { fill: var(--call-dot); }
+.call-viz .call-dot--enforced { fill: var(--call-enforced); }
+
+/* ---- target system ---- */
+
+.call-viz .call-ssid-off { fill: var(--call-muted); }
+.call-viz .call-ssid-down { fill: var(--call-down); font-weight: 600; }
+
+/* ---- log ---- */
+
+.call-viz .call-log-advisory { fill: var(--call-advisory-text); }
+.call-viz .call-log-key { fill: var(--call-muted); }
+.call-viz .call-stamp { fill: var(--call-enforced-text); font-size: 11px; font-weight: 600; }
+
+/* ---- undo button ---- */
+
+.call-viz .call-undo { fill: none; stroke: var(--call-node-border); stroke-width: 1; }
+.call-viz .call-undo--absent { stroke-dasharray: 4 3; }
+.call-viz .call-undo--advisory { stroke: var(--call-advisory); stroke-width: 1.5; }
+.call-viz .call-undo--ready { stroke: var(--call-enforced); stroke-width: 1.5; }
+.call-viz .call-undo--pressed { fill: var(--call-enforced-text); stroke: var(--call-enforced-text); stroke-width: 1.5; }
+.call-viz .call-undo-label { font-size: 12px; font-weight: 600; }
+.call-viz .call-undo-label--muted { fill: var(--call-muted); font-weight: 400; }
+.call-viz .call-undo-label--advisory { fill: var(--call-advisory-text); }
+.call-viz .call-undo-label--ready { fill: var(--call-enforced-text); }
+.call-viz .call-undo-label--pressed { fill: var(--call-bg); }
+
+/* ---- run pips ---- */
+
+.call-viz .call-pip { fill: none; stroke: var(--call-line); stroke-width: 1; }
+.call-viz .call-pip--empty { stroke: var(--call-node-border); }
+.call-viz .call-pip--advisory { fill: var(--call-advisory); stroke: var(--call-advisory); }
+.call-viz .call-pip--enforced { fill: var(--call-enforced); stroke: var(--call-enforced); }

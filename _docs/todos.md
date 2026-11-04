@@ -59,10 +59,9 @@ be done on hardware this environment cannot reach.
   commits here via a PAT - is a future option, worth it only if manual sync becomes a
   real pain point. It would add CI plus a cross-repo credential this project does not
   currently have.
-- **MCP architecture card: TABLED.** The concept inherited from the retired homepage
-  handoff doc did not land with the user. It needs a fresh brainstorm from scratch;
-  do not design or build against the old phrasing. See "Homepage build" in
-  `AGENTS.md`.
+- **Exhibit #3 (generate vs. call) is a prototype awaiting user review** at
+  `_tests/toolcall-preview.html`. It replaces the tabled MCP architecture card. Promotion to
+  the homepage is not started. See `_docs/exhibit-3-toolcall.md` for what is open.
 - **No build step, revisit at around 5 pages.** See "Homepage build" in `AGENTS.md`
   for the reasoning, and for the rule that growth extends the Python + Jinja2
   pipeline already owned in the resume repo rather than adopting Node or Jekyll.

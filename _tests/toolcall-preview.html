@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toolcall prototype</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* Prototype harness for exhibit #3. Lives under _tests/ so Jekyll keeps it
+       off the live domain. It stands in for the homepage row until the
+       exhibit is promoted: the summary and description below are DRAFT copy
+       whose only home is this page for now, and they move to index.html (and
+       out of here) on promotion. Captions are not here - they live in
+       toolcall/tiers/tiers.js. */
+    .proto-wrap { max-width: var(--content-width); margin: 0 auto; padding: 24px 24px 64px; }
+    .proto-note { font-family: var(--font-mono); font-size: 12px; color: var(--site-muted); margin: 0 0 18px; }
+    .call-stack { display: flex; flex-direction: column; gap: 28px; margin-top: 16px; }
+    .call-layer[data-caption]::before {
+      content: attr(data-caption);
+      display: block;
+      margin: 0 auto 10px;
+      max-width: 68ch;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--site-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <main class="proto-wrap">
+    <p class="proto-note">Prototype - exhibit #3, not linked from the site. Query options:
+      ?t=SECONDS freezes the replay at that time, ?motion=1 plays even under reduced motion.</p>
+
+    <details class="hero-disclosure exhibit-disclosure" open>
+      <summary class="hero-disclosure-summary">Ask an AI agent to change something, then try to undo it</summary>
+      <div class="exhibit-intro">
+        <p class="exhibit-description">One plain-English request, run ten times by the same AI
+          agent, wired up three ways. Left to write its own code, it gets the job done, but
+          differently every time and with no record of what it touched. Told to keep a log, it
+          usually does. Connected to pre-written tools, every change is recorded by the tool
+          itself, along with exactly how to reverse it. A scripted replay of illustrative runs,
+          not a live model.</p>
+      </div>
+      <div class="hero-controls" id="call-controls">
+        <div class="hero-toggle-row">
+          <button type="button" id="call-playback" class="hero-toggle" aria-pressed="true">
+            <span class="hero-toggle-dot" aria-hidden="true"></span>
+            <span class="hero-toggle-label">Replay playing</span>
+          </button>
+        </div>
+        <p class="hero-toggle-note">The replay loops through all ten runs. It starts paused on
+          the last run if your system asks for reduced motion.</p>
+      </div>
+      <div class="call-stack" id="call-mount">
+        <div class="call-layer" data-tier="improvised"></div>
+        <div class="call-layer" data-tier="prompted"></div>
+        <div class="call-layer" data-tier="tooled"></div>
+      </div>
+    </details>
+  </main>
+
+  <script type="module">
+    import { ToolcallViz } from '../toolcall/render/toolcall-render.js';
+    import { TIERS, SHARED } from '../toolcall/tiers/tiers.js';
+
+    const params = new URLSearchParams(location.search);
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const forceMotion = params.get('motion') === '1';
+    const frozen = params.has('t') ? Number(params.get('t')) : null;
+
+    /* Reduced-motion opening frame: the last run, just after its log lands and
+       before tier 3 presses undo, so every pip is filled and every undo state
+       is on screen at once. */
+    const OPENING = (SHARED.runs - 1) * SHARED.runLength + SHARED.timing.logEnd + 0.2;
+
+    const instances = [];
+    for (const layer of document.querySelectorAll('.call-layer')) {
+      const tier = TIERS.find((x) => x.id === layer.dataset.tier);
+      layer.setAttribute('data-caption', tier.caption);
+      instances.push(ToolcallViz.mount(layer, tier));
+    }
+
+    /* ONE clock for all three tiers, so their run counters and pips always
+       agree. Never give a tier its own. */
+    let t = frozen !== null ? frozen : (reduced && !forceMotion ? OPENING : 0);
+    let playing = frozen === null && (!reduced || forceMotion);
+    let last = null;
+    let raf = 0;
+
+    const button = document.getElementById('call-playback');
+    function paintButton() {
+      button.setAttribute('aria-pressed', playing ? 'true' : 'false');
+      button.querySelector('.hero-toggle-label').textContent = playing ? 'Replay playing' : 'Replay paused';
+    }
+
+    function renderAll() {
+      for (const inst of instances) inst.render(t);
+    }
+
+    function frame(now) {
+      if (last !== null) t += Math.min(0.1, (now - last) / 1000);
+      last = now;
+      renderAll();
+      raf = requestAnimationFrame(frame);
+    }
+
+    function sync() {
+      cancelAnimationFrame(raf);
+      last = null;
+      if (playing) raf = requestAnimationFrame(frame);
+      else renderAll();
+    }
+
+    button.addEventListener('click', () => {
+      playing = !playing;
+      paintButton();
+      sync();
+    });
+
+    paintButton();
+    renderAll();
+    sync();
+
+    window.__call = {
+      setTime(s) { t = s; renderAll(); return instances.map((i) => i.layout()); },
+      instances
+    };
+  </script>
+</body>
+</html>
