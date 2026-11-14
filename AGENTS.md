@@ -107,7 +107,7 @@ Three things about this arrangement are load-bearing.
 
 ## Environment
 
-- **No Node.js or npm installed on this machine.** The site is deliberately plain HTML/CSS/JS with no build step. If a future feature requires a build tool or package manager, flag it to the user first; check with `node -v` / `npm -v` before assuming.
+- **Node.js (v24.19.0) and npm (11.17.0) ARE installed**, at `C:\Program Files\nodejs`. This note said the opposite until 2026-11-13, when `node -v` showed it was out of date. **That does not change the no-build-step decision**: the site stays plain HTML/CSS/JS with no `package.json`, and a build tool, package manager or npm dependency still needs the user's approval first. Node is fine as a local tool, e.g. for running a pure engine module outside a browser (Codex ran the exhibit #3 engine suite that way, with a minimal DOM stub). Ruby is still absent.
 - **Python 3.14.6 is installed** and bare `python` resolves in all shells (confirmed 2026-07-13 in PowerShell and Git Bash after a full VS Code restart). Historical gotcha worth remembering: an agent's shells inherit the environment of the process that launched the agent (here, the VS Code host), so PATH changes made while that host is running (e.g. installing Python) are invisible to the tools until the host is fully restarted; restarting only the agent session is not enough.
 - **Headless Edge works for verification**: `"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"` with `--headless=new --disable-gpu --virtual-time-budget=5000` plus `--screenshot=<path> --window-size=WxH` (visual check via Read on the PNG) or `--dump-dom` (run JS, grep output). Use `Start-Process -Wait -RedirectStandardOutput` in PowerShell; plain `>` redirection of msedge output produced an empty file (this also happens in Git Bash, not just PowerShell - use the PowerShell tool's redirection workaround even when starting from a bash session).
 - **Headless Edge on this machine clamps `--window-size` below a content width of ~492px** (confirmed 2026-08-04 by loading a page that reports `window.innerWidth`): requests below that floor render at 492 regardless, and `--screenshot` still crops to the requested canvas size, so a screenshot requested at e.g. 375px wide silently shows a *cropped* 492px-wide layout, not a true 375px layout - text will look cut off rather than wrapped even when the CSS itself is fine. Always request `--window-size` at or above ~492 (`492,H` is the effective floor; sizes above ~500 subtract a consistent ~24px chrome overhead, e.g. `600,H` -> 576px viewport) and treat anything below that as untestable in this environment - reason about it from the CSS instead of trying to screenshot it.
@@ -295,8 +295,9 @@ against this decision, and two structural strokes were deliberately left failing
 after visual review. The measured values and the reasoning are in
 `_docs/exhibit-1-topology.md` - read it before touching any `--topo-*` color.
 
-**No build step, by deliberate decision (2026-08-04), revisit at ~5 pages.** Node and Ruby
-are both absent from this machine; GitHub Pages already runs Jekyll server-side (no
+**No build step, by deliberate decision (2026-08-04), revisit at ~5 pages.** Ruby is absent
+from this machine (Node has since been installed - see Environment - which changes nothing
+below, since the Jekyll argument is about Ruby); GitHub Pages already runs Jekyll server-side (no
 `.nojekyll` file) so layouts/includes are technically free, but with no local Ruby the
 edit/preview loop would mean pushing blind to see results - worse than hand-maintaining nav
 across 2-3 static HTML files. If the site outgrows that, extend the Python + Jinja2 pipeline
@@ -485,9 +486,12 @@ subsection below). It is shell, it is generic, and it is already named under the
 so `exhibit-*` and `hero-*` coexist in `index.html` and `css/style.css` on purpose. That is not
 drift; it is the boundary in the table below being drawn as pieces get built.
 
-**Do not extract the rest of the shared shell until exhibit #2 actually exists.** One instance
-is not enough to factor a pattern from without guessing. What is recorded here instead is the
-boundary, so the extraction is mechanical when the time comes:
+**The rest of the shared shell has still not been extracted.** Exhibit #2 shipped without
+doing it: the swarm row reuses the `hero-*` shell classes verbatim, adds `.exhibit-disclosure`
+for row spacing, and copies the host behavior (collapse, click-mount, `data-ready`, fallback
+removal, controls) into `js/swarm.js`. Promoting exhibit #3 would make that the third copy, so
+it is the natural point to decide whether to factor it. The boundary below still describes
+what would move:
 
 | shared shell (becomes `exhibit-*`) | topology-specific (stays in `hero.js` / `topology/`) |
 | --- | --- |
@@ -637,10 +641,8 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
    Above the controls, above the exhibit. See the subsection above for the markup and for why
    only the directions half is JS-gated.
 
-**What exhibit #2 will actually run into.** The first item below is the good news and was
-settled by measurement; the other two are cosmetic and cheap. None were fixed pre-emptively,
-because building an abstraction against a hypothetical second instance is how you build the
-wrong one:
+**What stacking rows runs into.** Written ahead of exhibit #2. The first item was settled by
+measurement and needs no code; the other two were real and are now handled by CSS:
 
 - **Stacked sticky summaries need NO code - the desired behavior is already the default.
   MEASURED 2026-08-07, and this REVERSES an earlier claim in this section.** The earlier text
@@ -667,12 +669,12 @@ wrong one:
   by the difference. Only matters for things that offset below a stuck summary - today that is
   `.hero-pin` and the stacked `.topo-status`. See the sticky-chain table in the Homepage build
   section.
-- **Adjacent summary rows will double their borders.** The summary carries BOTH `border-top`
-  and `border-bottom`, so two rows in sequence render a 2px line between them. Drop one side on
-  subsequent rows.
-- **`margin-top: 32px` on the summary spaces rows apart.** Stacked rows would sit 32px apart
-  rather than forming the contiguous list that the single row's appearance implies. Decide
-  which look is wanted before adding the second row.
+- **Doubled borders and the 32px gap between rows: RESOLVED.** The summary carries both
+  `border-top` and `border-bottom` plus `margin-top: 32px`, so two rows in sequence would sit
+  apart with a 2px line between them. `css/style.css` pulls every row after the first up by 1px
+  (`.exhibit-disclosure + .exhibit-disclosure > .hero-disclosure-summary` and the `.hero-disclosure +`
+  variant), which collapses the borders into one contiguous list. **A new row gets this only if
+  its `<details>` carries the `exhibit-disclosure` class.**
 
 **The second horizontal rule visible below the collapsed summary is NOT part of the
 disclosure.** It is the generic `section` `border-bottom` in `css/style.css`, with the
@@ -746,6 +748,17 @@ before anyone can repeat the mistake.
   beats a class on the `<use>` that clones it, because the clone keeps the original's
   own declarations. Leave the referenced element unstyled and let `fill` inherit from
   the `<use>`.)
+- **A scripted timeline compared against exact marks must do its time arithmetic in
+  integers.** Float modulo and subtraction drift (`94.6 % 90` and `67.6 - 63` are both
+  `4.5999...`), so a frame frozen exactly on a mark - a `?t=` screenshot, a reduced-motion
+  opening frame - shows the state from just before it. A first fix that covered only the
+  wrap still failed on the subtraction. Exhibit #3 splits time in whole microseconds and tests
+  every mark in every run across three cycles; see `_docs/exhibit-3-toolcall.md`.
+- **Text colors need 4.5:1 against EVERY surface they sit on, not just the page.** A token
+  checked only against the page background fails on the node fill and on tinted panels
+  (exhibit #3's muted label measured 4.13:1 on a node fill while clearing 4.50 on the page),
+  and stroke colors that pass at 3:1 are not text colors. Give text its own tokens and measure
+  each against every fill it is drawn on.
 
 ## Settled - do not reopen
 

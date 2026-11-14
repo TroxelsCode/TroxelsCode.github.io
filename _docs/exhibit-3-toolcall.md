@@ -80,8 +80,9 @@ fallback text equivalent and a static snapshot - none of which exist yet.
   than the topology component's equivalent because it also sits on tinted fills. Measured
   2026-11-03, worst case per token: light muted 4.55, advisory-text 4.56, enforced-text 4.55,
   down 4.51; dark muted 4.50. Re-measure against all four surfaces on any change. The colored
-  text tokens clear only the surfaces they are used on today: advisory text fails on the
-  enforced fill, and red fails on some tinted fills. Measure before putting one somewhere new.
+  text tokens clear only the surfaces they are used on today: light advisory text fails on the
+  enforced fill (4.49), and red fails on the enforced fill in both themes (4.43 light, 4.22
+  dark) and on the dark advisory fill (4.07). Measure before putting one somewhere new.
 - **Layout switches at a 600px container width** (landscape 740x282 viewBox, portrait
   360x640), rebuilt on `ResizeObserver`. Code lines are capped at 36 characters and the tool
   log values at 26 so both fit the narrowest panel; both are asserted.

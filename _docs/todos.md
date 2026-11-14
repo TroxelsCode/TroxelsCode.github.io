@@ -10,7 +10,10 @@ live elsewhere - see the documentation map in `AGENTS.md`.
   `_docs/` exhibit file, and comes off this list.
 - The user closes it for good -> gets one row in "Settled - do not reopen" in
   `AGENTS.md`, reasoning in the exhibit file, and comes off this list.
-- It ships -> moves to the "Shipped" index at the bottom, one line, no reasoning.
+- It ships -> moves to the "Shipped" index at the bottom, one line, no reasoning. A row
+  written in the same commit it describes cannot know that commit's SHA: add it in a
+  follow-up commit with the real SHA, never as "this commit" (two such rows sat unfilled from
+  August to November).
 
 **This file is not where reasoning lives.** An entry that grows a paragraph of
 justification is a sign the justification belongs in an exhibit file with a pointer
@@ -143,9 +146,10 @@ Index only. Reasoning lives in `AGENTS.md` or the exhibit files.
 
 | date | commit | what |
 | --- | --- | --- |
-| 2026-09-17 | this commit | `/codex-review` skill and the review command recorded; first Codex review of this repo returned no blocking findings |
+| 2026-11-03 | `5279914` | Exhibit #3 prototype (generate vs. call) at `_tests/toolcall-preview.html`, not on the homepage; two Codex review rounds, both findings fixed |
+| 2026-09-17 | `2697c20` | `/codex-review` skill and the review command recorded; first Codex review of this repo returned no blocking findings |
 | 2026-09-17 | `93cb8af` | `AGENTS.md` becomes the shared instruction file, `CLAUDE.md` becomes its import plus Claude-only notes, both excluded from the built site |
-| 2026-08-13 | this commit | Comment sweep across all fourteen served files: design rationale consolidated into `_docs/`, source left with ordinary working comments (43% -> 30% comment bytes, 277KB -> 251KB) |
+| 2026-08-13 | `4818462` | Comment sweep across all fourteen served files: design rationale consolidated into `_docs/`, source left with ordinary working comments (43% -> 30% comment bytes, 277KB -> 251KB) |
 | 2026-08-13 | `01ad56a` | Exhibits mount on the summary's opening click, killing the flash on first expand; component stylesheets warmed |
 | 2026-08-13 | `b664c53` | First-paint suppression: head script, one CSS rule, per-exhibit `data-ready`, 2.5s watchdog |
 | 2026-08-10 | `c71bbda` | Both exhibit fallbacks rewritten as text equivalents carrying each tier's outcome, plus four static labelled SVG frames (one topology, three swarm) and `_tests/fallback-preview.html` |
