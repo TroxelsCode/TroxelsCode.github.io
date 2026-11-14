@@ -37,15 +37,19 @@ Sean Troxel's personal professional/resume-style website, hosted on GitHub Pages
 
 **This file holds only what benefits EVERY session**: the rules, the environment,
 the deploy mechanics, the site-wide chrome, and the contract every exhibit shares.
-Anything specific to one exhibit lives in `_docs/` and is **not** loaded
+Anything specific to one exhibit or one subsystem lives in `_docs/` and is **not** loaded
 automatically. Read the matching file with the Read tool when its trigger fires, and
-never answer a question about an exhibit from memory or from this file alone.
+never answer a question about an exhibit or subsystem from memory or from this file alone.
 
 | read this file | before touching |
 | --- | --- |
 | `_docs/exhibit-1-topology.md` | `topology/`, `js/hero.js`, `.hero-*` / `.topo-*` in `css/style.css`, `#hero-mount` / `#hero-disclosure` in `index.html`, `_tests/engine-tests.html` |
 | `_docs/exhibit-2-swarm.md` | `swarm/`, `js/swarm.js`, the swarm blocks in `index.html`, `_tests/swarm-*.html` |
 | `_docs/exhibit-3-toolcall.md` | `toolcall/`, `_tests/toolcall-*.html` (prototype, not yet on the homepage) |
+| `_docs/exhibit-shell.md` | adding a homepage exhibit row, or changing how `.hero-disclosure-summary` sticks or how `--hero-summary-h` is published |
+| `_docs/resume-sync.md` | "run the resume sync", `resume/index.html`, `scripts/sync_resume.py`, the "---- resume page ----" block in `css/style.css` |
+| `_docs/site-icons.md` | `favicon.svg`, `favicon.ico`, `apple-touch-icon.png`, `_icons/`, the icon `<link>` block in a page `<head>` |
+| `_docs/deploy-notes.md` | a Pages build that fails or hangs, build-status views that disagree, how Jekyll treats a root `.md` |
 | `_docs/todos.md` | any question about what is open, deferred, or already shipped |
 | `_docs/archive-hero-scrollytelling.md` | only when reviving the pinned hero sequence, or touching `HERO_PINNED_SEQUENCE` / `.hero-scroll[data-hero-mode="pinned"]` / `_tests/scroll-prototype.html` |
 
@@ -189,34 +193,26 @@ Three things about this arrangement are load-bearing.
     uses, so a 9px line fits about 60 characters in a 340-unit viewBox.
 - **Forcing dark mode for a screenshot**: copy `index.html` to a temp root file and splice in a `<style>` block before `</head>` that re-declares BOTH token sets with `!important` - `--site-*` on `:root` and `--topo-*` on `.topo-viz` - mirroring their `prefers-color-scheme: dark` blocks. Generating the copy with PowerShell (`(Get-Content $src -Raw) -replace '</head>', $style`) avoids transcription drift. Again: `--force-dark-mode` does NOT do this.
 - **Forcing MOTION on (defeating the headless reduced-motion default)**: same splice pattern, but insert a **classic** `<script>` before `</head>` that wraps `window.matchMedia` and returns a stub `{ matches: false, addEventListener(){}, ... }` for any query matching `/prefers-reduced-motion/`, delegating everything else to the real one. A classic script in `<head>` runs before the deferred module, so `js/hero.js` sees the shim. This is how the pinned hero was verified on 2026-08-05 (`_forcemotion-temp.html` at the repo root - it must be at the ROOT, since `hero.js` imports `../topology/...`). Delete it when done; never commit it.
-- **Checking a deploy**: `gh api repos/TroxelsCode/TroxelsCode.github.io/pages/builds/latest` gives status/commit/duration, and `.../pages/builds` gives the history. A healthy build on this repo takes **31-45 seconds**; treat `duration: 0` as "never actually ran". On 2026-08-06 two consecutive doc-only commits errored with `duration: 0` and the generic message `Page build failed.`, and a retry then sat in `building` for over four hours - that was a GitHub-side incident, not repo content. **Do not go hunting for a Jekyll/Liquid bug when the failing commits only touched Markdown and the duration is 0**; push a new commit and see whether it builds. The next push (the favicon commit) built normally in 40s and cleared it. A real content error looks different: nonzero duration and a specific message such as a Liquid exception.
-- **Neither build-status view is authoritative on its own - when it matters, check the served artifact.** The legacy branch-based deploy runs as a GitHub-managed Actions workflow called `pages-build-deployment`, so there are two ways to look at it, and they disagree **in both directions**:
-  - `gh api .../pages/builds/latest` reported `status: "building"` for a run that had already completed as `failure` (2026-08-06, during the Actions incident), and on a healthy day reported the previous commit as latest when the newest had already built.
-  - `gh run list --workflow="pages-build-deployment"` was right on both of those - but then **missed a build entirely**: a full day after `86a4ca7` was pushed it still listed no run for that sha and showed the prior sha twice, while the Pages API correctly showed `86a4ca7 built dur=41228` and the content was live. *(An earlier version of this bullet said the workflow list was authoritative. It is not; that claim was written before this case appeared.)*
-
-  So use both as weak signals, and settle it by fetching what visitors actually get:
+- **Verify a deploy by fetching what visitors get and comparing bytes**, never by build status
+  alone. Root files with no front matter are copied verbatim, so this is a complete proof:
 
   ```sh
-  gh run list --workflow="pages-build-deployment" --limit 5
-  gh api repos/TroxelsCode/TroxelsCode.github.io/pages/builds --jq '.[0:5][] | "\(.commit[0:7]) \(.status) dur=\(.duration)"'
   curl -s -o "$SCRATCH/live.md" -w '%{http_code}\n' https://troxeltech.com/README.md && cmp README.md "$SCRATCH/live.md" && echo IDENTICAL
   ```
 
-  The `curl` + `cmp` is the only check that cannot be wrong, and it works precisely because these root files have no front matter and are copied verbatim (see the Liquid bullet below) - so a byte-identical compare against the local file is a complete end-to-end proof of deploy. Duration remains the useful tell in either listing: normal builds are 36-45s, and the incident rows read `duration: 0`, `30m9s` and `1h3m22s`.
-- **Confirm a suspected GitHub incident instead of inferring it.** `curl -s https://www.githubstatus.com/api/v2/components.json` (look for the `Actions` and `GitHub Pages` components) and `.../api/v2/incidents/unresolved.json` for the current write-up. On 2026-08-06 `Actions` read `major_outage` with an open incident saying capacity was constrained and jobs may be delayed or fail - which settled the question in seconds and made a repo-side investigation unnecessary. Note the failing product is **Actions**, not Pages, because the branch-based deploy runs on Actions runners.
-- **Liquid IS evaluated on root markdown, front matter or not. This was measured, and it reverses the previous entry here.** Two earlier passes got this wrong in opposite directions; the empirical result below is the one to trust. A throwaway `liquid-probe.md` with no front matter was pushed on 2026-08-07 and read back from the live domain:
-
-  The probe held two expressions: an output expression wrapping `site.time`, and a `raw`/`endraw` tag pair around the word `INSIDE_RAW`. Written out with real delimiters here they would be evaluated in this very file, so they are described rather than spelled - that is the rule below in action.
-
-  | served as | the `site.time` output expression | the `raw` tag pair |
-  | --- | --- | --- |
-  | `/liquid-probe.md` | literal, byte-identical to source | literal, tags intact |
-  | `/liquid-probe.html` | `2026-08-07 18:23:00 +0000` | `INSIDE_RAW`, tags consumed |
-
-  So the build does **both** things to every root `.md`: it emits a Liquid-rendered, Markdown-converted `.html` **and** serves the original `.md` verbatim. Both URLs return 200. The rendering half is GitHub Pages' default `jekyll-optional-front-matter` behavior, which makes front matter optional rather than required - so the "only files with front matter are processed" rule does **not** hold here. (`README.md` is the one exception: `/README.md` serves but `/README.html` is 404.)
-  - **Consequence: a malformed Liquid delimiter in any root `.md` can fail the build**, and a backtick code span does **not** protect it - Liquid runs over the raw bytes before Markdown ever sees them. Write such patterns as character classes (`grep -cE '[{][{]' *.md`) rather than spelling them out. Note the precise hazard: a *well-formed* expression over an undefined variable renders empty and is harmless; what raises is an unclosed delimiter or an unknown tag name. Only the harmless direction was tested - proving the fatal one would mean deliberately breaking the live deploy.
-  - When a build fails, this is now a legitimate suspect, but still check `duration` first: `duration: 0` means the job never ran and the cause is GitHub-side, whereas a Liquid error has a nonzero duration and a specific message.
-- **Do not confirm a deploy by polling the build's `commit` field - it misattributes.** When two pushes land close together, the build that actually compiles your tree can be stamped with the PREVIOUS commit SHA, so a poll loop waiting for your SHA to appear times out while the deploy has in fact succeeded (hit 2026-08-06: `469c95d` never appeared, yet its content was live). **Verify by content instead**: fetch a page from `https://troxeltech.com/` and grep for a string your commit introduced. **Do not use `CLAUDE.md` or `AGENTS.md` as the probe** - both are excluded (see Deploy below), so it 404s. `README.md` is the doc-only probe now; for anything else, grep `index.html` or `/resume/`.
+  `README.md` is the doc-only probe; **never probe with `AGENTS.md` or `CLAUDE.md`**, which are
+  excluded and 404. For other changes, grep the live `index.html` or `/resume/` for a string
+  your commit introduced. `gh api repos/TroxelsCode/TroxelsCode.github.io/pages/builds` and
+  `gh run list --workflow="pages-build-deployment"` are weak signals only: they disagree in
+  both directions, and a build can carry the previous commit's sha.
+- **A failed build with `duration: 0` never ran, so the cause is GitHub-side**, not repo
+  content. Healthy builds take 31-45s; a real content error has a nonzero duration and a
+  specific message. Confirm an incident at `https://www.githubstatus.com/api/v2/components.json`
+  (the `Actions` component) instead of debugging the repo, then push a new commit to retry.
+- **Liquid runs on every root `.md`, front matter or not, and a backtick code span does not
+  protect it.** A malformed delimiter can fail the build, so never spell one out in a root
+  `.md` - write it as a character class (`grep -cE '[{][{]' *.md`).
+- The cases and probe results behind the three rules above are in `_docs/deploy-notes.md`.
 - **Deploy**: push to `main`; GitHub Pages auto-builds from the branch root (legacy Pages build, no Actions workflow). Everything on `main` is publicly served **except underscore-prefixed directories**, which Jekyll's `EntryFilter` skips unless they are one of its known dirs (`_posts`, `_layouts`, ...) or are listed in an `include:` key. That is the only thing keeping `_tests/` off the live domain - it is not merely unlinked, it is absent from the built site. **Root `.md` files are published TWICE by default, as both `.md` and `.html`** - underscore *directories* are excluded, root files are not. Measured 2026-08-07 before the fix: `/CLAUDE.md` (byte-identical to the local file) and `/CLAUDE.html` (rendered, 130KB against an 82KB source) both returned 200, and the build spec was exposed the same way. **RESOLVED 2026-08-07 (user decision): `_config.yml` now excludes `CLAUDE.md` and `scripts/`**, which removes both outputs per entry. `AGENTS.md` was added to the same list when it became the shared instruction file. (`network-topology-prototype-spec.md` was a third entry until that file was deleted on 2026-08-08; its exclude went with it. **Any new root `.md` needs its own entry** - the list is not a pattern.) (`scripts/sync_resume.py` is local tooling - nothing served references it.) **Never add `CNAME` to that exclude list**: Pages reads it out of the BUILT site to resolve the custom domain, so excluding it would take `troxeltech.com` down. Dotfiles like `.gitattributes` and `.gitignore` already 404 without help. `README.md` is deliberately still served (a readme is normal public content); `/README.html` is 404 either way. Do NOT move or rename `AGENTS.md` or `CLAUDE.md` - they have to stay at the repo root for Codex and Claude Code to find them, which is why an exclude is the right tool. Note the exclusion only affects the built site: the repo is public, so both files remain readable on github.com including in history. **Never add a `.nojekyll` file**: it bypasses the Jekyll build entirely and would start publishing `_tests/`. Same caveat if this ever migrates to an Actions-based Pages workflow - `actions/upload-pages-artifact` uploads the whole tree unless a Jekyll build runs first. (The files stay browsable on github.com either way; the repo is public. The goal is "not on the live domain", not "secret".)
 
 ## Architecture
@@ -258,8 +254,8 @@ placeholder-copy resolution in Open items/TODOs), the hero slot (`#hero-mount` /
 `css/style.css`, filled for real by exhibit #1 - see `_docs/exhibit-1-topology.md`), stats strip (real figures, both endpoint numbers shown with the ~2,000
 figure primary and the 10,000 figure as a subordinate qualifier), promotion timeline, and
 footer. `/resume/index.html` carries the same nav/footer chrome and, as of 2026-08-04, real
-resume content synced in from the separate resume repo (see "Resume page + cross-repo
-pipeline" below for the mechanics).
+resume content synced in from the separate resume repo (see `_docs/resume-sync.md` for the
+mechanics).
 
 **Nav/contact decisions made during the build**, superseding the handoff doc: no dedicated
 Contact section and no Contact nav link - the user decided a full section was more than this
@@ -301,136 +297,22 @@ below, since the Jekyll argument is about Ruby); GitHub Pages already runs Jekyl
 `.nojekyll` file) so layouts/includes are technically free, but with no local Ruby the
 edit/preview loop would mean pushing blind to see results - worse than hand-maintaining nav
 across 2-3 static HTML files. If the site outgrows that, extend the Python + Jinja2 pipeline
-already owned in the resume repo (see below) rather than adopting Node or Jekyll.
+already owned in the resume repo (see `_docs/resume-sync.md`) rather than adopting Node or Jekyll.
 
 **MCP architecture card: superseded by exhibit #3** (user decision, 2026-11-03). The handoff
 doc's flow-diagram concept never landed; the fresh brainstorm it needed became the AI-integrator
 exhibits, starting with the generate-vs-call prototype in `_docs/exhibit-3-toolcall.md`. Do not
 revive the card as a separate piece.
 
-**Resume page + cross-repo pipeline.** Resume content and the Python generators live in a
-separate private repo, `TroxelsCode/troxeltech-resume`, checked out on this machine as the
-sibling directory `../Resume and CV Construction/`. Keep it that way so resume content edits
-don't require touching site code. This repo presents the
-resume as a live rendered HTML page (not a PDF/docx download link), and it **shares this
-site's nav/footer/theme chrome** (user decision, 2026-08-04) rather than being a standalone
-document - so the resume repo's generator must output a content-only fragment, not a full
-page.
+**Resume page: the fragment contract, the sync command and the ownership split are in
+`_docs/resume-sync.md`.** Two rules apply whether or not you open it:
 
-**Fragment contract:** no `<!DOCTYPE>`, `<html>`, `<head>`, `<body>`, `<nav>`, or `<footer>` -
-just the semantic content (headings, sections, lists) that goes inside this repo's
-`resume/index.html` `<main>`. Use this site's existing CSS classes/tokens
-(`css/style.css` - `--site-*` custom properties, `.section-eyebrow`, etc.) where practical so
-the resume inherits the same light/dark theming automatically, rather than bringing its own
-styling.
+- **Never hand-edit between the `RESUME_CONTENT` markers in `resume/index.html`** - the next
+  sync silently overwrites it.
+- **Never edit files in the resume repo from a session here.** Content changes go to the user
+  as a prompt for that repo's agent.
 
-**DONE (2026-08-04): first real content synced in and styled.** The resume repo's generator
-produced a fragment matching the contract closely (correctly omitted `<html>`/`<head>`/
-`<nav>`/`<footer>`/inline styles, correct heading hierarchy, ASCII-only, reused
-`.section-eyebrow`). Its class names are now the **actual, load-bearing contract** - CSS in
-`css/style.css` ("---- resume page ----" block) targets them by name, so don't rename on
-either side without updating both:
-`resume-summary-section` / `resume-summary`, `resume-skills-section` / `resume-skills`
-(a `<dl>`) / `resume-skill-category` (`<dt>`) / `resume-skill-items` (`<dd>`),
-`resume-experience-section`, `resume-job` (one per employer, an `<article>`) /
-`resume-company` / `resume-titles` (a `<ul>` of promotions within that employer) /
-`resume-title-entry` / `resume-role` / `resume-dates` / `resume-job-intro` / `resume-bullets`.
-Two full-document outputs the generator also produced (`resume.html`, a standalone/print
-version, and `resume.css`) were deliberately NOT brought into this repo - they duplicate
-content in a format this site doesn't use, and contained em/en dashes and an accented
-character, violating this repo's ASCII-only rule. They're fine to keep in the resume repo
-itself; just don't drop them in here again.
-
-**Sync mechanic:** `resume/index.html` in this repo is its own template - the region between
-the `<!-- RESUME_CONTENT:START -->` / `<!-- RESUME_CONTENT:END -->` markers, wrapped in a
-`<div class="resume-page">` (added so `css/style.css` can scope resume-only rules like `<h1>`
-sizing without touching the fragment contract itself), is the only part a sync touches; nav,
-footer, and `<head>` stay untouched. `scripts/sync_resume.py` does the splice - it only
-rewrites between the markers, so the `.resume-page` wrapper survives every sync automatically:
-
-```sh
-python scripts/sync_resume.py <path-to-fragment.html>
-```
-
-It validates the markers exist exactly once, warns (but doesn't block) if the fragment looks
-like a full document rather than a fragment, then rewrites `resume/index.html` in place.
-No new infrastructure - matches this project's no-CI/no-build-step pattern, just a small
-Python helper consistent with the rest of this repo's tooling.
-
-**Ownership is split, and this repo owns only the sync** (user decision, 2026-09-22). The
-resume repo and its own agent own every word of resume content - wording, trims, what is
-public-safe - plus the generators and the regenerated fragment. This repo takes the finished
-fragment and puts it on the site, nothing more. So:
-
-- **"Run the resume sync" means**: once the resume repo's agent has regenerated it, run
-  `python scripts/sync_resume.py "../Resume and CV Construction/exports/resume-fragment.html"`,
-  review the diff, and commit and push only `resume/index.html`, with the user's approval as
-  for any commit.
-- **Never edit files in the resume repo from a session here**, and never hand-edit the content
-  between the markers in `resume/index.html`, which the next sync would silently overwrite.
-  If the content needs to change - including a public-exposure concern spotted during the
-  review - raise it with the user and hand them a prompt for the resume repo's agent. How that
-  repo stores and generates its content is documented in its own `CLAUDE.md`, not here.
-- **Still check the fragment before splicing it in**, since it lands on a public page: read it,
-  byte-scan it for ASCII, and confirm it carries no `<script>`, `<style>` or `<link>`. Windows
-  (CRLF) line endings in the fragment are harmless - the script reads with universal newlines
-  and writes LF.
-
-Automating this further (a GitHub Action in the resume repo that runs the generator and
-commits output here via a PAT, so Pages redeploys automatically) is a future option, only
-worth it if manual sync becomes a real pain point - it adds CI + a cross-repo credential this
-project doesn't currently have.
-
-**Site icons / favicon (added 2026-08-06).** Three served files at the repo root plus two
-unserved raster sources:
-
-| file | role |
-| --- | --- |
-| `favicon.svg` | primary tab icon, themed, the only one visitors normally get |
-| `favicon.ico` | 16 + 32, for the unprompted `/favicon.ico` request |
-| `apple-touch-icon.png` | 180x180, iOS home screen |
-| `_icons/mark-light.svg` | fixed-color raster source for the `.ico` |
-| `_icons/mark-apple.svg` | light-on-accent plate, raster source for the touch icon |
-
-The mark is an "ST" monogram (user choice over a network-motif glyph), drawn as three
-stroked paths in a 32x32 viewBox, cap height 22 (~69% of the canvas), centered.
-
-- **The `<link>` block is ROOT-RELATIVE (`/favicon.svg`), unlike the stylesheet links right
-  next to it.** This is a user site, so the repo root is the domain root and one identical
-  block works from `/` and `/resume/`. Do not "fix" it to match the `../css/style.css`
-  pattern - that is per-page and would break the moment a page moves. Both `<head>`s carry a
-  comment saying so. (A project site served at `/repo/` could not do this.)
-- **Never use `<text>` in the SVG.** A favicon renders outside the page context with no
-  guaranteed font access, so a `font-family` would render differently per machine or not at
-  all. The letterforms are paths for that reason.
-- **Do not write CSS custom property names in an SVG comment.** SVG is XML, `--` is illegal
-  inside an XML comment, and naming a token like the site accent property makes the file
-  malformed - the browser then renders nothing and you get the broken-image gray (`#c0c0c0`).
-  This actually happened while building this; the symptom looks like a rendering or color
-  problem, not a syntax error. `xml.etree.ElementTree.parse()` catches it instantly.
-- **The SVG carries its own `prefers-color-scheme` block** (`#1aa674` light, `#21c489` dark),
-  matching the site accent token, so the tab icon follows the same system-preference decision
-  the rest of the site does. Verified honored by the media-inversion trick in Environment.
-  Treat it as enhancement only: the background is transparent and the mark is designed to read
-  on either background, because a tab strip is not guaranteed to match the OS scheme and
-  Safari's support is unreliable. Confirmed the light token still reads fine on a dark
-  background, which is the fallback case.
-- **`apple-touch-icon.png` is deliberately opaque and full-bleed** (verified colortype 2, no
-  alpha channel). iOS composites transparency onto black and applies its own rounded-corner
-  mask, so the correct input is a plain filled square with no corner radius of its own. It is
-  also inverted relative to the tab icon - light mark on the accent plate reads better at
-  home-screen size.
-- **Regenerating the rasters** (no Node, no npm, no Pillow on this machine): serve the repo
-  root, point headless Edge at a throwaway harness page that `<img>`s the `_icons/` source at
-  the target pixel size, and screenshot with `--default-background-color=00000000` for real
-  alpha. Without that flag Edge composites onto white and you get a white square in the tab.
-  Then build the `.ico` with stdlib `struct`: a 6-byte `ICONDIR`, one 16-byte entry per size,
-  and PNG payloads concatenated after (PNG-in-ICO is fine for every browser target; BMP
-  payloads are only needed for very old Windows software). Delete the harness pages afterward,
-  same discipline as `_scenario-temp.html`.
-- `_icons/` is underscore-prefixed for the same reason `_tests/` is: Jekyll's `EntryFilter`
-  drops it, so the sources stay in the repo but off the live domain. The **served** icons must
-  stay at the root.
+**Site icons / favicon: see `_docs/site-icons.md`.**
 
 **Sticky nav (added 2026-08-05, user request): the header pins to the top on every page.**
 Pure CSS on `.site-header`, so it works on `/resume/` and without JS. The thing to know is
@@ -644,31 +526,10 @@ paid for by a real bug or a real progressive-enhancement requirement, all docume
 **What stacking rows runs into.** Written ahead of exhibit #2. The first item was settled by
 measurement and needs no code; the other two were real and are now handled by CSS:
 
-- **Stacked sticky summaries need NO code - the desired behavior is already the default.
-  MEASURED 2026-08-07, and this REVERSES an earlier claim in this section.** The earlier text
-  said N collapsed exhibits would stack N sticky bars at the top of the viewport and that the
-  rule had to be scoped to `details[open]`. That is wrong, and the reason is worth knowing: a
-  sticky element is constrained by its **parent** box, and each summary's parent is its own
-  `<details>`. A collapsed `<details>` is only as tall as its summary, so the summary has no
-  room to travel within it and simply scrolls away like static content. An open one holds its
-  summary stuck for exactly as long as that exhibit occupies the viewport, then the bottom of
-  its own box pushes the summary off the top as the next exhibit's summary arrives and takes
-  over. That is precisely the "un-sticky and be replaced by the top in-view exhibit" behavior
-  the user asked for, and it also handles two exhibits open at once.
-
-  Probed with four `<details>` (two open, two collapsed) at the real 57px nav offset, sampling
-  twelve scroll positions and recording each summary's rect: **never more than one stuck at a
-  time**. The handoff is visible in the numbers - summary 1 holds at `top: 57` through
-  `scrollY=1200`, reads `-11` at `1700` as its own box runs out, and summary 2 is stuck at `57`
-  by `1750`. The two collapsed summaries never reached the stick point at all, passing straight
-  through it (`39`, then `-61`). **Do not "fix" this pre-emptively**; the only thing that would
-  break it is giving the summaries a common sticky container instead of one `<details>` each.
-
-  Residual, small: `--hero-summary-h` is a single published value, so if exhibit summaries end
-  up different heights (one-line vs. two-line copy), whatever offsets against it could be stale
-  by the difference. Only matters for things that offset below a stuck summary - today that is
-  `.hero-pin` and the stacked `.topo-status`. See the sticky-chain table in the Homepage build
-  section.
+- **Stacked sticky summaries need NO code - at most one is ever stuck, by default.** Each
+  summary sticks within its own `<details>`, so the only thing that would break it is giving
+  the summaries a common sticky container. **Do not "fix" this pre-emptively.** The
+  measurement and one small residual are in `_docs/exhibit-shell.md`.
 - **Doubled borders and the 32px gap between rows: RESOLVED.** The summary carries both
   `border-top` and `border-bottom` plus `margin-top: 32px`, so two rows in sequence would sit
   apart with a 2px line between them. `css/style.css` pulls every row after the first up by 1px
@@ -797,6 +658,7 @@ changelog entry.
 | A rule, environment quirk, or command that applies to any work in this repo | this file |
 | A quirk of one agent's own tooling (a specific app pane, tool name, or memory system) | that agent's file, e.g. `CLAUDE.md` |
 | Anything about one exhibit's engine, renderer, data, host, copy or traps | that exhibit's `_docs/` file |
+| Detail about one subsystem (deploy, resume sync, site icons, the exhibit shell) that only matters when working on it | that subsystem's `_docs/` file, with only the rule every session needs kept here |
 | A finding from one exhibit that would change how the NEXT exhibit is built | the rule here under "Cross-cutting lessons", the worked example in the exhibit file |
 | A decision the user closed and does not want reopened | one row in "Settled - do not reopen" above, reasoning in the exhibit file |
 | Something open, deferred, or newly shipped | `_docs/todos.md` |

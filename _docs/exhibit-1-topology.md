@@ -275,13 +275,14 @@ eyebrows/technical accents, standard sans for body. No JetBrains Mono webfont is
 (zero external requests); self-hosting a woff2 subset is the documented follow-up if the
 system-font fallback isn't distinctive enough - do not use the Google Fonts CDN. Resolved
 (2026-08-04): the resume page shares this site's identity/theme rather than keeping the print
-resume's navy/white look - see "Resume page + cross-repo pipeline" below for the mechanics.
+resume's navy/white look - see `_docs/resume-sync.md` for the mechanics.
 
 ## The host page (`js/hero.js`)
 
 Phase 2a of the homepage build, plus everything the host has grown since. The
-site-wide half of that build - nav, theme, typography, resume pipeline, favicon,
-sticky header - stays in `AGENTS.md` and is not repeated here.
+site-wide half of that build - nav, theme, typography and sticky header - stays in
+`AGENTS.md`, with the resume pipeline in `_docs/resume-sync.md` and the favicon in
+`_docs/site-icons.md`. None of it is repeated here.
 
 **Phase 2a COMPLETE (2026-08-04): the hero is live.** `js/hero.js` mounts the topology
 component into `#hero-mount` on the homepage. Details:

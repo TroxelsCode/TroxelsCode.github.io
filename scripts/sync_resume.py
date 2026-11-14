@@ -9,8 +9,7 @@ The fragment must be a content-only HTML snippet - no <!DOCTYPE>, <html>,
 <head>, <body>, <nav>, or <footer>. It should use this site's existing CSS
 classes/tokens (css/style.css) where practical, so the resume page inherits
 the same light/dark theming as the rest of the site rather than bringing
-its own styling. See AGENTS.md, "Resume page + cross-repo pipeline", for
-the full contract.
+its own styling. See _docs/resume-sync.md for the full contract.
 
 This script only rewrites the region between the RESUME_CONTENT markers in
 resume/index.html - the nav, footer, and <head> are left untouched, so the
