@@ -59,9 +59,29 @@ be done on hardware this environment cannot reach.
   commits here via a PAT - is a future option, worth it only if manual sync becomes a
   real pain point. It would add CI plus a cross-repo credential this project does not
   currently have.
-- **Exhibit #3 (generate vs. call) is a prototype awaiting user review** at
-  `_tests/toolcall-preview.html`. It replaces the tabled MCP architecture card. Promotion to
-  the homepage is not started. See `_docs/exhibit-3-toolcall.md` for what is open.
+- **Exhibit #3 (generate vs. call) is a committed prototype** at
+  `_tests/toolcall-preview.html` (`5279914`). It replaces the tabled MCP architecture card.
+  Promotion to the homepage is not started. See `_docs/exhibit-3-toolcall.md` for what is open.
+- **Two more AI-integrator exhibits are concepts only, nothing built.** Both come from the same
+  private brief as exhibit #3, keep its thesis (the AI routes, deterministic code does the
+  work), and use fictional tenants and scripted replay only:
+  - **Blind agent vs. mapped agent.** One question ("what is the firewall situation for this
+    client?") answered two ways over a fictional MCP server of 15 to 25 tools across several
+    services. The blind agent wanders through wrong tools and dead ends; the mapped agent uses
+    a client registry (which services and endpoints each client has) to go straight there.
+    Visual: the tool graph with the agent's path lit, plus live counters for steps and wrong
+    turns. Needs three or four fictional clients with different service sets so the registry
+    visibly matters.
+  - **Context economics.** The context window as the scarce resource. A naive agent loads the
+    whole knowledge base and a context meter redlines; the designed agent reads a short
+    instruction file and a small index, looks up one key in an in-memory map built from a JSON
+    document registry, and pulls only the document it needs. Any cost, step or latency numbers
+    are illustrative and must be labelled simulated, not benchmarks.
+  - **Order is a suggestion, not a ruling**: context economics first (biggest visual for the
+    least new machinery), then blind vs. mapped (it needs a whole fictional tool network).
+    Lower-priority ideas from the same brief: a guardrails exhibit (largely absorbed by
+    exhibit #3's enforcement levels) and a retrieval exhibit. A prompt-injection exhibit
+    needs visitor input, which is benched along with all visitor interactivity.
 - **No build step, revisit at around 5 pages.** See "Homepage build" in `AGENTS.md`
   for the reasoning, and for the rule that growth extends the Python + Jinja2
   pipeline already owned in the resume repo rather than adopting Node or Jekyll.
